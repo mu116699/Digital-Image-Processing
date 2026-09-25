@@ -11,6 +11,7 @@
 | [图像描述子综述](feature-descriptors-notes.md) | 按"全局 → 局部 → 纹理 → 学习型 → 颜色"脉络组织，区分手工设计与学习型两大分支，覆盖 SIFT、SURF、ORB、HOG、LBP、VLAD、SuperPoint 等描述子的原理、分类与应用；每个公式附逐项符号解释，并给出各描述子的特征提取处理步骤与作用。 |
 | [CNN 与 Transformer 原理详解](cnn-transformer-notes.md) | 从卷积到注意力，系统讲解 CNN 与 Transformer 的数学原理、关键组件、反向传播、架构演进与高效注意力，并给出两者统一视角及其与特征描述子的关系；每个公式附逐项符号解释。 |
 | [JPEG 与 JPEG 2000 压缩原理详解](jpeg-jpeg2000-knowledge-reference.md) | 独立知识速查文件：JPEG 的 DCT、量化、ZigZag、霍夫曼/算术编码、文件结构与伪影，以及 JPEG 2000 的小波变换、EBCOT、渐进性与 ROI，并附对比选型。 |
+| [形态学图像处理](morphological-image-processing.md) | 系统梳理二值形态学与灰度形态学的全部运算：腐蚀、膨胀、开闭、击中击不中、边界提取、区域填充、细化、骨架化、形态学重建，以及灰度扩展（顶帽、底帽、梯度、平滑、粒度测定），每个运算附原理推导、用途变化与 OpenCV 关键代码。 |
 
 > 各文档的 PDF 版本与同名 Markdown 文件位于同一目录，便于离线阅读与打印。
 > 所有 PDF 均已写入**目录书签（outline）**，可在阅读器的书签面板中按层级跳转。

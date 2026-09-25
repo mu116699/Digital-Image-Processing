@@ -1,0 +1,4751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>深度学习经典论文原理总览</title>
+    <style>
+@page {
+    margin: 20mm 15mm 20mm 15mm;
+    size: A4;
+}
+* { box-sizing: border-box; }
+body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    font-size: 11pt;
+    line-height: 1.7;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── 标题 ── */
+h1 {
+    font-size: 36pt;
+    color: #1a1a2e;
+    text-align: center;
+    border-bottom: 3px solid #16213e;
+    padding-bottom: 12px;
+    margin: 0 0 20px 0;
+}
+h2 {
+    font-size: 28pt;
+    color: #16213e;
+    border-bottom: 2px solid #0f3460;
+    padding-bottom: 8px;
+    margin: 30px 0 15px 0;
+    page-break-before: always;
+}
+h2:first-of-type { page-break-before: avoid; }
+h3 {
+    font-size: 24pt;
+    color: #0f3460;
+    margin: 25px 0 10px 0;
+    page-break-after: avoid;
+}
+h4 {
+    font-size: 20pt;
+    color: #1a1a2e;
+    margin: 20px 0 8px 0;
+    page-break-after: avoid;
+}
+
+/* ── 段落 ── */
+p { margin: 8px 0; text-align: justify; }
+
+/* 粗体段落标记（核心思想、关键设计等）独占一行时加大加粗 */
+p > strong:only-child {
+    display: block;
+    font-size: 13pt;
+    color: #0f3460;
+    margin-top: 12px;
+    margin-bottom: 4px;
+}
+
+/* ── 列表 ── */
+ul, ol { margin: 8px 0; padding-left: 2em; }
+li { margin: 4px 0; }
+
+/* ── 代码 ── */
+code {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 10pt;
+    background-color: #f0f0f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+pre {
+    background-color: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    page-break-inside: avoid;
+    margin: 12px 0;
+}
+pre code {
+    background-color: transparent;
+    padding: 0;
+    font-size: 9.5pt;
+    line-height: 1.5;
+}
+
+/* ── Mermaid 图 ── */
+pre.mermaid, .mermaid {
+    text-align: center;
+    background-color: white;
+    border: none;
+    padding: 10px 0;
+}
+.mermaid svg { max-width: 100%; height: auto; }
+
+/* ── 表格 ── */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 15px 0;
+    font-size: 10pt;
+    page-break-inside: avoid;
+}
+th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+th { background-color: #e8e8e8; font-weight: bold; }
+tr:nth-child(even) { background-color: #fafafa; }
+
+/* ── 引用 ── */
+blockquote {
+    border-left: 4px solid #0f3460;
+    background-color: #f5f5fa;
+    padding: 10px 15px;
+    margin: 15px 0;
+    color: #555;
+}
+
+/* ── 链接 / 分隔线 ── */
+a { color: #0f3460; text-decoration: none; }
+hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+
+/* ── 打印优化 ── */
+h2, h3, h4 { page-break-after: avoid; }
+table, pre, blockquote { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+<h1>深度学习经典论文原理总览</h1>
+<blockquote>
+<p>本文档基于《论文总览.xlsx》整理，覆盖 15 个大类、190+ 篇深度学习经典论文（含 2023-2025 最新进展）。
+每篇论文按「核心思想 → 关键设计 → 影响与意义」的结构讲解其原理。</p>
+</blockquote>
+<hr />
+<h2>目录</h2>
+<ul>
+<li><a href="#一计算机视觉---cnn">一、计算机视觉 - CNN</a></li>
+<li><a href="#二计算机视觉---transformer">二、计算机视觉 - Transformer</a></li>
+<li><a href="#三生成模型">三、生成模型</a></li>
+<li><a href="#四计算机视觉---目标检测">四、计算机视觉 - 目标检测</a></li>
+<li><a href="#五计算机视觉---对比学习">五、计算机视觉 - 对比学习</a></li>
+<li><a href="#六计算机视觉---视频理解">六、计算机视觉 - 视频理解</a></li>
+<li><a href="#七多模态学习">七、多模态学习</a></li>
+<li><a href="#八自然语言处理---transformer">八、自然语言处理 - Transformer</a></li>
+<li><a href="#九分布式训练系统">九、分布式训练系统</a></li>
+<li><a href="#十图神经网络">十、图神经网络</a></li>
+<li><a href="#十一优化算法与理论">十一、优化算法与理论</a></li>
+<li><a href="#十二新领域应用">十二、新领域应用</a></li>
+<li><a href="#十三clip-应用生态">十三、CLIP 应用生态</a></li>
+<li><a href="#十四综述类">十四、综述类</a></li>
+<li><a href="#十五大模型时代最新进展-2023-2025">十五、大模型时代最新进展 (2023-2025)</a></li>
+<li><a href="#151-大语言模型架构与效率">15.1 大语言模型架构与效率</a></li>
+<li><a href="#152-推理与测试时计算">15.2 推理与测试时计算</a></li>
+<li><a href="#153-对齐与高效微调">15.3 对齐与高效微调</a></li>
+<li><a href="#154-多模态大模型">15.4 多模态大模型</a></li>
+<li><a href="#155-扩散与图像生成新进展">15.5 扩散与图像生成新进展</a></li>
+<li><a href="#156-视频生成">15.6 视频生成</a></li>
+<li><a href="#157-3d-生成与重建">15.7 3D 生成与重建</a></li>
+<li><a href="#158-具身智能与世界模型">15.8 具身智能与世界模型</a></li>
+<li><a href="#159-agent-与工具使用">15.9 Agent 与工具使用</a></li>
+</ul>
+<hr />
+<h2>一、计算机视觉 - CNN</h2>
+<h3>1. AlexNet (2012) — 深度学习热潮的奠基作</h3>
+<p><strong>核心思想</strong></p>
+<p>用 GPU 训练一个 8 层卷积神经网络，在 ImageNet 大规模图像分类任务上以巨大优势击败传统手工特征方法（SIFT + SVM），证明「深度 + 大数据 + 强算力」的可行性。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入&lt;br/&gt;227×227×3&quot;] --&gt; B[&quot;Conv 11×11×96&lt;br/&gt;stride 4 + ReLU&quot;]
+    B --&gt; C[&quot;MaxPool 3×3&lt;br/&gt;stride 2&quot;]
+    C --&gt; D[&quot;Conv 5×5×256&lt;br/&gt;+ ReLU&quot;]
+    D --&gt; E[&quot;MaxPool 3×3&lt;br/&gt;stride 2&quot;]
+    E --&gt; F[&quot;Conv 3×3×384&lt;br/&gt;+ ReLU&quot;]
+    F --&gt; G[&quot;Conv 3×3×384&lt;br/&gt;+ ReLU&quot;]
+    G --&gt; H[&quot;Conv 3×3×256&lt;br/&gt;+ ReLU&quot;]
+    H --&gt; I[&quot;MaxPool 3×3&lt;br/&gt;stride 2&quot;]
+    I --&gt; J[&quot;FC 4096&lt;br/&gt;+ Dropout&quot;]
+    J --&gt; K[&quot;FC 4096&lt;br/&gt;+ Dropout&quot;]
+    K --&gt; L[&quot;FC 1000&lt;br/&gt;Softmax&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>ReLU 激活</strong>：相比 Sigmoid/Tanh，ReLU 缓解梯度消失，训练速度提升数倍。</li>
+<li><strong>Dropout</strong>：全连接层随机失活，抑制过拟合。</li>
+<li><strong>数据增强</strong>：随机裁剪、水平翻转、PCA 颜色扰动。</li>
+<li><strong>重叠池化</strong>：池化窗口步长小于窗口尺寸，略微提升精度。</li>
+<li><strong>双 GPU 并行</strong>：将网络拆分到两块 GTX 580 上训练（受限于当时显存）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>ImageNet Top-5 错误率从 26.2% 降至 15.3%，引爆深度学习浪潮。</li>
+<li>确立了「卷积 + 池化 + 全连接」的 CNN 基本范式。</li>
+</ul>
+<hr />
+<h3>2. VGG (2014) — 使用 3×3 卷积构造更深的网络</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>堆叠的小卷积核（3×3）</strong>替代大卷积核，在保持感受野的同时减少参数量、增加非线性，从而构建更深的网络（16/19 层）。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入&lt;br/&gt;224×224×3&quot;] --&gt; B[&quot;Conv3-64 ×2&lt;br/&gt;+ MaxPool&quot;]
+    B --&gt; C[&quot;Conv3-128 ×2&lt;br/&gt;+ MaxPool&quot;]
+    C --&gt; D[&quot;Conv3-256 ×3&lt;br/&gt;+ MaxPool&quot;]
+    D --&gt; E[&quot;Conv3-512 ×3&lt;br/&gt;+ MaxPool&quot;]
+    E --&gt; F[&quot;Conv3-512 ×3&lt;br/&gt;+ MaxPool&quot;]
+    F --&gt; G[&quot;FC-4096&quot;]
+    G --&gt; H[&quot;FC-4096&quot;]
+    H --&gt; I[&quot;FC-1000&lt;br/&gt;Softmax&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>感受野等价性</strong>：两个 3×3 卷积堆叠的感受野等于一个 5×5；三个 3×3 等于一个 7×7。</li>
+<li><strong>参数量对比</strong>：假设通道数均为 $C$，</li>
+<li>3 个 3×3 卷积：$3 \times (3^2 C^2) = 27C^2$</li>
+<li>1 个 7×7 卷积：$7^2 C^2 = 49C^2$</li>
+<li>参数量减少约 45%，且引入 3 次非线性激活。</li>
+<li><strong>统一架构</strong>：整个网络只用 3×3 卷积、2×2 最大池化，结构极其规整。</li>
+<li><strong>训练技巧</strong>：先训练浅层（11 层）再迁移初始化深层网络。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明<strong>深度</strong>是提升性能的关键因素。</li>
+<li>其规整结构成为后续网络设计的参考基准，VGG 特征至今仍用于风格迁移、感知损失等任务。</li>
+</ul>
+<hr />
+<h3>3. GoogLeNet / Inception (2014) — 使用并行架构构造更深的网络</h3>
+<p><strong>核心思想</strong></p>
+<p>不纠结于「用多大卷积核」，而是<strong>在同一层并行使用多种尺寸的卷积核</strong>（1×1、3×3、5×5、池化），让网络自己选择最合适的尺度。</p>
+<pre class="mermaid">flowchart TD
+    A[&quot;上一层输出&quot;] --&gt; B[&quot;1×1 Conv&quot;]
+    A --&gt; C[&quot;1×1 Conv&lt;br/&gt;降维&quot;] --&gt; C1[&quot;3×3 Conv&quot;]
+    A --&gt; D[&quot;1×1 Conv&lt;br/&gt;降维&quot;] --&gt; D1[&quot;5×5 Conv&quot;]
+    A --&gt; E[&quot;3×3 MaxPool&quot;] --&gt; E1[&quot;1×1 Conv&lt;br/&gt;降维&quot;]
+    B --&gt; F[&quot;通道拼接&lt;br/&gt;Concat&quot;]
+    C1 --&gt; F
+    D1 --&gt; F
+    E1 --&gt; F
+    F --&gt; G[&quot;下一层&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>Inception 模块</strong>：并行分支 + 通道拼接（concat）。</li>
+<li><strong>1×1 卷积降维</strong>：在 3×3、5×5 卷积前先用 1×1 卷积压缩通道，控制计算量。这是「瓶颈结构」的雏形。</li>
+<li><strong>全局平均池化（GAP）</strong>：替代最后的全连接层，大幅减少参数量（AlexNet 全连接层占 90% 参数）。</li>
+<li><strong>辅助分类器</strong>：在中间层加两个辅助 softmax 分支，缓解深层梯度消失。</li>
+<li><strong>22 层深度</strong>，参数量仅 5M（AlexNet 的 1/12）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出「多尺度并行」与「瓶颈降维」两大设计思想。</li>
+<li>1×1 卷积成为后续所有高效网络的标准组件。</li>
+</ul>
+<hr />
+<h3>4. ResNet (2015) — 构建深层网络都要有的残差连接</h3>
+<p><strong>核心思想</strong></p>
+<p>解决深层网络的<strong>退化问题</strong>（degradation）：56 层网络比 20 层网络训练误差更高，这不是过拟合而是优化困难。ResNet 引入<strong>残差连接</strong>，让网络学习「残差映射」而非「完整映射」。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入 x&quot;] --&gt; B[&quot;3×3 Conv&lt;br/&gt;+ BN + ReLU&quot;]
+    B --&gt; C[&quot;3×3 Conv&lt;br/&gt;+ BN&quot;]
+    A --&gt;|&quot;恒等映射 Identity&quot;| D((&quot;+&quot;))
+    C --&gt; D
+    D --&gt; E[&quot;ReLU&quot;]
+    E --&gt; F[&quot;输出&lt;br/&gt;F(x) + x&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>残差块</strong>：$y = F(x) + x$，其中 $F(x)$ 是残差函数。</li>
+<li><strong>恒等映射的易学性</strong>：如果某层不需要变换，网络只需将 $F(x)$ 学成 0，比直接学 $F(x)=x$ 容易得多。</li>
+<li><strong>梯度高速公路</strong>：反向传播时梯度可通过恒等路径直接回传，缓解梯度消失。
+  $$\frac{\partial \mathcal{L}}{\partial x} = \frac{\partial \mathcal{L}}{\partial y}\left(1 + \frac{\partial F}{\partial x}\right)$$
+  其中「1」保证了梯度不会消失。</li>
+<li><strong>瓶颈块（Bottleneck）</strong>：1×1 → 3×3 → 1×1，用于 ResNet-50/101/152。</li>
+<li><strong>Batch Normalization</strong>：配合残差连接稳定训练。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>成功训练 152 层甚至 1000+ 层网络，ImageNet Top-5 错误率降至 3.57%。</li>
+<li>残差连接成为<strong>所有现代深度网络（含 Transformer）的标配</strong>。</li>
+</ul>
+<hr />
+<h3>5. MobileNet (2017) — 适合终端设备的小 CNN</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>深度可分离卷积（Depthwise Separable Convolution）</strong>替代标准卷积，大幅降低计算量和参数量，使 CNN 能部署在手机等移动设备上。</p>
+<pre class="mermaid">flowchart TD
+    subgraph STD[&quot;标准卷积&quot;]
+        S1[&quot;输入&lt;br/&gt;D_F×D_F×M&quot;] --&gt; S2[&quot;Conv D_K×D_K&lt;br/&gt;输出 N 通道&quot;] --&gt; S3[&quot;计算量&lt;br/&gt;D_K²·M·N·D_F²&quot;]
+    end
+    subgraph DSC[&quot;深度可分离卷积&quot;]
+        D1[&quot;输入&lt;br/&gt;D_F×D_F×M&quot;] --&gt; D2[&quot;Depthwise Conv&lt;br/&gt;每通道独立卷积&quot;] --&gt; D3[&quot;Pointwise Conv 1×1&lt;br/&gt;通道混合&quot;] --&gt; D4[&quot;计算量&lt;br/&gt;D_K²·M·D_F² + M·N·D_F²&quot;]
+    end
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>深度可分离卷积 = 深度卷积 + 逐点卷积</strong></li>
+<li>深度卷积：每个通道独立做空间卷积（不混合通道）</li>
+<li>逐点卷积：1×1 卷积负责通道混合</li>
+<li><strong>计算量对比</strong>（输入 $D_F \times D_F \times M$，输出 $D_F \times D_F \times N$，卷积核 $D_K$）：</li>
+<li>标准卷积：$D_K^2 \cdot M \cdot N \cdot D_F^2$</li>
+<li>深度可分离卷积：$D_K^2 \cdot M \cdot D_F^2 + M \cdot N \cdot D_F^2$</li>
+<li>压缩比：$\dfrac{1}{N} + \dfrac{1}{D_K^2}$，当 $D_K=3$、$N \gg 9$ 时约为 <strong>1/8 ~ 1/9</strong></li>
+<li><strong>宽度乘子 $\alpha$</strong> 与 <strong>分辨率乘子 $\rho$</strong>：可调超参，在精度与速度间权衡。</li>
+<li><strong>ReLU6</strong>：限制激活值上限为 6，适合低精度定点运算。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>移动端视觉的基石，后续 MobileNetV2（倒残差 + 线性瓶颈）、V3（NAS 搜索）持续演进。</li>
+</ul>
+<hr />
+<h3>6. EfficientNet (2019) — 通过架构搜索得到的 CNN</h3>
+<p><strong>核心思想</strong></p>
+<p>提出<strong>复合缩放（Compound Scaling）</strong>：网络的深度、宽度、分辨率三个维度应<strong>按固定比例协同放大</strong>，而非单独放大某一维。</p>
+<pre class="mermaid">flowchart TD
+    A[&quot;基线网络&lt;br/&gt;EfficientNet-B0&lt;br/&gt;MBConv + SE&quot;] --&gt; B[&quot;深度&lt;br/&gt;d = α^φ&quot;]
+    A --&gt; C[&quot;宽度&lt;br/&gt;w = β^φ&quot;]
+    A --&gt; D[&quot;分辨率&lt;br/&gt;r = γ^φ&quot;]
+    B --&gt; E[&quot;复合缩放约束&lt;br/&gt;α·β²·γ² ≈ 2&quot;]
+    C --&gt; E
+    D --&gt; E
+    E --&gt; F[&quot;B1 → B7&lt;br/&gt;FLOPs 逐级翻倍&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>复合缩放公式</strong>：
+  $$\text{depth}: d = \alpha^\phi,\quad \text{width}: w = \beta^\phi,\quad \text{resolution}: r = \gamma^\phi$$
+  $$\text{s.t.}\quad \alpha \cdot \beta^2 \cdot \gamma^2 \approx 2,\quad \alpha,\beta,\gamma \ge 1$$
+  其中 $\phi$ 是用户指定的缩放系数，$\alpha,\beta,\gamma$ 由小规模网格搜索确定。</li>
+<li><strong>约束来源</strong>：卷积计算量正比于 $d \cdot w^2 \cdot r^2$，故约束乘积为 2 使 FLOPs 约翻倍。</li>
+<li><strong>MBConv 基础块</strong>：来自 MobileNetV2 的倒残差结构 + SE 注意力。</li>
+<li><strong>NAS 搜索</strong>：用 MnasNet 式多目标搜索得到 EfficientNet-B0 基线。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>ImageNet 上以 1/5 的参数量达到当时 SOTA。</li>
+<li>复合缩放思想被广泛借鉴（如 EfficientNetV2、ConvNeXt 的缩放策略）。</li>
+</ul>
+<hr />
+<h3>7. Non-deep Networks (2021) — 让不深的网络也能在 ImageNet 刷到 SOTA</h3>
+<p><strong>核心思想</strong></p>
+<p>挑战「深度是性能关键」的共识：<strong>并行子网络（Parallel subnetworks）</strong>可以在不增加深度的情况下提升表示能力。提出 <strong>ParNet</strong>，仅 12 层深度即可达到 ResNet-152 级别的精度。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入&quot;] --&gt; B[&quot;SSE 分支 1&quot;]
+    A --&gt; C[&quot;SSE 分支 2&quot;]
+    A --&gt; D[&quot;SSE 分支 3&quot;]
+    B --&gt; E[&quot;特征融合&lt;br/&gt;Concat / Add&quot;]
+    C --&gt; E
+    D --&gt; E
+    E --&gt; F[&quot;输出&lt;br/&gt;总深度仅 12 层&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>并行分支结构</strong>：多个浅层分支并行处理，最后融合，等效于增加「宽度 + 多尺度」。</li>
+<li><strong>RepVGG 式重参数化</strong>：训练时多分支，推理时融合为单路，不增加推理成本。</li>
+<li><strong>深度-宽度权衡</strong>：论文指出低深度网络在<strong>延迟敏感场景</strong>（如边缘设备、需要低延迟的实时系统）有独特优势。</li>
+<li><strong>SSE（Skip-Squeeze-Excitation）</strong>：分支间的特征交互模块。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明深度不是唯一路径，为低延迟部署提供新思路。</li>
+<li>对「深度 vs 宽度」的理论理解有补充价值。</li>
+</ul>
+<hr />
+<h2>二、计算机视觉 - Transformer</h2>
+<h3>1. ViT (2020) — Transformer 杀入 CV 界</h3>
+<p><strong>核心思想</strong></p>
+<p>将图像切成固定大小的<strong>图像块（patch）</strong>，线性嵌入后当作「词序列」送入标准 Transformer 编码器。证明<strong>纯 Transformer 无需卷积</strong>也能在图像分类上达到 SOTA，但需要大规模数据预训练。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;图像&lt;br/&gt;224×224×3&quot;] --&gt; B[&quot;Patch 切分&lt;br/&gt;16×16 → 196 块&quot;]
+    B --&gt; C[&quot;线性投影&lt;br/&gt;→ D 维向量&quot;]
+    C --&gt; D[&quot;拼接 [CLS] Token&lt;br/&gt;+ 位置编码&quot;]
+    D --&gt; E[&quot;Transformer Encoder&lt;br/&gt;× L 层&lt;br/&gt;MSA + MLP&quot;]
+    E --&gt; F[&quot;取 [CLS] 输出&quot;]
+    F --&gt; G[&quot;MLP Head&lt;br/&gt;分类&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>Patch Embedding</strong>：图像 $H \times W \times C$ 切成 $N = HW/P^2$ 个 $P \times P$ 块，展平后线性投影到 $D$ 维。</li>
+<li><strong>位置编码</strong>：可学习的一维位置嵌入（实验表明 2D-aware 编码无显著提升）。</li>
+<li><strong>Class Token</strong>：借鉴 BERT，在序列前加一个可学习的 <code>[CLS]</code> token，其输出用于分类。</li>
+<li><strong>归纳偏置的缺失</strong>：ViT 缺少 CNN 的平移不变性和局部性先验，因此<strong>必须在大数据集（JFT-300M）上预训练</strong>才能超越 CNN；在中小数据集（ImageNet）上不如 ResNet。</li>
+<li><strong>混合架构</strong>：也可用 CNN 特征图替代原始 patch 作为输入。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开启 Vision Transformer 时代，后续 Swin、MAE、DINO 等均基于此。</li>
+<li>揭示「大数据 + 大模型 + 少归纳偏置」的 Scaling Law 在视觉同样成立。</li>
+</ul>
+<hr />
+<h3>2. Swin Transformer (2021) — 多层次的 Vision Transformer</h3>
+<p><strong>核心思想</strong></p>
+<p>ViT 的 patch 尺寸固定，导致<strong>单尺度、高计算量</strong>（自注意力是序列长度的平方）。Swin 引入<strong>层次化结构</strong>和<strong>移动窗口注意力</strong>，使 Transformer 适配密集预测任务（检测、分割）。</p>
+<pre class="mermaid">flowchart TD
+    A[&quot;输入图像&lt;br/&gt;224×224×3&quot;] --&gt; B[&quot;Patch Embed&lt;br/&gt;56×56&quot;]
+    B --&gt; C[&quot;Stage 1&lt;br/&gt;W-MSA + SW-MSA&lt;br/&gt;× 2&quot;]
+    C --&gt; D[&quot;Patch Merging&lt;br/&gt;28×28&quot;]
+    D --&gt; E[&quot;Stage 2&lt;br/&gt;W-MSA + SW-MSA&lt;br/&gt;× 2&quot;]
+    E --&gt; F[&quot;Patch Merging&lt;br/&gt;14×14&quot;]
+    F --&gt; G[&quot;Stage 3&lt;br/&gt;W-MSA + SW-MSA&lt;br/&gt;× 6&quot;]
+    G --&gt; H[&quot;Patch Merging&lt;br/&gt;7×7&quot;]
+    H --&gt; I[&quot;Stage 4&lt;br/&gt;W-MSA + SW-MSA&lt;br/&gt;× 2&quot;]
+    I --&gt; J[&quot;多尺度特征&lt;br/&gt;用于检测/分割&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>层次化特征图</strong>：像 CNN 一样分 4 个 stage，逐级下采样 2 倍，产生多尺度特征。</li>
+<li><strong>窗口注意力（W-MSA）</strong>：将注意力限制在 $M \times M$ 局部窗口内，复杂度从 $O(N^2)$ 降到 $O(N)$。</li>
+<li><strong>移动窗口（SW-MSA）</strong>：相邻层窗口偏移 $M/2$，实现跨窗口信息交互。</li>
+<li><strong>Shift 的高效实现</strong>：用 <code>torch.roll</code> + 掩码，避免实际像素搬移。</li>
+<li><strong>相对位置偏置</strong>：在注意力中加入相对位置编码，提升性能。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>成为检测/分割的通用骨干网络（Swin-T/S/B/L）。</li>
+<li>2021 年 ICCV 最佳论文（Marr Prize）。</li>
+</ul>
+<hr />
+<h3>3. MLP-Mixer (2021) — 使用 MLP 替换 self-attention</h3>
+<p><strong>核心思想</strong></p>
+<p>既然 Transformer 的核心是「token 混合 + 通道混合」，那么<strong>用纯 MLP 也能做到</strong>。提出完全不含卷积和注意力的架构，仅用 MLP 在 patch 间和通道间交替混合。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入图像&quot;] --&gt; B[&quot;Patch Embedding&lt;br/&gt;N 个 patch&quot;]
+    B --&gt; C[&quot;Mixer Layer × N&quot;]
+    C --&gt; D[&quot;全局平均池化&quot;]
+    D --&gt; E[&quot;分类头&quot;]
+    subgraph C1[&quot;Mixer Layer 内部&quot;]
+        F[&quot;LayerNorm&quot;] --&gt; G[&quot;Token-Mixing MLP&lt;br/&gt;跨 patch 混合&quot;] --&gt; H[&quot;LayerNorm&quot;] --&gt; I[&quot;Channel-Mixing MLP&lt;br/&gt;跨通道混合&quot;]
+    end
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>两种 MLP 交替</strong>：</li>
+<li><strong>Token-mixing MLP</strong>：在 patch 维度（跨空间位置）做 MLP，权重共享。</li>
+<li><strong>Channel-mixing MLP</strong>：在通道维度做 MLP。</li>
+<li><strong>结构</strong>：<code>Patch Embedding → [Token-MLP → Channel-MLP] × N → GAP → 分类头</code></li>
+<li><strong>计算复杂度</strong>：token-mixing 是 $O(N^2)$（$N$ 为 patch 数），与注意力相同，但无 softmax。</li>
+<li><strong>性能</strong>：在大数据预训练下接近 ViT，但小数据下明显更差。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>引发「注意力是否必要」的讨论，催生 gMLP、ConvMixer 等一批工作。</li>
+<li>说明<strong>架构的归纳偏置与数据规模强相关</strong>。</li>
+</ul>
+<hr />
+<h3>4. MAE (2021) — BERT 的 CV 版</h3>
+<p><strong>核心思想</strong></p>
+<p>将 BERT 的<strong>掩码语言建模</strong>迁移到视觉：随机遮挡 75% 的图像块，让模型<strong>重建被遮挡的像素</strong>。由于图像信息冗余度高，需要极高掩码率才能形成有意义的自监督任务。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入图像&lt;br/&gt;Patch 化&quot;] --&gt; B[&quot;随机掩码 75%&quot;]
+    B --&gt; C[&quot;可见 Patch 25%&quot;]
+    C --&gt; D[&quot;编码器 ViT&lt;br/&gt;只处理可见 Patch&quot;]
+    D --&gt; E[&quot;+ 掩码 Token&lt;br/&gt;补齐序列&quot;]
+    E --&gt; F[&quot;轻量解码器&lt;br/&gt;8 层 512 维&quot;]
+    F --&gt; G[&quot;重建全部 Patch&lt;br/&gt;MSE 损失&lt;br/&gt;只算掩码部分&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>非对称编码器-解码器</strong>：</li>
+<li><strong>编码器</strong>：只处理<strong>可见的 25% patch</strong>（计算量降至 1/4），是标准 ViT。</li>
+<li><strong>解码器</strong>：轻量级（8 层、512 维），接收编码器输出 + 掩码 token，重建全部 patch。</li>
+<li><strong>高掩码率（75%）</strong>：相比 BERT 的 15%，因为图像空间冗余远高于语言。</li>
+<li><strong>重建目标</strong>：归一化后的像素值（每 patch 内做 mean/std 归一化），MSE 损失。</li>
+<li><strong>损失只算在掩码 patch 上</strong>。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>训练效率比对比学习（如 BEiT、SimMIM）高 3 倍以上。</li>
+<li>学到的特征在检测、分割、迁移任务上表现优异，成为视觉自监督的重要范式。</li>
+</ul>
+<hr />
+<h2>三、生成模型</h2>
+<h3>1. GAN (2014) — 生成对抗网络</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>对抗博弈</strong>训练生成器：生成器 $G$ 试图骗过判别器 $D$，判别器 $D$ 试图区分真假样本。二者交替优化，最终 $G$ 学得真实数据分布。</p>
+<pre class="mermaid">flowchart LR
+    Z[&quot;随机噪声 z&quot;] --&gt; G[&quot;生成器 G&quot;]
+    G --&gt;|&quot;假样本 G(z)&quot;| D[&quot;判别器 D&quot;]
+    X[&quot;真实样本 x&quot;] --&gt; D
+    D --&gt;|&quot;真/假概率&quot;| L[&quot;对抗损失&quot;]
+    L -.-&gt;|&quot;梯度更新&quot;| G
+    L -.-&gt;|&quot;梯度更新&quot;| D
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>极小极大博弈目标</strong>：
+  $$\min_G \max_D \mathbb{E}<em data="data">{x \sim p</em>[\log(1 - D(G(z)))]$$}}[\log D(x)] + \mathbb{E}_{z \sim p_z</li>
+<li><strong>理论保证</strong>：当 $D$ 达到最优时，$G$ 的优化等价于最小化 $p_{data}$ 与 $p_g$ 的 <strong>Jensen-Shannon 散度</strong>。</li>
+<li><strong>全局最优</strong>：$p_g = p_{data}$ 时 $D \equiv 1/2$，达到纳什均衡。</li>
+<li><strong>无需显式密度建模</strong>：只需从 $G$ 采样，避免了对复杂似然的计算。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开创生成模型新范式，催生 DCGAN、WGAN、StyleGAN、CycleGAN 等大量工作。</li>
+<li>训练不稳定、模式崩溃（mode collapse）是其固有难题。</li>
+</ul>
+<hr />
+<h3>2. DCGAN (2015) — 把 CNN 引入 GAN</h3>
+<p><strong>核心思想</strong></p>
+<p>为 GAN 的生成器和判别器设计<strong>稳定的卷积架构</strong>，使训练可控、可复现。</p>
+<pre class="mermaid">flowchart LR
+    subgraph G[&quot;生成器&quot;]
+        G1[&quot;噪声 z&lt;br/&gt;100 维&quot;] --&gt; G2[&quot;FC + Reshape&lt;br/&gt;→ 4×4×1024&quot;]
+        G2 --&gt; G3[&quot;转置卷积 ×4&lt;br/&gt;逐级上采样&quot;]
+        G3 --&gt; G4[&quot;Tanh&lt;br/&gt;→ 64×64×3&quot;]
+    end
+    subgraph D[&quot;判别器&quot;]
+        D1[&quot;图像&lt;br/&gt;64×64×3&quot;] --&gt; D2[&quot;步长卷积 ×4&lt;br/&gt;逐级下采样&quot;]
+        D2 --&gt; D3[&quot;Sigmoid&lt;br/&gt;真/假&quot;]
+    end
+    G4 --&gt; D1
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>架构约束</strong>：</li>
+<li>用<strong>步长卷积</strong>替代所有池化层（判别器用 strided conv，生成器用转置卷积）。</li>
+<li>生成器和判别器都使用 <strong>Batch Normalization</strong>。</li>
+<li>移除所有全连接层（除输入/输出）。</li>
+<li>生成器输出层用 <strong>Tanh</strong>，其余层用 <strong>ReLU</strong>。</li>
+<li>判别器所有层用 <strong>LeakyReLU</strong>（斜率 0.2）。</li>
+<li><strong>潜在空间算术</strong>：$z$ 向量具有线性语义（如「戴眼镜的男性」−「男性」+「女性」=「戴眼镜的女性」）。</li>
+<li><strong>潜在空间插值</strong>：平滑过渡证明 $G$ 学到了有意义的表示。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>首个稳定可训练的卷积 GAN，成为后续 GAN 的标准骨架。</li>
+</ul>
+<hr />
+<h3>3. pix2pix (2016) — 条件 GAN 做图像到图像翻译</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>条件 GAN</strong> 解决通用的 image-to-image 翻译：给定输入图像，生成对应的输出图像（如边缘→照片、黑白→彩色、语义图→街景）。</p>
+<pre class="mermaid">flowchart LR
+    X[&quot;输入图像 x&lt;br/&gt;如边缘图&quot;] --&gt; G[&quot;生成器 G&lt;br/&gt;U-Net + 跳跃连接&quot;]
+    G --&gt; Y[&quot;生成图像 G(x)&quot;]
+    X --&gt; D[&quot;判别器 D&lt;br/&gt;PatchGAN&quot;]
+    Y --&gt; D
+    YR[&quot;真实图像 y&quot;] --&gt; D
+    D --&gt; O[&quot;N×N Patch 真假矩阵&quot;]
+    Y --&gt; L1[&quot;L1 损失&lt;br/&gt;低频正确性&quot;]
+    YR --&gt; L1
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>条件 GAN 目标</strong>：
+  $$\mathcal{L}<em x_y="x,y">{cGAN} = \mathbb{E}</em>[\log(1 - D(x, G(x,z)))]$$
+  判别器同时看输入 $x$ 和输出 $y$，判断「是否匹配」。}[\log D(x,y)] + \mathbb{E}_{x,z</li>
+<li><strong>U-Net 生成器</strong>：编码器-解码器 + 跳跃连接，保留低级细节。</li>
+<li><strong>PatchGAN 判别器</strong>：不判断整图真假，而是对 $N \times N$ patch 逐块判断，输出一个矩阵。参数量小、聚焦高频细节。</li>
+<li><strong>L1 损失</strong>：$\mathcal{L}_{L1} = |y - G(x,z)|_1$，保证低频正确性，与 GAN 损失互补。</li>
+<li><strong>总损失</strong>：$\mathcal{L} = \mathcal{L}<em L1="L1">{cGAN} + \lambda \mathcal{L}</em>$（$\lambda = 100$）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出通用图像翻译框架，无需针对任务设计损失函数。</li>
+<li>PatchGAN 与 U-Net 组合被后续大量工作沿用。</li>
+</ul>
+<hr />
+<h3>4. SRGAN (2016) — 图片超分辨率</h3>
+<p><strong>核心思想</strong></p>
+<p>传统超分用 MSE 损失，导致结果<strong>过度平滑、缺乏纹理</strong>。SRGAN 引入<strong>感知损失 + 对抗损失</strong>，生成视觉上更真实的高分辨率图像。</p>
+<pre class="mermaid">flowchart LR
+    LR[&quot;低分辨率图&lt;br/&gt;LR&quot;] --&gt; G[&quot;生成器&lt;br/&gt;SRResNet&lt;br/&gt;16 残差块 + PixelShuffle&quot;]
+    G --&gt; SR[&quot;超分图&lt;br/&gt;SR&quot;]
+    HR[&quot;高分辨率图&lt;br/&gt;HR&quot;] --&gt; VGG[&quot;预训练 VGG&lt;br/&gt;特征提取&quot;]
+    SR --&gt; VGG
+    VGG --&gt; PL[&quot;感知损失&lt;br/&gt;特征图 L2&quot;]
+    SR --&gt; D[&quot;判别器 D&quot;]
+    HR --&gt; D
+    D --&gt; AL[&quot;对抗损失&quot;]
+    SR --&gt; ML[&quot;MSE 内容损失&quot;]
+    HR --&gt; ML
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>感知损失（Perceptual Loss）</strong>：用预训练 VGG 网络的特征图计算损失，而非像素级 MSE。
+  $$\mathcal{L}<em i_j="i,j">{VGG} = \frac{1}{W</em>))|_2^2$$}H_{i,j}}\sum |\phi_{i,j}(I^{HR}) - \phi_{i,j}(G(I^{LR</li>
+<li><strong>对抗损失</strong>：判别器区分真实 HR 图与生成图，迫使生成器产生真实纹理。</li>
+<li><strong>内容损失</strong>：$\mathcal{L}<em VGG="VGG">{content} = \mathcal{L}</em>$。} + 10^{-3} \mathcal{L}_{MSE</li>
+<li><strong>SRResNet 生成器</strong>：16 个残差块 + 亚像素卷积（PixelShuffle）上采样。</li>
+<li><strong>评价指标</strong>：PSNR/SSIM 略降，但 <strong>MOS（主观评分）显著提升</strong>。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>揭示「像素级指标」与「感知质量」的矛盾，推动感知损失成为超分/增强的标准工具。</li>
+</ul>
+<hr />
+<h3>5. WGAN (2017) — 训练更加容易</h3>
+<p><strong>核心思想</strong></p>
+<p>原始 GAN 用 JS 散度衡量分布差异，当两个分布<strong>不重叠</strong>时梯度消失。WGAN 改用 <strong>Wasserstein 距离（推土机距离）</strong>，即使分布不重叠也能提供有意义的梯度。</p>
+<pre class="mermaid">flowchart LR
+    Z[&quot;噪声 z&quot;] --&gt; G[&quot;生成器 G&quot;]
+    G --&gt;|&quot;假样本&quot;| C[&quot;Critic f&lt;br/&gt;无 Sigmoid&lt;br/&gt;权重裁剪&quot;]
+    X[&quot;真实样本 x&quot;] --&gt; C
+    C --&gt; W[&quot;Wasserstein 距离&lt;br/&gt;E[f(x)] - E[f(G(z))]&lt;br/&gt;需 1-Lipschitz&quot;]
+    W -.-&gt;|&quot;更新 G&quot;| G
+    W -.-&gt;|&quot;更新 Critic&quot;| C
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>Wasserstein 距离</strong>：
+  $$W(p_r, p_g) = \inf_{\gamma \sim \Pi(p_r,p_g)} \mathbb{E}_{(x,y)\sim\gamma}[|x - y|]$$</li>
+<li><strong>Kantorovich-Rubinstein 对偶</strong>：
+  $$W(p_r,p_g) = \sup_{|f|<em p_r="p_r" x_sim="x\sim">L \le 1} \mathbb{E}</em>[f(x)]$$
+  要求 $f$ 满足 }[f(x)] - \mathbb{E}_{x\sim p_g<strong>1-Lipschitz 连续</strong>。</li>
+<li><strong>权重裁剪（Weight Clipping）</strong>：将判别器（改称 Critic）权重限制在 $[-c, c]$，强制 Lipschitz 约束。</li>
+<li><strong>去掉判别器最后的 Sigmoid</strong>：输出实数而非概率。</li>
+<li><strong>损失函数</strong>：$\mathcal{L}_D = \mathbb{E}[f(G(z))] - \mathbb{E}[f(x)]$，$\mathcal{L}_G = -\mathbb{E}[f(G(z))]$。</li>
+<li><strong>理论优势</strong>：$W$ 距离连续且几乎处处可导，训练更稳定，且损失值可反映生成质量。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>解决 GAN 训练不稳定与模式崩溃问题。</li>
+<li>后续 WGAN-GP 用梯度惩罚替代权重裁剪，效果更好。</li>
+</ul>
+<hr />
+<h3>6. CycleGAN (2017) — 无配对图像翻译</h3>
+<p><strong>核心思想</strong></p>
+<p>pix2pix 需要<strong>成对</strong>训练数据（同一场景的输入输出）。CycleGAN 用<strong>循环一致性损失</strong>实现<strong>无配对</strong>翻译（如马↔斑马、夏天↔冬天）。</p>
+<pre class="mermaid">flowchart LR
+    X[&quot;域 X&lt;br/&gt;如马&quot;] --&gt; GX[&quot;G: X→Y&quot;]
+    GX --&gt; Y1[&quot;域 Y&lt;br/&gt;如斑马&quot;]
+    Y1 --&gt; FY[&quot;F: Y→X&quot;]
+    FY --&gt; XR[&quot;重建 x&quot;]
+    Y[&quot;域 Y&lt;br/&gt;如斑马&quot;] --&gt; FY2[&quot;F: Y→X&quot;]
+    FY2 --&gt; X2[&quot;域 X&lt;br/&gt;如马&quot;]
+    X2 --&gt; GX2[&quot;G: X→Y&quot;]
+    GX2 --&gt; YR[&quot;重建 y&quot;]
+    Y1 --&gt; DY[&quot;判别器 D_Y&quot;]
+    Y --&gt; DY
+    X2 --&gt; DX[&quot;判别器 D_X&quot;]
+    X --&gt; DX
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>两个生成器 + 两个判别器</strong>：$G: X \to Y$，$F: Y \to X$。</li>
+<li><strong>循环一致性损失</strong>：
+  $$\mathcal{L}<em x="x">{cyc} = \mathbb{E}</em>[|F(G(x)) - x|<em y="y">1] + \mathbb{E}</em>[|G(F(y)) - y|_1]$$
+  即「翻译过去再翻译回来应还原」。</li>
+<li><strong>对抗损失</strong>：$G$ 生成的 $Y$ 域图像要骗过 $D_Y$，反之亦然。</li>
+<li><strong>总损失</strong>：$\mathcal{L} = \mathcal{L}<em cyc="cyc">{GAN} + \lambda \mathcal{L}</em>$（$\lambda = 10$）。</li>
+<li><strong>循环一致性为何有效</strong>：它约束了映射的<strong>双射性</strong>，防止模式崩溃（否则 $G$ 可以把所有 $x$ 映射到同一个 $y$）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>大幅降低图像翻译的数据门槛，成为无监督域适应的经典方法。</li>
+</ul>
+<hr />
+<h3>7. StyleGAN (2018) — 风格驱动的生成</h3>
+<p><strong>核心思想</strong></p>
+<p>借鉴风格迁移的思想，重新设计生成器：<strong>将随机噪声注入到每一层</strong>，实现「粗粒度风格（姿态、脸型）」与「细粒度风格（发丝、雀斑）」的解耦控制。</p>
+<pre class="mermaid">flowchart LR
+    Z[&quot;随机噪声 z&quot;] --&gt; M[&quot;映射网络&lt;br/&gt;8 层 MLP&quot;]
+    M --&gt; W[&quot;中间潜空间 W&quot;]
+    W --&gt; A1[&quot;风格 A&lt;br/&gt;粗粒度&quot;]
+    W --&gt; A2[&quot;风格 B&lt;br/&gt;细粒度&quot;]
+    C[&quot;可学习常量&lt;br/&gt;4×4×512&quot;] --&gt; S[&quot;合成网络&lt;br/&gt;逐层 AdaIN&quot;]
+    A1 --&gt; S
+    A2 --&gt; S
+    N[&quot;逐层高斯噪声&quot;] --&gt; S
+    S --&gt; O[&quot;生成图像&lt;br/&gt;1024×1024&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>映射网络（Mapping Network）</strong>：8 层 MLP 将 $z$ 映射到中间潜空间 $\mathcal{W}$，解耦潜空间。</li>
+<li><strong>AdaIN（自适应实例归一化）</strong>：
+  $$\text{AdaIN}(x_i, y) = y_{s,i}\frac{x_i - \mu(x_i)}{\sigma(x_i)} + y_{b,i}$$
+  用风格向量 $y$ 的缩放/偏置调制特征。</li>
+<li><strong>噪声注入</strong>：每层加入高斯噪声，只影响随机细节（如发丝位置），不影响整体结构。</li>
+<li><strong>渐进式增长（Progressive Growing）</strong>：从 4×4 逐步增长到 1024×1024。</li>
+<li><strong>风格混合（Style Mixing）</strong>：训练时用两个 $z$ 的不同层风格，防止层间相关性。</li>
+<li><strong>解耦度量</strong>：提出 PPL（Perceptual Path Length）衡量潜空间平滑度。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>首次实现高质量、可控的人脸生成，FFHQ 数据集成为标准。</li>
+<li>引发 deepfake 等伦理讨论。</li>
+</ul>
+<hr />
+<h3>8. StyleGAN2 (2019) — 修复伪影</h3>
+<p><strong>核心思想</strong></p>
+<p>分析并修复 StyleGAN 生成图像中的<strong>水滴状伪影（artifacts）</strong>，并改进训练与评价指标。</p>
+<pre class="mermaid">flowchart LR
+    Z[&quot;噪声 z&quot;] --&gt; M[&quot;映射网络&quot;]
+    M --&gt; W[&quot;潜空间 W&quot;]
+    W --&gt; A[&quot;风格调制&lt;br/&gt;权重解调&lt;br/&gt;Weight Demodulation&quot;]
+    C[&quot;常量输入&quot;] --&gt; R[&quot;残差块&lt;br/&gt;双线性上采样 + Conv&quot;]
+    A --&gt; R
+    N[&quot;噪声&quot;] --&gt; R
+    R --&gt; O[&quot;生成图像&lt;br/&gt;无水滴伪影&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>伪影根因</strong>：AdaIN 的实例归一化会「抹掉」特征中的均值信息，导致生成器用「尖峰」方式编码信息。</li>
+<li><strong>权重解调（Weight Demodulation）</strong>：将 AdaIN 从激活层移到<strong>权重层</strong>，对卷积核做归一化：
+  $$w'<em ijk="ijk">{ijk} = s_i \cdot w</em>$$} / \sqrt{\sum_{i,k} (s_i w_{ijk})^2 + \epsilon</li>
+<li><strong>移除渐进式增长</strong>：改用<strong>残差架构 + 跳跃连接</strong>，训练更稳定。</li>
+<li><strong>路径长度正则化</strong>：$\mathcal{L}_{PPL}$ 惩罚潜空间方向上的过大变化。</li>
+<li><strong>无伪影生成器</strong>：用双线性上采样 + 卷积替代转置卷积，消除棋盘格伪影。</li>
+<li><strong>新指标 PPL / P&amp;R</strong>：更全面地评价生成质量与多样性。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>生成质量进一步提升，成为 GAN 图像生成的巅峰之作。</li>
+</ul>
+<hr />
+<h3>9. DDPM (2020) — 扩散模型</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>两个马尔可夫链</strong>建模生成过程：
+- <strong>前向过程</strong>：逐步向图像加高斯噪声，直到变成纯噪声（固定，无需学习）。
+- <strong>反向过程</strong>：学习逐步去噪，从纯噪声恢复图像。</p>
+<pre class="mermaid">flowchart LR
+    X0[&quot;真实图像&lt;br/&gt;x₀&quot;] --&gt;|&quot;q 加噪&quot;| X1[&quot;x₁&quot;]
+    X1 --&gt;|&quot;...&quot;| XT[&quot;x_T&lt;br/&gt;纯噪声&quot;]
+    XT --&gt;|&quot;p_θ 去噪&quot;| Y1[&quot;x_{T-1}&quot;]
+    Y1 --&gt;|&quot;...&quot;| Y0[&quot;重建图像&lt;br/&gt;x₀&quot;]
+    T[&quot;时间步 t&quot;] --&gt; U[&quot;U-Net&lt;br/&gt;ε_θ(x_t, t)&quot;]
+    U -.-&gt;|&quot;预测噪声 ε&quot;| Y1
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>前向加噪</strong>：
+  $$q(x_t | x_{t-1}) = \mathcal{N}(x_t; \sqrt{1-\beta_t}x_{t-1}, \beta_t I)$$
+  可重参数化为一步到位：
+  $$q(x_t|x_0) = \mathcal{N}(x_t; \sqrt{\bar\alpha_t}x_0, (1-\bar\alpha_t)I)$$
+  其中 $\bar\alpha_t = \prod_{s=1}^t (1-\beta_s)$。</li>
+<li><strong>反向去噪</strong>：
+  $$p_\theta(x_{t-1}|x_t) = \mathcal{N}(x_{t-1}; \mu_\theta(x_t,t), \Sigma_\theta(x_t,t))$$</li>
+<li><strong>简化训练目标</strong>：预测噪声 $\epsilon$ 而非均值
+  $$\mathcal{L}<em t_x_0_epsilon="t,x_0,\epsilon">{simple} = \mathbb{E}</em>\epsilon, t)|^2\right]$$}\left[|\epsilon - \epsilon_\theta(\sqrt{\bar\alpha_t}x_0 + \sqrt{1-\bar\alpha_t</li>
+<li><strong>U-Net 骨干</strong>：带时间步嵌入的 U-Net 预测噪声。</li>
+<li><strong>与去噪分数匹配的等价性</strong>：预测噪声等价于学习数据分布的<strong>分数函数</strong> $\nabla_x \log p(x)$。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>生成质量超越 GAN，训练更稳定，无模式崩溃。</li>
+<li>开启扩散模型时代（Stable Diffusion、DALL·E 2、Sora 等）。</li>
+</ul>
+<hr />
+<h3>10. Improved DDPM (2021) — 改进的 DDPM</h3>
+<p><strong>核心思想</strong></p>
+<p>系统性地改进 DDPM 的训练与采样，用更少的采样步数达到更好的效果。</p>
+<pre class="mermaid">flowchart TD
+    A[&quot;DDPM 基线&quot;] --&gt; B[&quot;改进 1&lt;br/&gt;余弦噪声调度&lt;br/&gt;cos² 曲线&quot;]
+    A --&gt; C[&quot;改进 2&lt;br/&gt;学习方差 Σ_θ&lt;br/&gt;预测插值系数 v&quot;]
+    A --&gt; D[&quot;改进 3&lt;br/&gt;混合损失&lt;br/&gt;L_simple + λ·L_vlb&quot;]
+    A --&gt; E[&quot;改进 4&lt;br/&gt;重要性采样&lt;br/&gt;按损失采样时间步&quot;]
+    B --&gt; F[&quot;100 步采样&lt;br/&gt;≈ DDPM 1000 步质量&quot;]
+    C --&gt; F
+    D --&gt; F
+    E --&gt; F
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>余弦噪声调度</strong>：$\bar\alpha_t = \cos^2\left(\frac{t/T + s}{1+s} \cdot \frac{\pi}{2}\right)$，避免线性调度在低噪声端信息破坏过快。</li>
+<li><strong>学习方差 $\Sigma_\theta$</strong>：DDPM 固定方差为 $\beta_t$，此处让网络预测方差插值系数 $v$：
+  $$\Sigma_\theta(x_t,t) = \exp(v \log\beta_t + (1-v)\log\tilde\beta_t)$$</li>
+<li><strong>混合损失</strong>：$\mathcal{L} = \mathcal{L}<em vlb="vlb">{simple} + \lambda \mathcal{L}</em>$ 是变分下界。}$，其中 $\mathcal{L}_{vlb</li>
+<li><strong>重要性采样</strong>：对 $\mathcal{L}_{vlb}$ 按损失大小采样时间步，降低梯度噪声。</li>
+<li><strong>采样加速</strong>：用更少的步数（如 100 步）即可达到 DDPM 1000 步的质量。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>成为后续扩散模型的标准配置（余弦调度、学习方差）。</li>
+</ul>
+<hr />
+<h3>11. Guided Diffusion / Diffusion Models Beat GANs (2021) — 号称超越 GAN</h3>
+<p><strong>核心思想</strong></p>
+<p>通过<strong>架构改进 + 分类器引导（Classifier Guidance）</strong>，首次让扩散模型在 ImageNet 上全面超越 GAN 的 FID 指标。</p>
+<pre class="mermaid">flowchart LR
+    N[&quot;噪声 x_T&quot;] --&gt; U[&quot;U-Net&lt;br/&gt;多分辨率注意力&lt;br/&gt;AdaGN 残差块&quot;]
+    Y[&quot;类别标签 y&quot;] --&gt; C[&quot;预训练分类器&lt;br/&gt;p_φ(y|x_t)&quot;]
+    U --&gt; S[&quot;采样步&lt;br/&gt;μ_θ + s·Σ_θ·∇log p_φ&quot;]
+    C --&gt;|&quot;梯度引导&quot;| S
+    S --&gt; O[&quot;条件生成图像&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>架构改进</strong>：</li>
+<li>增加深度与宽度、增加注意力头数</li>
+<li>多分辨率注意力（32×32、16×16、8×8）</li>
+<li>BigGAN 残差块 + 自适应组归一化（AdaGN）</li>
+<li><strong>分类器引导</strong>：用预训练分类器 $p_\phi(y|x_t)$ 的梯度修正采样：
+  $$\hat\mu_\theta(x_t|y) = \mu_\theta(x_t|y) + s \cdot \Sigma_\theta(x_t|y) \nabla_{x_t} \log p_\phi(y|x_t)$$
+  其中 $s$ 是引导强度。$s$ 越大，样本越符合类别但多样性下降（FID vs IS 权衡）。</li>
+<li><strong>无分类器引导（Classifier-Free Guidance）</strong>：训练时随机丢弃类别标签，采样时混合条件与无条件预测：
+  $$\hat\epsilon = \epsilon_\theta(x_t, \varnothing) + s \cdot (\epsilon_\theta(x_t, y) - \epsilon_\theta(x_t, \varnothing))$$</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明扩散模型可以超越 GAN，成为生成模型主流。</li>
+<li>引导采样成为条件生成的标准技术。</li>
+</ul>
+<hr />
+<h3>12. StyleGAN3 (2021) — 无混叠的生成器</h3>
+<p><strong>核心思想</strong></p>
+<p>StyleGAN2 的生成图像存在<strong>纹理粘连（texture sticking）</strong>问题：细节随图像平移而「粘」在像素网格上，而非随物体移动。根因是<strong>混叠（aliasing）</strong>。StyleGAN3 从信号处理角度设计<strong>平移等变</strong>的生成器。</p>
+<pre class="mermaid">flowchart LR
+    Z[&quot;噪声 z&quot;] --&gt; M[&quot;映射网络&quot;]
+    M --&gt; W[&quot;潜空间 W&quot;]
+    W --&gt; F[&quot;傅里叶特征&lt;br/&gt;替代位置编码&quot;]
+    F --&gt; C[&quot;卷积层&lt;br/&gt;前置低通滤波&quot;]
+    C --&gt; U[&quot;上采样&lt;br/&gt;理想低通滤波器&lt;br/&gt;窗化 Sinc&quot;]
+    U --&gt; NL[&quot;非线性激活&lt;br/&gt;后置低通滤波&quot;]
+    NL --&gt; O[&quot;平移等变输出&lt;br/&gt;EQ-T ≈ 0.4&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>混叠的根源</strong>：上采样、下采样、非线性激活都会引入高频混叠。</li>
+<li><strong>解决方案</strong>：</li>
+<li>所有上/下采样使用<strong>理想低通滤波器</strong>（窗化 Sinc 滤波器）</li>
+<li>卷积前做低通滤波，避免非线性产生的高频混叠</li>
+<li>移除噪声注入（噪声是逐像素的，破坏等变性）</li>
+<li>用<strong>傅里叶特征</strong>替代可学习位置编码</li>
+<li><strong>等变性度量</strong>：EQ-T（平移等变）、EQ-R（旋转等变）。</li>
+<li><strong>结果</strong>：EQ-T 从 StyleGAN2 的 47.4 降至 0.4，视频插值中细节随物体自然移动。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>将信号处理理论引入生成模型设计，提升生成器的物理合理性。</li>
+<li>对视频生成、动画等时序一致性任务意义重大。</li>
+</ul>
+<hr />
+<h3>13. DALL·E 2 (2022) — CLIP + Diffusion，文本生成图像新高度</h3>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>CLIP 的联合嵌入空间</strong>作为桥梁，将文本条件注入扩散模型，实现高质量、可控的文本到图像生成。</p>
+<pre class="mermaid">flowchart LR
+    T[&quot;文本提示&quot;] --&gt; CT[&quot;CLIP 文本编码器&quot;]
+    CT --&gt; ZT[&quot;CLIP 文本嵌入&quot;]
+    ZT --&gt; P[&quot;Prior 先验&lt;br/&gt;自回归 / 扩散&quot;]
+    P --&gt; ZI[&quot;CLIP 图像嵌入&quot;]
+    ZI --&gt; DEC[&quot;Decoder 解码器&lt;br/&gt;扩散模型 unCLIP&quot;]
+    DEC --&gt; IMG[&quot;生成图像&quot;]
+    IMG -.-&gt;|&quot;CLIP 图像编码器&quot;| ZI
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>两阶段架构</strong>：</li>
+<li><strong>Prior（先验）</strong>：将 CLIP 文本嵌入映射为 CLIP 图像嵌入。两种实现：<ul>
+<li><strong>自回归先验</strong>：Transformer 逐 token 生成</li>
+<li><strong>扩散先验</strong>：扩散模型生成（效果更好）</li>
+</ul>
+</li>
+<li><strong>Decoder（解码器）</strong>：以 CLIP 图像嵌入为条件，用扩散模型生成图像（unCLIP 模型）。</li>
+<li><strong>为什么用 CLIP 嵌入而非直接文本</strong>：CLIP 空间已对齐图文语义，且能利用大规模图文对预训练。</li>
+<li><strong>无分类器引导</strong>：提升样本质量与文本一致性。</li>
+<li><strong>图像编辑能力</strong>：在 CLIP 潜空间做插值/编辑，可实现变体生成、属性修改。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>展示「对比学习 + 扩散模型」组合的强大威力。</li>
+<li>生成质量与语义一致性大幅提升，推动 AIGC 爆发。</li>
+</ul>
+<hr />
+<h3>14. Whisper (2022) — 大规模弱监督语音识别</h3>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>68 万小时</strong>多语言、多任务的弱监督网络音频训练一个<strong>编码器-解码器 Transformer</strong>，实现鲁棒的语音识别与翻译，无需微调即可跨数据集泛化。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;音频&lt;br/&gt;30 秒片段&quot;] --&gt; B[&quot;Log-Mel 频谱图&lt;br/&gt;80 通道&quot;]
+    B --&gt; C[&quot;编码器&lt;br/&gt;Transformer&quot;]
+    C --&gt; D[&quot;解码器&lt;br/&gt;Transformer&quot;]
+    D --&gt; E[&quot;特殊 Token 序列&lt;br/&gt;startoftranscript + 语言 + 任务 + 时间戳&quot;]
+    E --&gt; F[&quot;文本输出&lt;br/&gt;转录 / 翻译&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>数据规模</strong>：680,000 小时（其中 117,000 小时多语言 + 125,000 小时翻译数据）。</li>
+<li><strong>弱监督</strong>：数据来自互联网，标注质量参差不齐，但规模弥补了噪声。</li>
+<li><strong>多任务格式</strong>：用特殊 token 统一表示任务
+  <code>&lt;|startoftranscript|&gt;&lt;|zh|&gt;&lt;|transcribe|&gt;&lt;|0.00|&gt; 文本内容 &lt;|endoftext|&gt;</code>
+  支持：转录、翻译、语言识别、时间戳预测。</li>
+<li><strong>架构</strong>：标准 Transformer 编码器-解码器（无特殊创新）。</li>
+<li><strong>鲁棒性</strong>：在分布外数据上零样本性能接近有监督模型。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明「大规模弱监督 + 通用架构」在语音领域同样有效。</li>
+<li>开源模型成为语音识别的事实标准。</li>
+</ul>
+<hr />
+<h3>15. Action-GPT (2022) — 用语言模型生成动作</h3>
+<p><strong>核心思想</strong></p>
+<p>利用<strong>大语言模型（LLM）</strong>的常识推理能力，将自然语言描述转化为<strong>细粒度的人体动作序列</strong>，用于文本驱动的动作生成。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;粗粒度文本&lt;br/&gt;一个人慢慢站起来&quot;] --&gt; B[&quot;LLM 动作规划器&lt;br/&gt;分解为细粒度描述&quot;]
+    B --&gt; C[&quot;细粒度动作描述&lt;br/&gt;如 抬腿 → 前倾 → 起身&quot;]
+    C --&gt; D[&quot;动作生成器&lt;br/&gt;映射为动作序列&quot;]
+    D --&gt; E[&quot;人体动作序列&lt;br/&gt;HumanML3D 格式&quot;]
+    E --&gt; F[&quot;CLIP 语义对齐&lt;br/&gt;保证文本一致&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>LLM 作为动作规划器</strong>：将粗粒度文本（如「一个人慢慢地站起来」）分解为细粒度动作描述。</li>
+<li><strong>动作生成器</strong>：将细粒度描述映射为人体动作序列（如 HumanML3D 格式）。</li>
+<li><strong>语言-动作对齐</strong>：利用 CLIP 等模型保证生成动作与文本语义一致。</li>
+<li><strong>零样本泛化</strong>：借助 LLM 的常识，可处理训练集中未出现的动作组合。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>展示 LLM 作为「跨模态规划器」的潜力。</li>
+<li>推动文本驱动动画、虚拟人、机器人动作生成等应用。</li>
+</ul>
+<hr />
+<h3>16. LLaMA (2023) — 开放高效的基础语言模型</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>公开数据集</strong>训练一系列高效的基础语言模型（7B~65B），证明<strong>在更多数据上训练更小的模型</strong>可以超越更大的模型。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入 Token&quot;] --&gt; B[&quot;嵌入层&quot;]
+    B --&gt; C[&quot;Transformer Block × N&quot;]
+    C --&gt; D[&quot;RMSNorm&quot;]
+    D --&gt; E[&quot;输出投影&lt;br/&gt;词表 32000&quot;]
+    E --&gt; F[&quot;下一 Token 预测&quot;]
+    subgraph C1[&quot;每个 Block 内部&quot;]
+        G[&quot;RMSNorm&lt;br/&gt;Pre-Norm&quot;] --&gt; H[&quot;自注意力&lt;br/&gt;RoPE 旋转位置编码&quot;] --&gt; I[&quot;残差&quot;] --&gt; J[&quot;RMSNorm&quot;] --&gt; K[&quot;SwiGLU FFN&quot;] --&gt; L[&quot;残差&quot;]
+    end
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>Chinchilla 缩放律</strong>：给定计算预算，模型大小与训练 token 数应同比缩放。LLaMA-7B 用 1T token 训练（远超 GPT-3 的 300B）。</li>
+<li><strong>架构改进</strong>（基于 Transformer 的现代化改造）：</li>
+<li><strong>Pre-normalization</strong>：用 RMSNorm，归一化放在子层前</li>
+<li><strong>SwiGLU 激活函数</strong>：替代 ReLU，提升性能</li>
+<li><strong>旋转位置编码（RoPE）</strong>：替代绝对位置编码，支持更长上下文</li>
+<li><strong>训练效率</strong>：65B 模型用 2048 张 A100 训练 21 天。</li>
+<li><strong>性能</strong>：LLaMA-13B 超越 GPT-3 (175B)，65B 接近 Chinchilla-70B。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开源模型生态的引爆点（Alpaca、Vicuna、Llama 2/3 等均基于此）。</li>
+<li>证明数据质量与规模比单纯堆参数更重要。</li>
+</ul>
+<hr />
+<h3>17. PaLM-E (2023) — 具身多模态语言模型</h3>
+<p><strong>核心思想</strong></p>
+<p>将<strong>视觉、语言、机器人状态</strong>统一到一个 LLM 中，实现「具身智能」：模型能看图、理解语言、并输出机器人动作。</p>
+<pre class="mermaid">flowchart LR
+    IMG[&quot;图像&quot;] --&gt; VIT[&quot;ViT 编码器&quot;]
+    VIT --&gt; PJ1[&quot;投影层&quot;]
+    TXT[&quot;文本&quot;] --&gt; TE[&quot;文本 Token 化&quot;]
+    ST[&quot;机器人状态&lt;br/&gt;关节角度&quot;] --&gt; PJ2[&quot;线性投影&quot;]
+    PJ1 --&gt; SEQ[&quot;统一 Token 序列&quot;]
+    TE --&gt; SEQ
+    PJ2 --&gt; SEQ
+    SEQ --&gt; LLM[&quot;PaLM-E&lt;br/&gt;562B 参数&quot;]
+    LLM --&gt; OUT[&quot;文本回答 / 机器人动作&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>多模态 token 化</strong>：</li>
+<li>文本 → 标准 token</li>
+<li>图像 → ViT 编码 + 投影到 LLM 嵌入空间</li>
+<li>机器人状态（关节角度等）→ 线性投影</li>
+<li>动作 → 文本形式输出</li>
+<li><strong>统一序列建模</strong>：所有模态拼成一个序列，用自回归方式训练。</li>
+<li><strong>规模</strong>：562B 参数（基于 PaLM）。</li>
+<li><strong>正迁移</strong>：多任务联合训练时，视觉-语言任务与机器人任务互相促进。</li>
+<li><strong>涌现能力</strong>：可执行多步推理、零样本泛化到新任务。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>展示 LLM 作为通用「具身智能体大脑」的可行性。</li>
+<li>推动 VLA（Vision-Language-Action）模型研究（如 RT-2）。</li>
+</ul>
+<hr />
+<h3>18. HuggingGPT (2023) — 用 LLM 调度 AI 模型</h3>
+<p><strong>核心思想</strong></p>
+<p>将 LLM 作为<strong>控制器</strong>，调用 HuggingFace 上的各种专家模型完成复杂任务。LLM 负责「任务规划 → 模型选择 → 执行 → 结果整合」。</p>
+<pre class="mermaid">flowchart TD
+    U[&quot;用户请求&lt;br/&gt;请生成一张猫的图并描述它&quot;] --&gt; P[&quot;1. 任务规划&lt;br/&gt;LLM 分解子任务&quot;]
+    P --&gt; S[&quot;2. 模型选择&lt;br/&gt;从 HuggingFace 选模型&quot;]
+    S --&gt; E1[&quot;子任务 1&lt;br/&gt;Stable Diffusion 生成&quot;]
+    S --&gt; E2[&quot;子任务 2&lt;br/&gt;ViT 图像分类&quot;]
+    E1 --&gt; R[&quot;4. 响应生成&lt;br/&gt;LLM 整合结果&quot;]
+    E2 --&gt; R
+    R --&gt; O[&quot;最终回答&quot;]
+    D[&quot;依赖解析&lt;br/&gt;有向图&quot;] -.-&gt; P
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>四阶段流程</strong>：</li>
+<li><strong>任务规划</strong>：LLM 将用户请求分解为子任务</li>
+<li><strong>模型选择</strong>：根据任务描述从模型库中选模型（基于下载量等指标）</li>
+<li><strong>任务执行</strong>：调用选定模型（如用 ViT 分类、Stable Diffusion 生成）</li>
+<li><strong>响应生成</strong>：LLM 整合所有结果，生成最终回答</li>
+<li><strong>依赖解析</strong>：子任务间可能有依赖（如先检测再分割），用有向图表示。</li>
+<li><strong>资源处理</strong>：处理模型调用失败、超时等异常。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出「LLM 作为操作系统」的 Agent 范式。</li>
+<li>催生大量 Agent 框架（AutoGPT、LangChain 等）。</li>
+</ul>
+<hr />
+<h2>四、计算机视觉 - 目标检测</h2>
+<h3>1. R-CNN (2014) — Two-stage 检测的开山之作</h3>
+<p><strong>核心思想</strong></p>
+<p>将目标检测转化为「<strong>区域提议 + CNN 分类</strong>」两步：先用选择性搜索生成候选框，再用 CNN 对每个候选框分类。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入图像&quot;] --&gt; B[&quot;选择性搜索&lt;br/&gt;生成 ~2000 候选框&quot;]
+    B --&gt; C[&quot;逐个候选框&lt;br/&gt;缩放到 227×227&quot;]
+    C --&gt; D[&quot;AlexNet&lt;br/&gt;提取 4096 维特征&quot;]
+    D --&gt; E[&quot;SVM 分类器&lt;br/&gt;每类一个&quot;]
+    D --&gt; F[&quot;边界框回归&lt;br/&gt;线性回归微调&quot;]
+    E --&gt; G[&quot;检测结果&quot;]
+    F --&gt; G
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>四步流程</strong>：</li>
+<li><strong>区域提议</strong>：选择性搜索（Selective Search）生成约 2000 个候选框</li>
+<li><strong>特征提取</strong>：每个候选框缩放到 227×227，送入 AlexNet 提取 4096 维特征</li>
+<li><strong>分类</strong>：每个类别训练一个 SVM 分类器</li>
+<li><strong>回归</strong>：用线性回归微调候选框位置</li>
+<li><strong>监督预训练 + 微调</strong>：先在 ImageNet 上预训练，再在检测数据上微调。</li>
+<li><strong>mAP 提升</strong>：VOC 2007 上从 33.7%（DPM）提升到 58.5%。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>首次证明 CNN 在检测任务上的巨大潜力。</li>
+<li>缺点：训练慢（多阶段）、推理慢（2000 次 CNN 前向）、存储大。</li>
+</ul>
+<hr />
+<h3>2. Fast R-CNN (2015) — 端到端单阶段训练</h3>
+<p><strong>核心思想</strong></p>
+<p>解决 R-CNN 的重复计算问题：<strong>整张图只过一次 CNN</strong>，然后用 <strong>RoI Pooling</strong> 从特征图上提取每个候选框的特征。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入图像&quot;] --&gt; B[&quot;CNN 骨干&lt;br/&gt;整图只过一次&quot;]
+    B --&gt; C[&quot;共享特征图&quot;]
+    D[&quot;选择性搜索&lt;br/&gt;候选框&quot;] --&gt; E[&quot;RoI Pooling&lt;br/&gt;池化为 7×7&quot;]
+    C --&gt; E
+    E --&gt; F[&quot;全连接层&quot;]
+    F --&gt; G[&quot;分类头&lt;br/&gt;Softmax&quot;]
+    F --&gt; H[&quot;回归头&lt;br/&gt;Smooth L1&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>RoI Pooling</strong>：将任意大小的 RoI 特征图池化为固定尺寸（如 7×7），使全连接层可处理。</li>
+<li><strong>多任务损失</strong>：分类 + 边界框回归联合训练
+  $$\mathcal{L} = \mathcal{L}<em loc="loc">{cls} + \lambda [u \ge 1] \mathcal{L}</em>$$
+  其中 $\mathcal{L}_{loc}$ 用 <strong>Smooth L1</strong> 损失。</li>
+<li><strong>单阶段训练</strong>：除区域提议外，其余全部端到端。</li>
+<li><strong>速度提升</strong>：训练快 9 倍，推理快 213 倍（相比 R-CNN）。</li>
+<li><strong>SVD 加速全连接层</strong>：进一步提速。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>奠定 two-stage 检测的标准框架。</li>
+<li>瓶颈转移到区域提议（选择性搜索仍需 2 秒/图）。</li>
+</ul>
+<hr />
+<h3>3. Faster R-CNN (2015) — 引入 RPN</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>区域提议网络（RPN）</strong>替代选择性搜索，实现<strong>完全端到端</strong>的检测，且 RPN 与检测网络<strong>共享卷积特征</strong>。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入图像&quot;] --&gt; B[&quot;共享卷积层&lt;br/&gt;VGG / ResNet&quot;]
+    B --&gt; C[&quot;特征图&quot;]
+    C --&gt; D[&quot;RPN 区域提议网络&lt;br/&gt;9 个锚框/位置&quot;]
+    D --&gt; E[&quot;候选框 ~300 个&lt;br/&gt;+ 前景/背景分数&quot;]
+    C --&gt; F[&quot;RoI Pooling&quot;]
+    E --&gt; F
+    F --&gt; G[&quot;分类头&quot;]
+    F --&gt; H[&quot;回归头&quot;]
+    G --&gt; I[&quot;检测结果&quot;]
+    H --&gt; I
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>RPN 机制</strong>：</li>
+<li>在特征图上每个位置放置 $k$ 个<strong>锚框（anchor）</strong>（3 种尺度 × 3 种长宽比 = 9 个）</li>
+<li>每个锚框预测 2 个分数（前景/背景）+ 4 个偏移量</li>
+<li>输出约 300 个高质量候选框</li>
+<li><strong>锚框（Anchor）</strong>：这是检测领域的核心概念，用预设的参考框将「无限制回归」转化为「相对偏移回归」。</li>
+<li><strong>交替训练</strong>：RPN 与 Fast R-CNN 共享卷积层，4 步交替训练。</li>
+<li><strong>损失函数</strong>：
+  $$L({p_i},{t_i}) = \frac{1}{N_{cls}}\sum L_{cls}(p_i, p_i^<em>) + \lambda\frac{1}{N_{reg}}\sum p_i^</em> L_{reg}(t_i, t_i^*)$$</li>
+<li><strong>速度</strong>：5 FPS（GPU），实现实时检测。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>首个真正端到端的检测框架，成为 two-stage 检测的标杆。</li>
+<li>锚框机制被 SSD、YOLOv2 等广泛采用。</li>
+</ul>
+<hr />
+<h3>4. SSD (2016) — Single stage 检测</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>单阶段检测</strong>：直接在多个尺度的特征图上预测类别和框偏移，无需区域提议，速度与精度兼顾。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入图像&lt;br/&gt;300×300&quot;] --&gt; B[&quot;VGG 骨干&quot;]
+    B --&gt; C[&quot;Conv4_3&lt;br/&gt;38×38&quot;]
+    B --&gt; D[&quot;Conv7&lt;br/&gt;19×19&quot;]
+    B --&gt; E[&quot;Conv8_2&lt;br/&gt;10×10&quot;]
+    B --&gt; F[&quot;Conv9_2&lt;br/&gt;5×5&quot;]
+    B --&gt; G[&quot;Conv10_2&lt;br/&gt;3×3&quot;]
+    B --&gt; H[&quot;Conv11_2&lt;br/&gt;1×1&quot;]
+    C --&gt; I[&quot;多尺度预测&lt;br/&gt;默认框 + 类别 + 偏移&quot;]
+    D --&gt; I
+    E --&gt; I
+    F --&gt; I
+    G --&gt; I
+    H --&gt; I
+    I --&gt; J[&quot;NMS 后处理&lt;br/&gt;检测结果&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>多尺度特征图</strong>：在 VGG 基础上添加 6 个不同尺度的特征图（38×38 到 1×1），大特征图检测小目标，小特征图检测大目标。</li>
+<li><strong>默认框（Default Boxes）</strong>：类似锚框，每个特征图位置放置多个不同尺度的默认框。</li>
+<li><strong>直接预测</strong>：每个默认框预测 $(c+4)$ 个值（$c$ 类分数 + 4 个偏移）。</li>
+<li><strong>数据增强</strong>：随机裁剪、颜色扰动等。</li>
+<li><strong>难例挖掘（Hard Negative Mining）</strong>：按损失排序，保持正负样本 1:3 比例。</li>
+<li><strong>速度</strong>：59 FPS（VOC2007，mAP 74.3%）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>首个能与 two-stage 精度媲美的单阶段检测器。</li>
+<li>多尺度预测成为单阶段检测的标准设计。</li>
+</ul>
+<hr />
+<h3>5. YOLO (2016) — You Only Look Once</h3>
+<p><strong>核心思想</strong></p>
+<p>将检测<strong>重构为回归问题</strong>：把图像划分为 $S \times S$ 网格，每个网格直接预测边界框和类别概率，一次前向即可完成检测。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入图像&lt;br/&gt;448×448&quot;] --&gt; B[&quot;24 层卷积&lt;br/&gt;+ 2 层全连接&quot;]
+    B --&gt; C[&quot;输出张量&lt;br/&gt;7×7×30&quot;]
+    C --&gt; D[&quot;7×7 网格&lt;br/&gt;每格 2 个框&quot;]
+    D --&gt; E[&quot;每框 5 值&lt;br/&gt;x, y, w, h, 置信度&quot;]
+    D --&gt; F[&quot;20 类条件概率&quot;]
+    E --&gt; G[&quot;NMS 后处理&quot;]
+    F --&gt; G
+    G --&gt; H[&quot;检测结果&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>网格划分</strong>：$7 \times 7$ 网格，每个网格预测 2 个框（每个框 5 个值：$x,y,w,h,\text{confidence}$）+ 20 类概率。</li>
+<li><strong>输出张量</strong>：$7 \times 7 \times (2 \times 5 + 20) = 7 \times 7 \times 30$。</li>
+<li><strong>损失函数</strong>：坐标误差 + 置信度误差 + 分类误差的加权和，坐标用宽高开方（缓解大小框权重不均）。</li>
+<li><strong>优势</strong>：</li>
+<li>极快（45 FPS，Fast YOLO 达 155 FPS）</li>
+<li>全局视野，背景误检少</li>
+<li>泛化能力强（可迁移到艺术图像）</li>
+<li><strong>劣势</strong>：定位精度不如 two-stage，小目标与密集目标效果差。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开创单阶段检测范式，YOLO 系列成为工业界最流行的检测器。</li>
+</ul>
+<hr />
+<h3>6. Mask R-CNN (2017) — 实例分割</h3>
+<p><strong>核心思想</strong></p>
+<p>在 Faster R-CNN 基础上<strong>并行添加一个分割分支</strong>，实现像素级实例分割，且不损失检测性能。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入图像&quot;] --&gt; B[&quot;CNN 骨干 + FPN&quot;]
+    B --&gt; C[&quot;RPN&lt;br/&gt;候选框&quot;]
+    C --&gt; D[&quot;RoI Align&lt;br/&gt;双线性插值&quot;]
+    D --&gt; E[&quot;分类头&lt;br/&gt;类别&quot;]
+    D --&gt; F[&quot;回归头&lt;br/&gt;边界框&quot;]
+    D --&gt; G[&quot;掩码头&lt;br/&gt;K 个 28×28 二值掩码&quot;]
+    E --&gt; H[&quot;实例分割结果&quot;]
+    F --&gt; H
+    G --&gt; H
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>RoI Align</strong>：替代 RoI Pooling，用<strong>双线性插值</strong>解决量化误差（RoI Pooling 两次取整导致掩码与目标错位）。</li>
+<li><strong>三分支输出</strong>：分类 + 框回归 + 掩码（$K$ 个 $28 \times 28$ 二值掩码，每类一个）。</li>
+<li><strong>解耦掩码与分类</strong>：掩码分支不预测类别，只输出二值掩码，避免类间竞争。</li>
+<li><strong>损失</strong>：$\mathcal{L} = \mathcal{L}<em box="box">{cls} + \mathcal{L}</em>$。} + \mathcal{L}_{mask</li>
+<li><strong>性能</strong>：COCO 上实例分割 mAP 37.1%，检测 mAP 39.8%，5 FPS。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>统一了检测、分割、关键点检测（加一个分支即可）。</li>
+<li>RoI Align 成为后续分割网络的标准组件。</li>
+</ul>
+<hr />
+<h3>7. YOLOv2 (2017) — 更好、更快、更强</h3>
+<p><strong>核心思想</strong></p>
+<p>在 YOLO 基础上引入一系列改进（Batch Norm、锚框、多尺度训练），大幅提升精度与召回率。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入&lt;br/&gt;416×416&quot;] --&gt; B[&quot;Darknet-19&lt;br/&gt;19 层卷积&quot;]
+    B --&gt; C[&quot;Conv 特征图&lt;br/&gt;13×13&quot;]
+    C --&gt; D[&quot;Passthrough&lt;br/&gt;浅层特征拼接&quot;]
+    C --&gt; E[&quot;锚框预测&lt;br/&gt;k-means 聚类先验&quot;]
+    D --&gt; E
+    E --&gt; F[&quot;直接位置预测&lt;br/&gt;Sigmoid 约束&quot;]
+    F --&gt; G[&quot;多尺度训练&lt;br/&gt;320 ~ 608&quot;]
+    G --&gt; H[&quot;检测结果&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>Batch Normalization</strong>：每层卷积后加 BN，mAP 提升 2%。</li>
+<li><strong>高分辨率分类器</strong>：先在 448×448 上微调分类网络，再用于检测。</li>
+<li><strong>锚框（Anchor Boxes）</strong>：用 k-means 聚类数据集得到先验框尺寸（而非手工设计），召回率从 81% 提升到 88%。</li>
+<li><strong>维度聚类</strong>：距离度量用 $d(\text{box}, \text{centroid}) = 1 - \text{IOU}$。</li>
+<li><strong>直接位置预测</strong>：用 sigmoid 约束偏移量在网格内，训练更稳定。</li>
+<li><strong>细粒度特征（Passthrough）</strong>：将浅层特征与深层特征拼接，提升小目标检测。</li>
+<li><strong>多尺度训练</strong>：每 10 个 batch 换一次输入尺寸（320~608），使模型适应不同分辨率。</li>
+<li><strong>Darknet-19 骨干</strong>：19 层卷积 + 5 层池化。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>YOLOv2 (YOLO9000) 可检测 9000+ 类，展示检测与分类联合训练的潜力。</li>
+</ul>
+<hr />
+<h3>8. YOLOv3 (2018) — 多尺度预测</h3>
+<p><strong>核心思想</strong></p>
+<p>引入<strong>特征金字塔（FPN）式的多尺度预测</strong>和更好的骨干网络（Darknet-53），显著提升小目标检测能力。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入&lt;br/&gt;416×416&quot;] --&gt; B[&quot;Darknet-53&lt;br/&gt;残差连接&quot;]
+    B --&gt; C[&quot;13×13 特征&lt;br/&gt;大目标&quot;]
+    B --&gt; D[&quot;26×26 特征&lt;br/&gt;中目标&quot;]
+    B --&gt; E[&quot;52×52 特征&lt;br/&gt;小目标&quot;]
+    C --&gt;|&quot;上采样 + 拼接&quot;| D
+    D --&gt;|&quot;上采样 + 拼接&quot;| E
+    C --&gt; F[&quot;3 锚框预测&quot;]
+    D --&gt; G[&quot;3 锚框预测&quot;]
+    E --&gt; H[&quot;3 锚框预测&quot;]
+    F --&gt; I[&quot;多尺度检测结果&quot;]
+    G --&gt; I
+    H --&gt; I
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>Darknet-53</strong>：借鉴 ResNet 的残差连接，53 层卷积，比 ResNet-152 快 2 倍且精度相当。</li>
+<li><strong>多尺度预测</strong>：在 3 个尺度（13×13、26×26、52×52）上预测，每个尺度 3 个锚框，共 9 个锚框（k-means 聚类）。</li>
+<li><strong>上采样 + 拼接</strong>：深层特征上采样后与浅层特征拼接，融合语义与细节。</li>
+<li><strong>分类用 Logistic</strong>：替代 softmax，支持多标签分类（一个目标可属于多类）。</li>
+<li><strong>性能</strong>：COCO mAP 33.0%（AP50 57.9%），速度 51ms/图（Titan X）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>成为工业界最广泛使用的检测器之一，YOLOv3 是「实用主义」的典范。</li>
+</ul>
+<hr />
+<h3>9. CenterNet (2019) — Anchor Free</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>无锚框检测</strong>：将目标表示为其<strong>中心点</strong>，用关键点估计的方式检测目标，无需锚框和非极大值抑制（NMS）。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入图像&quot;] --&gt; B[&quot;编码器-解码器&lt;br/&gt;如 ResNet + 上采样&quot;]
+    B --&gt; C[&quot;中心点热力图&lt;br/&gt;C 个类别&quot;]
+    B --&gt; D[&quot;中心点偏移&lt;br/&gt;亚像素修正&quot;]
+    B --&gt; E[&quot;尺寸回归&lt;br/&gt;w, h&quot;]
+    C --&gt; F[&quot;提取局部峰值&lt;br/&gt;即目标中心&quot;]
+    D --&gt; F
+    E --&gt; F
+    F --&gt; G[&quot;检测结果&lt;br/&gt;无需 NMS&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>中心点热力图</strong>：预测 $C$ 个类别的热力图，峰值位置即目标中心。</li>
+<li><strong>中心点偏移</strong>：预测亚像素级偏移，弥补下采样量化误差。</li>
+<li><strong>尺寸回归</strong>：直接回归目标的宽高 $(w, h)$。</li>
+<li><strong>损失函数</strong>：</li>
+<li>热力图用 <strong>Focal Loss</strong> 变体（惩罚中心点附近的负样本）</li>
+<li>偏移和尺寸用 L1 损失</li>
+<li><strong>无需 NMS</strong>：因为每个目标只有一个中心点，后处理只需提取局部峰值。</li>
+<li><strong>速度</strong>：142 FPS（COCO mAP 28.1%），精度与速度俱佳。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开创 anchor-free 检测范式，后续 FCOS、CornerNet 等跟进。</li>
+<li>同一框架可扩展到 3D 检测、姿态估计、人体关键点。</li>
+</ul>
+<hr />
+<h3>10. DETR (2020) — Transformer 做检测</h3>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>Transformer 编码器-解码器</strong>将检测建模为<strong>集合预测</strong>问题，彻底移除锚框和 NMS，实现真正的端到端检测。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入图像&quot;] --&gt; B[&quot;CNN 骨干&lt;br/&gt;ResNet&quot;]
+    B --&gt; C[&quot;特征图&lt;br/&gt;+ 位置编码&quot;]
+    C --&gt; D[&quot;Transformer 编码器&quot;]
+    D --&gt; E[&quot;Transformer 解码器&quot;]
+    Q[&quot;N 个可学习&lt;br/&gt;Object Queries&quot;] --&gt; E
+    E --&gt; F[&quot;N 个预测&lt;br/&gt;类别 + 边界框&quot;]
+    F --&gt; G[&quot;匈牙利算法&lt;br/&gt;二分图匹配&quot;]
+    G --&gt; H[&quot;集合预测损失&lt;br/&gt;无需 NMS&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>CNN 骨干 + Transformer</strong>：CNN 提取特征图，展平后加位置编码送入 Transformer。</li>
+<li><strong>可学习的目标查询（Object Queries）</strong>：$N$ 个（如 100 个）可学习的嵌入，每个查询输出一个目标（类别 + 框）。</li>
+<li><strong>二分图匹配损失</strong>：用 <strong>匈牙利算法</strong>在预测与真值间做最优匹配，再计算损失：
+  $$\hat\sigma = \arg\min_{\sigma \in \mathfrak{S}<em match="match">N} \sum_i \mathcal{L}</em>)$$}(y_i, \hat{y}_{\sigma(i)</li>
+<li><strong>集合预测损失</strong>：分类用交叉熵，框用 L1 + GIoU 损失。</li>
+<li><strong>无需 NMS</strong>：匈牙利匹配保证一对一，天然避免重复预测。</li>
+<li><strong>性能</strong>：COCO mAP 42.0%（与 Faster R-CNN 相当），但训练收敛慢（500 epoch）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>首个端到端 Transformer 检测器，开启检测新范式。</li>
+<li>后续 Deformable DETR、DINO-DETR 等解决收敛慢问题。</li>
+</ul>
+<hr />
+<h2>五、计算机视觉 - 对比学习</h2>
+<blockquote>
+<p><strong>对比学习核心思想</strong>：通过「拉近正样本对、推远负样本对」学习表征。正样本通常是同一图像的不同增强视图。</p>
+</blockquote>
+<h3>1. InstDisc (2018) — 提出实例判别和 Memory Bank</h3>
+<p><strong>核心思想</strong></p>
+<p>将<strong>每个实例视为一个独立类别</strong>（instance discrimination），用对比学习训练无监督特征。提出 <strong>Memory Bank</strong> 存储所有样本的特征。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;图像 x&quot;] --&gt; B[&quot;CNN 编码器&quot;]
+    B --&gt; C[&quot;特征 f&quot;]
+    C --&gt; D[&quot;NCE 损失&quot;]
+    MB[&quot;Memory Bank&lt;br/&gt;N × 128 维&lt;br/&gt;存储所有样本特征&quot;] --&gt; D
+    D --&gt; E[&quot;实例判别&lt;br/&gt;x 应识别为自己&quot;]
+    C -.-&gt;|&quot;更新&quot;| MB
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>实例判别</strong>：$N$ 张图 = $N$ 个类别，目标是让每张图被正确识别为自己。</li>
+<li><strong>Memory Bank</strong>：存储所有样本的特征向量（如 12800 × 128），每次更新当前 batch 的特征。</li>
+<li><strong>NCE 损失（Noise Contrastive Estimation）</strong>：将多分类问题转化为二分类（真样本 vs 噪声样本）。</li>
+<li><strong>Proximal Regularization</strong>：约束特征平滑变化，稳定训练。</li>
+<li><strong>问题</strong>：Memory Bank 中的特征滞后（stale），一致性差。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开创基于实例判别的无监督学习范式，MoCo 的直接前身。</li>
+</ul>
+<hr />
+<h3>2. CPC (2018) — 对比预测编码</h3>
+<p><strong>核心思想</strong></p>
+<p>通过<strong>预测未来</strong>学习表征：给定过去的信息，预测未来的潜在表示。可用于图像、语音、文本、强化学习。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;过去序列&lt;br/&gt;x_1 ... x_t&quot;] --&gt; B[&quot;编码器&lt;br/&gt;CNN / GRU&quot;]
+    B --&gt; C[&quot;上下文表示 c_t&quot;]
+    C --&gt; D[&quot;自回归模型&lt;br/&gt;GRU&quot;]
+    D --&gt; E[&quot;预测未来表示&quot;]
+    F[&quot;未来真实表示&lt;br/&gt;z_{t+k}&quot;] --&gt; G[&quot;InfoNCE 损失&quot;]
+    E --&gt; G
+    H[&quot;负样本&lt;br/&gt;其他位置表示&quot;] --&gt; G
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>InfoNCE 损失</strong>：
+  $$\mathcal{L} = -\mathbb{E}\left[\log \frac{\exp(z_{t+k}^T W_k c_t)}{\sum_{x_j \in X} \exp(z_j^T W_k c_t)}\right]$$
+  其中 $c_t$ 是上下文表示，$z_{t+k}$ 是未来表示，$X$ 包含 1 个正样本 + $N-1$ 个负样本。</li>
+<li><strong>自回归编码</strong>：用 GRU 编码上下文，预测未来 $k$ 步的表示。</li>
+<li><strong>与互信息的关系</strong>：InfoNCE 是互信息的下界，最小化该损失即最大化 $I(c_t; z_{t+k})$。</li>
+<li><strong>多领域通用</strong>：图像（预测下/右 patch）、语音、NLP、RL 均可。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出 InfoNCE 损失，成为对比学习的标准工具。</li>
+<li>是 wav2vec、VQ-VAE 等工作的思想源头。</li>
+</ul>
+<hr />
+<h3>3. InvaSpread (2019) — 一个编码器的端到端对比学习</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>端到端</strong>训练单个编码器（无需 Memory Bank），用同一 batch 内的其他样本作为负样本。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;图像 x_i&quot;] --&gt; B[&quot;数据增强&quot;]
+    B --&gt; C[&quot;视图 1&quot;]
+    B --&gt; D[&quot;视图 2&quot;]
+    C --&gt; E[&quot;共享编码器 f&quot;]
+    D --&gt; E
+    E --&gt; F[&quot;特征 z_i&quot;]
+    E --&gt; G[&quot;特征 z_{i+}&quot;]
+    F --&gt; H[&quot;InfoNCE 损失&lt;br/&gt;正样本拉近&lt;br/&gt;batch 内负样本推远&quot;]
+    G --&gt; H
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>不变性 + 扩散性</strong>：同一图像的两个增强视图应相似（invariance），不同图像应远离（spread）。</li>
+<li><strong>单编码器</strong>：与 InstDisc 的 Memory Bank 不同，直接端到端反向传播。</li>
+<li><strong>损失函数</strong>：
+  $$\mathcal{L} = -\sum_i \log \frac{\exp(z_i \cdot z_{i^+}/\tau)}{\sum_{j \neq i} \exp(z_i \cdot z_j/\tau)}$$</li>
+<li><strong>局限</strong>：负样本数量受 batch size 限制（如 256），效果不如 MoCo。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明端到端对比学习可行，为 SimCLR 铺路。</li>
+</ul>
+<hr />
+<h3>4. CMC (2019) — 多视角下的对比学习</h3>
+<p><strong>核心思想</strong></p>
+<p>利用<strong>同一场景的多个视角</strong>（如 L<em>a</em>b* 颜色通道、深度、表面法向量）作为正样本对，学习视角不变的表示。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;同一场景&quot;] --&gt; B[&quot;视角 1&lt;br/&gt;L 通道&quot;]
+    A --&gt; C[&quot;视角 2&lt;br/&gt;a 通道&quot;]
+    A --&gt; D[&quot;视角 3&lt;br/&gt;b 通道&quot;]
+    B --&gt; E[&quot;编码器&quot;]
+    C --&gt; E
+    D --&gt; E
+    E --&gt; F[&quot;多视角 InfoNCE&lt;br/&gt;任意两视角互为正样本&quot;]
+    MB[&quot;Memory Bank&lt;br/&gt;负样本&quot;] --&gt; F
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>多视角正样本</strong>：同一图像的 L、a、b 通道分别编码，互为正样本。</li>
+<li><strong>InfoNCE 损失</strong>：扩展到多视角，任意两个视角的组合都是正样本对。</li>
+<li><strong>视角选择</strong>：实验表明 L<em>a</em>b* 通道效果最好（比灰度、RGB 拆分好）。</li>
+<li><strong>与 InstDisc 结合</strong>：用 Memory Bank 存储负样本。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出「多视角」这一对比学习的重要维度，后续被 CLIP（图文视角）等发扬光大。</li>
+</ul>
+<hr />
+<h3>5. MoCo v1 (2019) — 无监督训练效果也很好</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>动量编码器 + 队列</strong>解决对比学习中「负样本数量」与「特征一致性」的矛盾。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;图像 x&quot;] --&gt; B[&quot;增强 1&quot;]
+    A --&gt; C[&quot;增强 2&quot;]
+    B --&gt; D[&quot;查询编码器 q&lt;br/&gt;梯度更新&quot;]
+    C --&gt; E[&quot;动量编码器 k&lt;br/&gt;EMA 更新 m=0.999&quot;]
+    D --&gt; F[&quot;查询特征 q&quot;]
+    E --&gt; G[&quot;正样本 k+&quot;]
+    Q[&quot;队列 Queue&lt;br/&gt;65536 个负样本&lt;br/&gt;先进先出&quot;] --&gt; H[&quot;InfoNCE 损失&quot;]
+    F --&gt; H
+    G --&gt; H
+    G -.-&gt;|&quot;入队&quot;| Q
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>动量编码器（Momentum Encoder）</strong>：$k$ 编码器参数用动量更新，保持特征一致性：
+  $$\theta_k \leftarrow m\theta_k + (1-m)\theta_q,\quad m = 0.999$$</li>
+<li><strong>队列（Queue）</strong>：存储最近 $K$ 个（如 65536）batch 的特征作为负样本，解耦 batch size 与负样本数。</li>
+<li><strong>InfoNCE 损失</strong>：$q$ 与 $k_+$ 相似，与队列中 $K$ 个 $k_-$ 不相似。</li>
+<li><strong>优势</strong>：负样本多（65536）、特征一致（动量更新）、显存友好。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>无监督预训练性能接近有监督，成为自监督学习的里程碑。</li>
+<li>MoCo 系列（v2、v3）持续演进。</li>
+</ul>
+<hr />
+<h3>6. SimCLR v1 (2020) — 简单的对比学习</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>极简框架</strong>：数据增强 + 编码器 + MLP 投影头 + NT-Xent 损失，用<strong>超大 batch</strong>（4096~8192）提供负样本。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;图像 x&quot;] --&gt; B[&quot;数据增强&lt;br/&gt;裁剪 + 颜色抖动&quot;]
+    B --&gt; C[&quot;视图 1&quot;]
+    B --&gt; D[&quot;视图 2&quot;]
+    C --&gt; E[&quot;编码器 f&lt;br/&gt;ResNet-50&quot;]
+    D --&gt; E
+    E --&gt; F[&quot;投影头 g&lt;br/&gt;2 层 MLP&quot;]
+    F --&gt; G[&quot;z_1&quot;]
+    F --&gt; H[&quot;z_2&quot;]
+    G --&gt; I[&quot;NT-Xent 损失&lt;br/&gt;batch 内 2N 个样本&quot;]
+    H --&gt; I
+    E -.-&gt;|&quot;下游任务用&quot;| J[&quot;表示 h&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>数据增强组合</strong>：随机裁剪 + 颜色抖动是<strong>最关键</strong>的组合（缺一不可）。</li>
+<li><strong>投影头（Projection Head）</strong>：编码器后接 2 层 MLP，对比损失算在投影空间，下游任务用编码器输出。防止表示空间被对比损失「破坏」。</li>
+<li><strong>NT-Xent 损失</strong>（归一化温度缩放交叉熵）：
+  $$\ell_{i,j} = -\log \frac{\exp(\text{sim}(z_i,z_j)/\tau)}{\sum_{k \neq i} \exp(\text{sim}(z_i,z_k)/\tau)}$$</li>
+<li><strong>大 batch + 长训练</strong>：batch 4096，训练 1000 epoch。</li>
+<li><strong>性能</strong>：ImageNet 线性评估 76.5%（超越有监督 AlexNet）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明「简单方法 + 大算力」的威力，推动自监督学习成为主流。</li>
+</ul>
+<hr />
+<h3>7. MoCo v2 (2020) — MoCo v1 + SimCLR 的改进</h3>
+<p><strong>核心思想</strong></p>
+<p>将 SimCLR 的两个关键改进（<strong>MLP 投影头</strong> + <strong>更强的数据增强</strong>）移植到 MoCo，用更小的 batch 达到超越 SimCLR 的效果。</p>
+<pre class="mermaid">flowchart LR
+    subgraph V1[&quot;MoCo v1&quot;]
+        A1[&quot;单层线性投影头&quot;] --&gt; A2[&quot;基础增强&lt;br/&gt;裁剪 + 颜色抖动&quot;]
+    end
+    subgraph V2[&quot;MoCo v2 改进&quot;]
+        B1[&quot;2 层 MLP 投影头&lt;br/&gt;2048 维&quot;] --&gt; B2[&quot;更强增强&lt;br/&gt;+ 高斯模糊&lt;br/&gt;+ 更强颜色抖动&quot;]
+        B2 --&gt; B3[&quot;余弦学习率调度&quot;]
+    end
+    V1 -.-&gt;|&quot;升级&quot;| V2
+    V2 --&gt; R[&quot;batch 256&lt;br/&gt;71.1% Top-1&lt;br/&gt;超越 SimCLR 69.3%&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>MLP 投影头</strong>：2 层 MLP（2048 维），替代 MoCo v1 的单层线性层。</li>
+<li><strong>更强增强</strong>：加入模糊增强（Gaussian blur）、更强的颜色抖动。</li>
+<li><strong>余弦学习率调度</strong>。</li>
+<li><strong>性能</strong>：batch 256 达到 71.1%（SimCLR batch 4096 为 69.3%）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明 MoCo 框架的高效性，小 batch 也能取得好效果。</li>
+</ul>
+<hr />
+<h3>8. SimCLR v2 (2020) — 大的自监督预训练模型很适合做半监督学习</h3>
+<p><strong>核心思想</strong></p>
+<p>将 SimCLR 扩展到<strong>更大模型</strong>（ResNet-152 + 3× 宽度），并用于<strong>半监督学习</strong>，用少量标签微调即可超越有监督训练。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;无标签数据&quot;] --&gt; B[&quot;SimCLR 自监督预训练&lt;br/&gt;ResNet-152 3×&quot;]
+    B --&gt; C[&quot;大模型&quot;]
+    C --&gt; D[&quot;1% / 10% 标签微调&quot;]
+    D --&gt; E[&quot;教师模型&quot;]
+    E --&gt; F[&quot;伪标签&lt;br/&gt;未标注数据&quot;]
+    F --&gt; G[&quot;蒸馏到小模型&lt;br/&gt;ResNet-50&quot;]
+    G --&gt; H[&quot;半监督 SOTA&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>更大模型</strong>：ResNet-50 → ResNet-152 (3×)，深度 + 宽度同时增加。</li>
+<li><strong>更深投影头</strong>：2 层 → 3 层 MLP。</li>
+<li><strong>记忆机制</strong>：用教师网络的预测作为伪标签（类似 Mean Teacher）。</li>
+<li><strong>半监督流程</strong>：</li>
+<li>无监督预训练（大模型）</li>
+<li>用 1% 或 10% 标签微调</li>
+<li>蒸馏到小模型</li>
+<li><strong>性能</strong>：1% 标签下 Top-5 达 85.8%（有监督仅 48.4%）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明自监督预训练 + 少量标签是高效的学习范式。</li>
+</ul>
+<hr />
+<h3>9. BYOL (2020) — 不需要负样本的对比学习</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>完全不用负样本</strong>！只用正样本对（同一图像的两个视图），通过<strong>在线网络预测目标网络的输出</strong>来学习。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;图像 x&quot;] --&gt; B[&quot;增强 1&quot;]
+    A --&gt; C[&quot;增强 2&quot;]
+    B --&gt; D[&quot;在线网络&lt;br/&gt;编码器 + 投影头 + 预测器&quot;]
+    C --&gt; E[&quot;目标网络&lt;br/&gt;编码器 + 投影头&lt;br/&gt;EMA 更新&quot;]
+    D --&gt; F[&quot;预测 q_θ(z_θ)&quot;]
+    E --&gt; G[&quot;目标 sg(z_ξ)&lt;br/&gt;stop-gradient&quot;]
+    F --&gt; H[&quot;MSE 损失&lt;br/&gt;无负样本&quot;]
+    G --&gt; H
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>双网络结构</strong>：</li>
+<li><strong>在线网络（Online）</strong>：编码器 + 投影头 + <strong>预测器（Predictor）</strong></li>
+<li><strong>目标网络（Target）</strong>：编码器 + 投影头（参数用在线网络的 EMA 更新）</li>
+<li><strong>损失函数</strong>：在线网络的预测与目标网络输出之间的 MSE（归一化后）：
+  $$\mathcal{L} = |q_\theta(z_\theta) - \text{sg}(z_\xi)|_2^2$$
+  其中 $\text{sg}$ 是 stop-gradient。</li>
+<li><strong>为何不崩溃</strong>：预测器 + EMA 目标网络的<strong>不对称性</strong>是关键。若去掉预测器，会表示崩溃。</li>
+<li><strong>性能</strong>：ImageNet 线性评估 74.3%（ResNet-50）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>挑战「负样本必要」的共识，催生 SimSiam、DINO 等一批无负样本方法。</li>
+</ul>
+<hr />
+<h3>10. SWaV (2020) — 聚类对比学习</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>聚类</strong>替代实例判别：将样本分配到 $K$ 个聚类原型，用<strong>最优传输（Sinkhorn-Knopp）</strong>保证聚类均衡，实现「聚类级」对比学习。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;图像 x&quot;] --&gt; B[&quot;多裁剪增强&lt;br/&gt;2 大 + 6 小&quot;]
+    B --&gt; C[&quot;编码器 + 投影头&quot;]
+    C --&gt; D[&quot;特征 z&quot;]
+    P[&quot;K 个可学习&lt;br/&gt;聚类原型&quot;] --&gt; E[&quot;聚类分配&lt;br/&gt;Sinkhorn-Knopp 均衡&quot;]
+    D --&gt; E
+    E --&gt; F[&quot;交换预测损失&lt;br/&gt;视图 1 的分配&lt;br/&gt;预测视图 2 的分配&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>聚类原型</strong>：$K$ 个可学习的原型向量（如 3000 个）。</li>
+<li><strong>双损失</strong>：</li>
+<li><strong>SwAV 损失</strong>：同一图像的两个视图，一个视图的聚类分配预测另一个视图的分配（交换预测）。</li>
+<li><strong>多裁剪（Multi-crop）</strong>：2 个大裁剪 + 6 个小裁剪，增加正样本对。</li>
+<li><strong>Sinkhorn-Knopp 算法</strong>：强制每个 batch 内聚类分配均衡（避免所有样本聚到一类）。</li>
+<li><strong>无需负样本对</strong>：聚类原型天然提供对比信号。</li>
+<li><strong>性能</strong>：ImageNet 线性评估 75.3%，且训练更快（无需大 batch）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出「聚类 + 对比」的混合范式，多裁剪策略被广泛采用。</li>
+</ul>
+<hr />
+<h3>11. SimSiam (2020) — 化繁为简的孪生表征学习</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>极简</strong>：不需要负样本、不需要大 batch、不需要动量编码器，只需<strong>孪生网络 + 预测器 + stop-gradient</strong>。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;图像 x&quot;] --&gt; B[&quot;增强 1&quot;]
+    A --&gt; C[&quot;增强 2&quot;]
+    B --&gt; D[&quot;编码器 f + 预测器 h&quot;]
+    C --&gt; E[&quot;编码器 f&lt;br/&gt;共享权重&quot;]
+    D --&gt; F[&quot;p_1&quot;]
+    E --&gt; G[&quot;sg(z_2)&lt;br/&gt;stop-gradient&quot;]
+    C --&gt; H[&quot;编码器 f + 预测器 h&quot;]
+    B --&gt; I[&quot;编码器 f&lt;br/&gt;共享权重&quot;]
+    H --&gt; J[&quot;p_2&quot;]
+    I --&gt; K[&quot;sg(z_1)&lt;br/&gt;stop-gradient&quot;]
+    F --&gt; L[&quot;负余弦相似度&lt;br/&gt;对称损失&quot;]
+    G --&gt; L
+    J --&gt; L
+    K --&gt; L
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>结构</strong>：同一编码器处理两个视图，一侧接预测器，另一侧 stop-gradient。</li>
+<li><strong>损失</strong>：$\mathcal{L} = -\frac{1}{2}\left(\mathcal{D}(p_1, \text{sg}(z_2)) + \mathcal{D}(p_2, \text{sg}(z_1))\right)$，$\mathcal{D}$ 是余弦相似度。</li>
+<li><strong>崩溃的避免</strong>：stop-gradient 是关键。论文用<strong>期望最大化（EM）</strong>视角解释：stop-gradient 相当于固定一侧优化另一侧。</li>
+<li><strong>消融实验</strong>：去掉 stop-gradient 立即崩溃；去掉预测器也崩溃。</li>
+<li><strong>性能</strong>：ImageNet 线性评估 68.1%（batch 256，100 epoch）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>用最简结构揭示对比学习的本质，理论价值高。</li>
+</ul>
+<hr />
+<h3>12. MoCo v3 (2021) — 如何更稳定地自监督训练 ViT</h3>
+<p><strong>核心思想</strong></p>
+<p>将 MoCo 框架用于 <strong>ViT</strong>，并解决 ViT 自监督训练<strong>不稳定</strong>的问题。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;图像 x&quot;] --&gt; B[&quot;增强 1&quot;]
+    A --&gt; C[&quot;增强 2&quot;]
+    B --&gt; D[&quot;在线网络&lt;br/&gt;ViT + 投影头&quot;]
+    C --&gt; E[&quot;动量网络&lt;br/&gt;ViT + 投影头&lt;br/&gt;EMA&quot;]
+    D --&gt; F[&quot;q&quot;]
+    E --&gt; G[&quot;k&quot;]
+    F --&gt; H[&quot;对称 InfoNCE&lt;br/&gt;两视图都过在线网络&quot;]
+    G --&gt; H
+    P[&quot;Patch Projection 层&lt;br/&gt;冻结不更新&quot;] -.-&gt;|&quot;稳定训练&quot;| D
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>不稳定现象</strong>：训练中期损失突然上升，精度骤降。</li>
+<li><strong>根因分析</strong>：ViT 的 <strong>patch projection 层</strong>（第一个卷积/线性层）梯度波动大。</li>
+<li><strong>解决方案</strong>：<strong>冻结 patch projection 层</strong>（随机初始化后不更新），训练立即稳定。</li>
+<li><strong>对称损失</strong>：两个视图都过在线网络（而非一正一副），提升效果。</li>
+<li><strong>性能</strong>：ViT-B 线性评估 76.7%，ViT-L 77.6%。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>为 ViT 自监督训练提供实用技巧，推动 ViT 在自监督领域应用。</li>
+</ul>
+<hr />
+<h3>13. DINO (2021) — Transformer 加自监督在视觉也很香</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>自蒸馏 + 无标签</strong>：学生网络预测教师网络（EMA）的输出，用<strong>中心化 + 锐化</strong>避免崩溃。在 ViT 上效果极佳，且注意力图能自动分割物体。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;图像 x&quot;] --&gt; B[&quot;多裁剪&lt;br/&gt;2 全局 + 10 局部&quot;]
+    B --&gt; C[&quot;学生网络&lt;br/&gt;ViT + MLP&quot;]
+    B --&gt; D[&quot;教师网络&lt;br/&gt;ViT + MLP&lt;br/&gt;EMA 更新&quot;]
+    C --&gt; E[&quot;学生 softmax&lt;br/&gt;τ_s = 0.1&quot;]
+    D --&gt; F[&quot;教师 softmax&lt;br/&gt;τ_t = 0.04 锐化&quot;]
+    F --&gt; G[&quot;中心化&lt;br/&gt;减均值&quot;]
+    G --&gt; H[&quot;交叉熵损失&lt;br/&gt;学生预测教师分布&quot;]
+    E --&gt; H
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>自蒸馏框架</strong>：学生和教师结构相同，教师用 EMA 更新。</li>
+<li><strong>损失函数</strong>：交叉熵（学生 softmax 预测教师 softmax 分布），温度不同：
+  $$\mathcal{L} = -\sum P_t(x) \log P_s(x)$$
+  教师温度 $\tau_t = 0.04$（锐化），学生 $\tau_s = 0.1$。</li>
+<li><strong>中心化（Centering）</strong>：减去教师输出的均值，防止某一维主导。</li>
+<li><strong>锐化（Sharpening）</strong>：低温度使分布尖锐，防止均匀分布。</li>
+<li><strong>多裁剪策略</strong>：2 全局 + 10 局部裁剪。</li>
+<li><strong>涌现能力</strong>：ViT 的<strong>自注意力图自动聚焦于语义物体</strong>，无需分割监督即可做无监督分割。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>无监督 ViT 特征质量达到新高度，催生 DINOv2。</li>
+<li>揭示自监督 ViT 的注意力具有语义可解释性。</li>
+</ul>
+<hr />
+<h3>14. DINOv2 (2023) — 通用视觉特征</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>精心策划的数据 + 改进的自监督方法</strong>训练「通用视觉基础模型」，特征无需微调即可用于分类、分割、深度估计等任务。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;LVD-142M&lt;br/&gt;1.42 亿精选图像&quot;] --&gt; B[&quot;学生网络&lt;br/&gt;ViT-S/B/L/g&quot;]
+    A --&gt; C[&quot;教师网络&lt;br/&gt;EMA&quot;]
+    B --&gt; D[&quot;DINO 损失&lt;br/&gt;全局特征对齐&quot;]
+    B --&gt; E[&quot;iBOT 损失&lt;br/&gt;掩码图像建模&quot;]
+    C --&gt; D
+    C --&gt; E
+    D --&gt; F[&quot;通用视觉特征&lt;br/&gt;无需微调&quot;]
+    E --&gt; F
+    F --&gt; G[&quot;分类 / 分割 / 深度&lt;br/&gt;检测 / 检索&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>数据策划</strong>：用自建 pipeline 从网络爬取 1.42 亿张高质量图像（LVD-142M），用聚类保证多样性。</li>
+<li><strong>方法改进</strong>：</li>
+<li><strong>DINO 损失 + iBOT 掩码图像建模损失</strong>联合训练</li>
+<li><strong>Sinkhorn-Knopp 中心化</strong>替代移动平均中心化</li>
+<li><strong>可学习的位置编码插值</strong>适应不同分辨率</li>
+<li><strong>短时高频训练 + 长时低频训练</strong>两阶段</li>
+<li><strong>模型规模</strong>：ViT-S/B/L/g（最大 11 亿参数）。</li>
+<li><strong>蒸馏</strong>：将大模型蒸馏到小模型，保持性能。</li>
+<li><strong>性能</strong>：多数任务上超越 OpenCLIP，且无需微调。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提供「开箱即用」的视觉特征，成为视觉基础模型的重要代表。</li>
+</ul>
+<hr />
+<h2>六、计算机视觉 - 视频理解</h2>
+<h3>1. DeepVideo (2014) — 提出 Sports-1M 数据集</h3>
+<p><strong>核心思想</strong></p>
+<p>首次将<strong>深度学习</strong>系统应用于视频理解，并发布 <strong>Sports-1M</strong> 大规模视频数据集（100 万视频、487 类体育动作）。</p>
+<pre class="mermaid">flowchart TD
+    V[&quot;视频&quot;] --&gt; A[&quot;单帧&lt;br/&gt;Single Frame&quot;]
+    V --&gt; B[&quot;晚期融合&lt;br/&gt;Late Fusion&lt;br/&gt;相隔 15 帧&quot;]
+    V --&gt; C[&quot;早期融合&lt;br/&gt;Early Fusion&lt;br/&gt;首层拼接&quot;]
+    A --&gt; D[&quot;CNN 分类&quot;]
+    B --&gt; E[&quot;两个 CNN&lt;br/&gt;最后融合&quot;]
+    C --&gt; F[&quot;首层拼接多帧&lt;br/&gt;再 CNN&quot;]
+    D --&gt; G[&quot;平均预测&quot;]
+    E --&gt; G
+    F --&gt; G
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>数据集</strong>：100 万 YouTube 视频，487 个体育类别，自动标注。</li>
+<li><strong>三种融合方式</strong>：</li>
+<li><strong>单帧（Single Frame）</strong>：每帧独立分类，再平均</li>
+<li><strong>晚期融合（Late Fusion）</strong>：两个网络分别处理相隔 15 帧的图像，最后融合</li>
+<li><strong>早期融合（Early Fusion）</strong>：首层就拼接多帧</li>
+<li><strong>结论</strong>：单帧 + 晚期融合效果最好，说明<strong>运动信息未被有效利用</strong>。</li>
+<li><strong>局限</strong>：简单堆叠帧无法建模长时序依赖。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提供大规模视频数据集，推动视频理解研究。</li>
+<li>揭示「如何建模时序」是核心难题。</li>
+</ul>
+<hr />
+<h3>2. Two-Stream (2014) — 引入光流做时序建模</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>双流架构</strong>：一路处理 <strong>RGB 单帧</strong>（外观），一路处理<strong>光流图</strong>（运动），两路融合。这是神经网络首次在视频任务上超越手工特征。</p>
+<pre class="mermaid">flowchart LR
+    V[&quot;视频&quot;] --&gt; A[&quot;空间流&lt;br/&gt;RGB 单帧&quot;]
+    V --&gt; B[&quot;时间流&lt;br/&gt;L 帧光流图&quot;]
+    A --&gt; C[&quot;CNN&lt;br/&gt;外观特征&quot;]
+    B --&gt; D[&quot;CNN&lt;br/&gt;运动特征&quot;]
+    C --&gt; E[&quot;融合&lt;br/&gt;平均 / SVM&quot;]
+    D --&gt; E
+    E --&gt; F[&quot;动作分类&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>空间流（Spatial Stream）</strong>：单帧 RGB，捕捉场景与物体外观。</li>
+<li><strong>时间流（Temporal Stream）</strong>：堆叠的光流位移场（$L$ 帧光流），捕捉运动信息。</li>
+<li><strong>光流计算</strong>：用 TV-L1 算法预计算。</li>
+<li><strong>融合策略</strong>：平均、SVM、堆叠等，<strong>平均</strong>最简单有效。</li>
+<li><strong>训练技巧</strong>：多任务（分类 + 光流）、多尺度裁剪、dropout。</li>
+<li><strong>性能</strong>：UCF-101 准确率 88.0%（超越手工特征 iDT 的 85.9%）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>双流架构成为视频理解的经典范式，后续 TSN、I3D 等均受启发。</li>
+<li>光流成为视频理解的重要输入。</li>
+</ul>
+<hr />
+<h3>3. C3D (2014) — 比较深的 3D-CNN</h3>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>3D 卷积</strong>同时建模空间和时间：卷积核是 $3 \times 3 \times 3$（时间 × 高 × 宽），直接从视频片段学习时空特征。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;视频片段&lt;br/&gt;16×112×112&quot;] --&gt; B[&quot;Conv3D 3×3×3&lt;br/&gt;64 通道&quot;]
+    B --&gt; C[&quot;MaxPool3D&quot;]
+    C --&gt; D[&quot;Conv3D ×2&lt;br/&gt;128 通道&quot;]
+    D --&gt; E[&quot;MaxPool3D&quot;]
+    E --&gt; F[&quot;Conv3D ×2&lt;br/&gt;256 通道&quot;]
+    F --&gt; G[&quot;MaxPool3D&quot;]
+    G --&gt; H[&quot;Conv3D ×2&lt;br/&gt;512 通道&quot;]
+    H --&gt; I[&quot;FC 4096&quot;]
+    I --&gt; J[&quot;FC 4096&quot;]
+    J --&gt; K[&quot;动作分类&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>3D 卷积 vs 2D 卷积</strong>：</li>
+<li>2D 卷积：$k \times k$，只处理空间</li>
+<li>3D 卷积：$d \times k \times k$，同时处理时间与空间</li>
+<li><strong>网络结构</strong>：8 层卷积 + 5 层池化 + 2 层全连接，所有卷积核为 $3 \times 3 \times 3$，步长 1。</li>
+<li><strong>输入</strong>：16 帧连续视频片段（$16 \times 112 \times 112$）。</li>
+<li><strong>优势</strong>：</li>
+<li>3D 卷积保留时序信息</li>
+<li>可同时学习外观与运动</li>
+<li>特征通用性强（C3D 特征可用于动作识别、检索、场景识别）</li>
+<li><strong>性能</strong>：UCF-101 准确率 85.2%。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明 3D 卷积的有效性，开启 3D-CNN 时代。</li>
+<li>C3D 特征成为视频领域的「通用特征」。</li>
+</ul>
+<hr />
+<h3>4. Beyond Short Snippets (2015) — 尝试使用 LSTM</h3>
+<p><strong>核心思想</strong></p>
+<p>C3D 只能处理短片段（16 帧），无法建模<strong>长时序依赖</strong>。该工作用 <strong>LSTM</strong> 聚合 CNN 特征，建模长视频。</p>
+<pre class="mermaid">flowchart LR
+    V[&quot;长视频&quot;] --&gt; A[&quot;逐帧 / 片段&quot;]
+    A --&gt; B[&quot;CNN 特征提取&lt;br/&gt;每帧一个特征&quot;]
+    B --&gt; C[&quot;LSTM / ConvLSTM&lt;br/&gt;时序建模&quot;]
+    C --&gt; D[&quot;最后隐状态&lt;br/&gt;或平均池化&quot;]
+    D --&gt; E[&quot;动作分类&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>CNN + LSTM 架构</strong>：CNN 提取每帧/片段特征，LSTM 建模时序演化。</li>
+<li><strong>多种 LSTM 变体</strong>：</li>
+<li><strong>LSTM</strong>：标准长短期记忆</li>
+<li><strong>ConvLSTM</strong>：卷积 LSTM，保留空间结构</li>
+<li><strong>ConvGRU</strong>：卷积门控循环单元</li>
+<li><strong>池化策略</strong>：LSTM 最后隐状态 vs 平均池化。</li>
+<li><strong>性能</strong>：Sports-1M 上 73.1%（超越 DeepVideo 的 63.9%）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>首次系统探索 RNN 在视频理解中的应用。</li>
+<li>后续被 3D 卷积和 Transformer 取代，但思想影响深远。</li>
+</ul>
+<hr />
+<h3>5. Convolutional Fusion (2016) — 做 Early Fusion 来加强时空间建模</h3>
+<p><strong>核心思想</strong></p>
+<p>系统研究<strong>何时融合</strong>时空信息：早期融合（首层）、中期融合、晚期融合，发现<strong>早期融合</strong>在 3D 卷积中效果最好。</p>
+<pre class="mermaid">flowchart TD
+    A[&quot;多帧输入&quot;] --&gt; B[&quot;早期融合&lt;br/&gt;首层 3D 卷积&quot;]
+    A --&gt; C[&quot;晚期融合&lt;br/&gt;各帧独立 CNN&lt;br/&gt;最后融合&quot;]
+    A --&gt; D[&quot;慢融合&lt;br/&gt;中间层逐步融合&quot;]
+    B --&gt; E[&quot;对比结论&lt;br/&gt;早期融合最优&quot;]
+    C --&gt; E
+    D --&gt; E
+    E --&gt; F[&quot;UCF-101 82.6%&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>融合位置对比</strong>：</li>
+<li><strong>早期融合</strong>：首层就用 3D 卷积处理多帧</li>
+<li><strong>晚期融合</strong>：各帧独立处理，最后融合</li>
+<li><strong>慢融合</strong>：中间层逐步融合</li>
+<li><strong>结论</strong>：早期融合（3D 卷积）效果最好，因为能在底层就捕捉运动。</li>
+<li><strong>网络设计</strong>：VGG 式 3D 网络，输入 10 帧。</li>
+<li><strong>性能</strong>：UCF-101 准确率 82.6%。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>为 3D 卷积设计提供实证依据，推动 I3D 等工作。</li>
+</ul>
+<hr />
+<h3>6. TSN (2016) — 超级有效的视频分段建模</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>稀疏采样 + 分段聚合</strong>：将视频分成 $K$ 段，每段随机采样一帧，分别预测后聚合。用极低成本实现长时序建模。</p>
+<pre class="mermaid">flowchart LR
+    V[&quot;长视频&quot;] --&gt; S1[&quot;段 1&quot;]
+    V --&gt; S2[&quot;段 2&quot;]
+    V --&gt; S3[&quot;段 K&quot;]
+    S1 --&gt;|&quot;随机采样 1 帧&quot;| F1[&quot;帧 1&quot;]
+    S2 --&gt;|&quot;随机采样 1 帧&quot;| F2[&quot;帧 2&quot;]
+    S3 --&gt;|&quot;随机采样 1 帧&quot;| F3[&quot;帧 K&quot;]
+    F1 --&gt; C1[&quot;CNN 预测&quot;]
+    F2 --&gt; C2[&quot;CNN 预测&quot;]
+    F3 --&gt; C3[&quot;CNN 预测&quot;]
+    C1 --&gt; A[&quot;分段共识&lt;br/&gt;分数平均&quot;]
+    C2 --&gt; A
+    C3 --&gt; A
+    A --&gt; O[&quot;视频分类&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>稀疏时间采样</strong>：从整段视频均匀分 $K$ 段（如 3、5、7 段），每段随机取一帧。</li>
+<li><strong>分段共识（Segment Consensus）</strong>：$K$ 个片段的分类分数平均，作为视频预测。</li>
+<li><strong>双流扩展</strong>：RGB + 光流双流，各自分段聚合。</li>
+<li><strong>数据增强（Bag of Tricks）</strong>：</li>
+<li>角裁剪、尺度抖动、比例抖动</li>
+<li>部分 BN、高学习率、多 GPU BN</li>
+<li><strong>性能</strong>：UCF-101 94.2%，HMDB-51 69.4%（当时 SOTA）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出高效的长时序建模方案，成为视频理解的标配。</li>
+<li>「Bag of Tricks」总结了视频训练的实用技巧。</li>
+</ul>
+<hr />
+<h3>7. I3D (2017) — 提出 Kinetics 数据集，膨胀 2D 网络到 3D</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>膨胀（Inflation）</strong>：将预训练的 2D 卷积核「膨胀」为 3D（时间维复制），从而<strong>利用 ImageNet 预训练权重</strong>初始化 3D 网络。同时发布 <strong>Kinetics</strong> 数据集。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;2D 卷积核&lt;br/&gt;N×N&lt;br/&gt;ImageNet 预训练&quot;] --&gt;|&quot;时间维复制&lt;br/&gt;÷ N&quot;| B[&quot;3D 卷积核&lt;br/&gt;N×N×N&quot;]
+    B --&gt; C[&quot;I3D 网络&lt;br/&gt;Inflated Inception&quot;]
+    V[&quot;视频片段&quot;] --&gt; C
+    C --&gt; D[&quot;双流&lt;br/&gt;RGB + 光流&quot;]
+    D --&gt; E[&quot;动作分类&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>膨胀 2D 卷积</strong>：</li>
+<li>2D 卷积核 $N \times N$ → 3D 卷积核 $N \times N \times N$（时间维复制初始权重）</li>
+<li>除以 $N$ 保持激活值尺度不变</li>
+<li><strong>双流膨胀</strong>：RGB 流 + 光流流都用 I3D。</li>
+<li><strong>Kinetics 数据集</strong>：400 类、30 万视频，规模远超 UCF-101。</li>
+<li><strong>性能</strong>：Kinetics 上 71.1%（RGB）、UCF-101 98.0%（双流）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>解决 3D 网络难以预训练的问题，开启 3D-CNN 时代。</li>
+<li>Kinetics 成为视频理解的标准基准数据集。</li>
+</ul>
+<hr />
+<h3>8. R(2+1)D (2017) — 拆分 3D 卷积核</h3>
+<p><strong>核心思想</strong></p>
+<p>将 3D 卷积<strong>分解为 2D 空间卷积 + 1D 时间卷积</strong>，在保持表达能力的同时减少参数、增加非线性、便于优化。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;3D 卷积&lt;br/&gt;d×k×k&quot;] --&gt; B[&quot;分解&quot;]
+    B --&gt; C[&quot;2D 空间卷积&lt;br/&gt;1×k×k&quot;]
+    C --&gt; D[&quot;ReLU&lt;br/&gt;额外非线性&quot;]
+    D --&gt; E[&quot;1D 时间卷积&lt;br/&gt;d×1×1&quot;]
+    E --&gt; F[&quot;输出&quot;]
+    G[&quot;参数量&lt;br/&gt;M·N·d·k²&quot;] -.-&gt;|&quot;对比&quot;| H[&quot;3D 参数量&lt;br/&gt;M·N·d·k³&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>分解</strong>：$N \times N \times N$ 3D 卷积 → $1 \times N \times N$（空间）+ $N \times 1 \times 1$（时间）</li>
+<li><strong>参数量对比</strong>（输入输出通道 $M$、$N_i$）：</li>
+<li>3D：$M N_i N^3$</li>
+<li>分解：$M N_i N^2 + M N_i N$</li>
+<li><strong>优势</strong>：</li>
+<li>中间多了一次 ReLU，非线性更强</li>
+<li>优化更容易（论文用实验证明）</li>
+<li>精度更高（Sports-1M 上 3D 为 55.9%，R(2+1)D 为 56.8%）</li>
+<li><strong>性能</strong>：Kinetics 上 73.9%（RGB）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出高效的 3D 卷积分解方案，被后续工作广泛采用。</li>
+</ul>
+<hr />
+<h3>9. Non-local (2017) — 引入自注意力做视觉问题</h3>
+<p><strong>核心思想</strong></p>
+<p>卷积是<strong>局部操作</strong>，感受野有限。Non-local 引入<strong>自注意力</strong>，让每个位置直接与所有位置交互，建模<strong>长距离依赖</strong>。</p>
+<pre class="mermaid">flowchart LR
+    X[&quot;输入特征 x&quot;] --&gt; T[&quot;θ 变换&quot;]
+    X --&gt; P[&quot;φ 变换&quot;]
+    X --&gt; G[&quot;g 变换&quot;]
+    T --&gt; S[&quot;相似度矩阵&lt;br/&gt;θ(x_i)ᵀ φ(x_j)&quot;]
+    P --&gt; S
+    S --&gt; SM[&quot;Softmax 归一化&quot;]
+    SM --&gt; M[&quot;加权聚合&quot;]
+    G --&gt; M
+    M --&gt; R[&quot;+ 残差连接&quot;]
+    X --&gt; R
+    R --&gt; O[&quot;输出 y&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>Non-local 块</strong>：
+  $$y_i = \frac{1}{\mathcal{C}(x)}\sum_{\forall j} f(x_i, x_j) g(x_j)$$
+  其中 $f$ 是相似度函数，$g$ 是变换函数，$\mathcal{C}$ 是归一化。</li>
+<li><strong>四种 $f$ 的实现</strong>：高斯、嵌入高斯、点积、拼接。<strong>嵌入高斯</strong>最常用：
+  $$f(x_i,x_j) = e^{\theta(x_i)^T \phi(x_j)}$$</li>
+<li><strong>即插即用</strong>：可插入任何 CNN 架构（ResNet、C3D 等）。</li>
+<li><strong>与自注意力的关系</strong>：Non-local 块本质就是<strong>自注意力</strong>，比 Transformer 早几个月。</li>
+<li><strong>性能</strong>：视频分类、检测、分割任务均有提升。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>将自注意力引入视觉，为 Vision Transformer 铺路。</li>
+<li>是「卷积 + 注意力」混合架构的先驱。</li>
+</ul>
+<hr />
+<h3>10. SlowFast (2018) — 快慢两支提升效率</h3>
+<p><strong>核心思想</strong></p>
+<p>借鉴生物视觉的<strong>双路径</strong>机制：<strong>Slow 路径</strong>低帧率、高通道数（捕捉语义/外观），<strong>Fast 路径</strong>高帧率、低通道数（捕捉快速运动）。</p>
+<pre class="mermaid">flowchart LR
+    V[&quot;视频&quot;] --&gt; S[&quot;Slow 路径&lt;br/&gt;帧率 τ = 4&lt;br/&gt;通道 C = 64&quot;]
+    V --&gt; F[&quot;Fast 路径&lt;br/&gt;帧率 8τ&lt;br/&gt;通道 C/8&quot;]
+    S --&gt; S1[&quot;3D 卷积&lt;br/&gt;空间语义&quot;]
+    F --&gt; F1[&quot;3D 卷积&lt;br/&gt;快速运动&quot;]
+    F1 --&gt;|&quot;侧向连接&lt;br/&gt;时间步长卷积&quot;| S1
+    S1 --&gt; O[&quot;动作分类 / 检测&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>Slow 路径</strong>：帧率 $\tau$（如 4 帧/秒），通道数 $C$（如 64），处理空间语义。</li>
+<li><strong>Fast 路径</strong>：帧率 $\alpha\tau$（$\alpha = 8$），通道数 $C/\beta$（$\beta = 8$），轻量但时间分辨率高。</li>
+<li><strong>侧向连接（Lateral Connection）</strong>：将 Fast 路径特征融合到 Slow 路径，用<strong>时间步长卷积</strong>对齐时间维度。</li>
+<li><strong>设计原则</strong>：</li>
+<li>Fast 路径通道少（1/8），因为运动信息维度低</li>
+<li>Fast 路径计算量占比小（约 20%）</li>
+<li><strong>性能</strong>：Kinetics-400 79.0%（当时 SOTA），AVA 动作检测 28.3 mAP。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出高效的双路径视频建模方案，成为视频理解主流架构之一。</li>
+</ul>
+<hr />
+<h3>11. TimeSformer (2021) — 视频中第一个引入 Transformer</h3>
+<p><strong>核心思想</strong></p>
+<p>将 <strong>ViT 扩展到视频</strong>：把视频切成时空 patch，用<strong>时空注意力</strong>建模。系统比较了多种注意力设计，发现<strong>时空分离注意力</strong>效果最好且效率最高。</p>
+<pre class="mermaid">flowchart LR
+    V[&quot;视频&lt;br/&gt;T×H×W&quot;] --&gt; P[&quot;时空 Patch 化&lt;br/&gt;T × H/P × W/P&quot;]
+    P --&gt; E[&quot;线性嵌入&lt;br/&gt;+ 时空位置编码&quot;]
+    E --&gt; B[&quot;Transformer Block × L&quot;]
+    B --&gt; O[&quot;分类头&quot;]
+    subgraph B1[&quot;Divided Space-Time Attention&quot;]
+        A1[&quot;时间注意力&lt;br/&gt;同一空间位置跨帧&quot;] --&gt; A2[&quot;空间注意力&lt;br/&gt;同一帧内跨位置&quot;]
+    end
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>时空 patch 化</strong>：视频 $T \times H \times W$ 切成 $T \times (H/P) \times (W/P)$ 个 patch。</li>
+<li><strong>五种注意力设计对比</strong>：</li>
+<li><strong>Space-Time</strong>：所有 patch 全连接（$O(T^2 H^2 W^2)$，太贵）</li>
+<li><strong>Time-Space</strong>：先时间后空间</li>
+<li><strong>Divided Space-Time</strong>：<strong>时空分离</strong>（每层只做空间或时间注意力）</li>
+<li><strong>Sparse Local Global</strong>：局部 + 全局</li>
+<li><strong>Axial</strong>：轴向注意力</li>
+<li><strong>最佳方案</strong>：<strong>Divided Space-Time Attention</strong>，复杂度从 $O(T^2 H^2 W^2)$ 降到 $O(T H^2 W^2 + T^2 H W)$。</li>
+<li><strong>性能</strong>：Kinetics-400 78.0%（仅用 RGB，无光流），训练更快。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开启 Video Transformer 时代，后续 VideoMAE、ViViT 等跟进。</li>
+<li>证明 Transformer 在视频领域同样有效。</li>
+</ul>
+<hr />
+<h2>七、多模态学习</h2>
+<h3>1. CLIP (2021) — 图片和文本之间的对比学习</h3>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>4 亿图文对</strong>做<strong>对比学习</strong>：匹配的图文对在嵌入空间中靠近，不匹配的远离。训练后的模型可<strong>零样本</strong>迁移到任意分类任务。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; IE[&quot;图像编码器&lt;br/&gt;ViT / ResNet&quot;]
+    T[&quot;文本&lt;br/&gt;a photo of a cat&quot;] --&gt; TE[&quot;文本编码器&lt;br/&gt;Transformer&quot;]
+    IE --&gt; IV[&quot;图像嵌入 I₁...I_N&quot;]
+    TE --&gt; TV[&quot;文本嵌入 T₁...T_N&quot;]
+    IV --&gt; S[&quot;余弦相似度矩阵&lt;br/&gt;N×N&quot;]
+    TV --&gt; S
+    S --&gt; L[&quot;对称 InfoNCE 损失&lt;br/&gt;对角线为正样本&quot;]
+    S --&gt; Z[&quot;零样本分类&lt;br/&gt;与类别文本比对&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>双塔架构</strong>：图像编码器（ViT 或 ResNet）+ 文本编码器（Transformer）。</li>
+<li><strong>对比损失（InfoNCE）</strong>：batch 内 $N$ 个图文对，$N^2$ 个组合中只有 $N$ 个正样本：
+  $$\mathcal{L} = \frac{1}{2}\left(\mathcal{L}<em _to="\to" i="i" t="t">{i \to t} + \mathcal{L}</em>\right)$$</li>
+<li><strong>零样本分类</strong>：将类别名转为文本提示（如 "a photo of a {class}"），计算图像嵌入与所有文本嵌入的相似度，取最高。</li>
+<li><strong>提示工程（Prompt Engineering）</strong>：<code>"a photo of a {class}"</code> 比直接用类名提升 1.3%；集成多个提示再提升。</li>
+<li><strong>数据规模</strong>：400M 图文对（WIT 数据集）。</li>
+<li><strong>鲁棒性</strong>：在 ImageNet 变体（ImageNet-R/A/Sketch）上零样本性能超越有监督 ResNet-50。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开创视觉-语言预训练范式，成为多模态领域的基石。</li>
+<li>零样本能力颠覆了传统「预训练 + 微调」范式。</li>
+</ul>
+<hr />
+<h3>2. ViLT (2021) — 第一个摆脱目标检测的视觉文本模型</h3>
+<p><strong>核心思想</strong></p>
+<p>此前的 VLP 模型（如 ViLBERT、LXMERT）都用 <strong>Faster R-CNN 提取区域特征</strong>，速度慢且依赖检测器。ViLT 直接用 <strong>patch embedding</strong>（像 ViT 一样），实现极简、极快的多模态模型。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; P[&quot;Patch Embedding&lt;br/&gt;线性投影&quot;]
+    T[&quot;文本&quot;] --&gt; W[&quot;Word Embedding&quot;]
+    P --&gt; C[&quot;拼接序列&lt;br/&gt;+ 位置编码&quot;]
+    W --&gt; C
+    C --&gt; TR[&quot;单个 Transformer&lt;br/&gt;模态内部自注意力交互&quot;]
+    TR --&gt; H1[&quot;ITM 头&lt;br/&gt;图文匹配&quot;]
+    TR --&gt; H2[&quot;MLM 头&lt;br/&gt;掩码词预测&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>极简架构</strong>：图像 patch 线性嵌入 + 文本 token 嵌入 → 拼接 → 单个 Transformer。</li>
+<li><strong>无卷积、无区域特征</strong>：图像处理仅需线性投影，比区域特征快 60 倍。</li>
+<li><strong>模态交互</strong>：在 Transformer 内部通过自注意力实现（而非双流交叉注意力）。</li>
+<li><strong>预训练任务</strong>：</li>
+<li><strong>ITM（图像文本匹配）</strong>：判断图文是否匹配</li>
+<li><strong>MLM（掩码语言建模）</strong>：预测被掩码的词</li>
+<li><strong>WPA（全词掩码）</strong>：掩码整个词</li>
+<li><strong>性能</strong>：VQA 上略低于区域特征模型，但速度快 10 倍以上。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明「无检测器的 VLP」可行，推动多模态模型简化。</li>
+<li>后续 ALBEF、BLIP 等均采用类似思路。</li>
+</ul>
+<hr />
+<h3>3. ViLD (2021) — CLIP 蒸馏帮助开集目标检测</h3>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>CLIP 蒸馏</strong>训练开集（open-vocabulary）目标检测器：让检测器的区域嵌入对齐 CLIP 的文本嵌入，从而识别训练集中未出现的类别。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; D[&quot;检测器&lt;br/&gt;如 Mask R-CNN&quot;]
+    D --&gt; R[&quot;RoI 区域嵌入&quot;]
+    R --&gt; L1[&quot;图像级蒸馏&lt;br/&gt;对齐 CLIP 图像嵌入&quot;]
+    R --&gt; L2[&quot;文本级蒸馏&lt;br/&gt;对齐 CLIP 文本嵌入&quot;]
+    C[&quot;CLIP 图像编码器&quot;] --&gt; L1
+    CT[&quot;CLIP 文本编码器&lt;br/&gt;类别名&quot;] --&gt; L2
+    L2 --&gt; O[&quot;开集检测&lt;br/&gt;任意类别名&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>两阶段蒸馏</strong>：</li>
+<li><strong>区域嵌入对齐</strong>：检测器提取的 RoI 特征，通过蒸馏对齐到 CLIP 图像嵌入空间</li>
+<li><strong>文本嵌入对齐</strong>：用 CLIP 文本编码器编码类别名，作为分类权重</li>
+<li><strong>损失函数</strong>：</li>
+<li>图像级蒸馏：$\mathcal{L}_{img}$ 对齐区域嵌入与 CLIP 图像嵌入</li>
+<li>文本级蒸馏：$\mathcal{L}_{txt}$ 对齐区域嵌入与 CLIP 文本嵌入</li>
+<li><strong>推理</strong>：用 CLIP 文本嵌入作为分类器，支持任意类别名。</li>
+<li><strong>性能</strong>：LVIS 数据集上 mask AP 提升 3.5%（稀有类别提升 5.5%）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开创「CLIP 蒸馏做开集检测」范式，后续 GLIP、Grounding DINO 等跟进。</li>
+</ul>
+<hr />
+<h3>4. GLIP (2021) — 联合目标检测和文本定位</h3>
+<p><strong>核心思想</strong></p>
+<p>将<strong>目标检测统一为视觉-语言对齐任务</strong>：把检测框和短语都表示为 token，用对比学习对齐，实现「检测即定位（grounding）」。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; IE[&quot;图像编码器&quot;]
+    T[&quot;文本&lt;br/&gt;类别名 / 短语&quot;] --&gt; TE[&quot;文本编码器&quot;]
+    IE --&gt; DF[&quot;深度融合&lt;br/&gt;多阶段交互&quot;]
+    TE --&gt; DF
+    DF --&gt; A[&quot;对齐损失&lt;br/&gt;区域-短语对比&quot;]
+    DF --&gt; B[&quot;定位损失&lt;br/&gt;框回归&quot;]
+    A --&gt; O[&quot;检测 + 定位&lt;br/&gt;零样本迁移&quot;]
+    B --&gt; O
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>统一形式化</strong>：</li>
+<li>检测：输入图像，输出框 + 类别</li>
+<li>定位：输入图像 + 文本，输出框</li>
+<li><strong>统一</strong>：输入图像 + 文本（类别名拼接），输出框 + 短语对齐</li>
+<li><strong>深度融合</strong>：图像编码器与文本编码器在<strong>多个阶段</strong>交互（而非仅最后对齐）。</li>
+<li><strong>损失函数</strong>：</li>
+<li><strong>对齐损失</strong>：图像区域与文本短语的对比损失</li>
+<li><strong>定位损失</strong>：框回归</li>
+<li><strong>预训练数据</strong>：用检测数据 + 定位数据联合训练，数据量扩大 10 倍。</li>
+<li><strong>零样本迁移</strong>：COCO 零样本 49.8 AP（超越有监督的 44.0）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>统一检测与定位，实现强大的零样本检测能力。</li>
+<li>后续 GLIPv2 进一步统一检测、定位、分割。</li>
+</ul>
+<hr />
+<h3>5. CLIP4Clip (2021) — 拿 CLIP 直接做视频文本检索</h3>
+<p><strong>核心思想</strong></p>
+<p>将 <strong>CLIP 直接迁移到视频-文本检索</strong>：用 CLIP 编码视频帧和文本，通过时序聚合建模视频表示。</p>
+<pre class="mermaid">flowchart LR
+    V[&quot;视频&quot;] --&gt; F[&quot;逐帧采样&quot;]
+    F --&gt; CE[&quot;CLIP 图像编码器&lt;br/&gt;冻结&quot;]
+    CE --&gt; FT[&quot;帧特征&lt;br/&gt;T × D&quot;]
+    FT --&gt; AGG[&quot;时序聚合&lt;br/&gt;平均 / LSTM / Transformer&quot;]
+    AGG --&gt; VR[&quot;视频表示&quot;]
+    T[&quot;文本&quot;] --&gt; TE[&quot;CLIP 文本编码器&quot;]
+    TE --&gt; TR[&quot;文本表示&quot;]
+    VR --&gt; S[&quot;相似度计算&quot;]
+    TR --&gt; S
+    S --&gt; R[&quot;检索排序&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>视频编码</strong>：每帧用 CLIP 图像编码器提取特征，得到 $T$ 个帧特征。</li>
+<li><strong>三种时序聚合方式</strong>：</li>
+<li><strong>无参数（Mean Pooling）</strong>：帧特征平均</li>
+<li><strong>序列模型（LSTM/Transformer）</strong>：建模时序</li>
+<li><strong>紧密相似度（Tight Trans.)</strong>：帧级与词级细粒度对齐</li>
+<li><strong>相似度计算</strong>：视频表示与文本表示的余弦相似度。</li>
+<li><strong>训练策略</strong>：</li>
+<li><strong>两阶段</strong>：先冻结 CLIP 训练聚合层，再端到端微调</li>
+<li><strong>参数空间残差</strong>：微调时加残差连接，防止灾难性遗忘</li>
+<li><strong>性能</strong>：MSR-VTT 上 R@1 达 44.5%（超越当时 SOTA）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明 CLIP 可有效迁移到视频领域，推动视频-文本检索研究。</li>
+</ul>
+<hr />
+<h3>6. ActionCLIP (2021) — 用多模态对比学习有监督地做视频动作分类</h3>
+<p><strong>核心思想</strong></p>
+<p>将动作识别重构为<strong>多模态对比学习</strong>：用 CLIP 的图文对齐能力，把动作类别名作为文本，与视频特征对齐。</p>
+<pre class="mermaid">flowchart LR
+    V[&quot;视频&quot;] --&gt; F[&quot;逐帧采样&quot;]
+    F --&gt; CE[&quot;CLIP 图像编码器&quot;]
+    CE --&gt; TF[&quot;帧特征&quot;]
+    TF --&gt; TFU[&quot;时序融合&lt;br/&gt;Transformer&quot;]
+    TFU --&gt; VR[&quot;视频表示&quot;]
+    C[&quot;动作类别名&quot;] --&gt; TE[&quot;CLIP 文本编码器&quot;]
+    TE --&gt; TR[&quot;文本表示&quot;]
+    VR --&gt; S[&quot;多模态对比损失&lt;br/&gt;视频-文本对齐&quot;]
+    TR --&gt; S
+    S --&gt; O[&quot;动作分类 / 零样本&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>三模态输入</strong>：视频 + 文本（动作类别名）+ 标签。</li>
+<li><strong>语义预训练</strong>：用 CLIP 的图文对齐能力初始化。</li>
+<li><strong>视频编码</strong>：用 CLIP 图像编码器 + 时序融合（如 Transformer）。</li>
+<li><strong>损失函数</strong>：</li>
+<li><strong>多模态对比损失</strong>：视频特征与文本特征对齐</li>
+<li><strong>相似度损失</strong>：视频与类别的相似度</li>
+<li><strong>零样本/少样本</strong>：支持零样本动作识别（用类别名文本）。</li>
+<li><strong>性能</strong>：Kinetics-400 上 83.8%（超越有监督方法）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>将动作识别纳入多模态框架，实现零样本能力。</li>
+</ul>
+<hr />
+<h3>7. PointCLIP (2021) — 3D 变 2D，巧妙利用 CLIP 做点云</h3>
+<p><strong>核心思想</strong></p>
+<p>CLIP 只在 2D 图像上训练，无法直接处理 3D 点云。PointCLIP 将点云<strong>投影为多视角深度图</strong>，用 CLIP 编码，实现<strong>零样本 3D 分类</strong>。</p>
+<pre class="mermaid">flowchart LR
+    P[&quot;3D 点云&quot;] --&gt; PR[&quot;多视角投影&lt;br/&gt;深度图 × M&quot;]
+    PR --&gt; CE[&quot;CLIP 图像编码器&lt;br/&gt;冻结&quot;]
+    CE --&gt; F[&quot;视角特征&quot;]
+    F --&gt; GCN[&quot;GCN 视角间建模&lt;br/&gt;全局-局部对齐&quot;]
+    GCN --&gt; AGG[&quot;多视角聚合&quot;]
+    T[&quot;类别文本&quot;] --&gt; TE[&quot;CLIP 文本编码器&quot;]
+    TE --&gt; TR[&quot;文本嵌入&quot;]
+    AGG --&gt; S[&quot;相似度比对&quot;]
+    TR --&gt; S
+    S --&gt; O[&quot;零样本 3D 分类&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>点云 → 深度图</strong>：将 3D 点云从多个视角投影为深度图（2D）。</li>
+<li><strong>CLIP 编码</strong>：深度图送入 CLIP 图像编码器（虽然 CLIP 没见过深度图，但仍有迁移能力）。</li>
+<li><strong>多视角聚合</strong>：多个视角的预测结果加权聚合。</li>
+<li><strong>全局-局部对齐</strong>：用图卷积网络（GCN）建模视角间关系，提升聚合效果。</li>
+<li><strong>零样本性能</strong>：ModelNet40 上 20.2%（无需任何 3D 训练数据）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>首次将 CLIP 用于 3D 点云，开创 3D 多模态学习。</li>
+<li>后续 ULIP、PointCLIP V2 等跟进。</li>
+</ul>
+<hr />
+<h3>8. LSeg (2022) — 有监督的开集分割</h3>
+<p><strong>核心思想</strong></p>
+<p>用 CLIP 的文本嵌入作为<strong>像素级分类器</strong>，实现<strong>语言驱动的语义分割</strong>：给定任意文本描述，分割出对应区域。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; IE[&quot;图像编码器&quot;]
+    IE --&gt; PE[&quot;像素级嵌入&lt;br/&gt;H×W×D&quot;]
+    T[&quot;文本描述&lt;br/&gt;如 the wheel&quot;] --&gt; TE[&quot;CLIP 文本编码器&lt;br/&gt;冻结&quot;]
+    TE --&gt; TX[&quot;文本嵌入&quot;]
+    PE --&gt; S[&quot;像素-文本相似度&quot;]
+    TX --&gt; S
+    S --&gt; O[&quot;分割掩码&lt;br/&gt;支持零样本类别&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>像素-文本对齐</strong>：图像编码器输出像素级嵌入，与 CLIP 文本嵌入计算相似度。</li>
+<li><strong>训练</strong>：用有标注的分割数据，让像素嵌入对齐对应类别的文本嵌入。</li>
+<li><strong>损失函数</strong>：像素级交叉熵 + 类别内/间对比损失。</li>
+<li><strong>零样本能力</strong>：可分割训练集中未出现的类别（如 "the wheel"）。</li>
+<li><strong>性能</strong>：PASCAL-5i 上零样本 mIoU 提升显著。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开创语言驱动分割范式，后续 GroupViT、CLIPSeg 等跟进。</li>
+</ul>
+<hr />
+<h3>9. GroupViT (2022) — 只用图像文本对也能无监督做分割</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>无需像素级标注</strong>，只用<strong>图像-文本对</strong>训练分割模型：通过<strong>分组 token</strong> 逐步聚合像素，形成语义区域，再与文本对齐。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; P[&quot;Patch 化&quot;]
+    P --&gt; G1[&quot;阶段 1&lt;br/&gt;64 个 Group Token&lt;br/&gt;Gumbel-Softmax 硬分配&quot;]
+    G1 --&gt; G2[&quot;阶段 2&lt;br/&gt;8 个 Group Token&lt;br/&gt;进一步聚合&quot;]
+    G2 --&gt; R[&quot;语义区域表示&quot;]
+    T[&quot;文本&quot;] --&gt; TE[&quot;文本编码器&quot;]
+    TE --&gt; TR[&quot;文本嵌入&quot;]
+    R --&gt; C[&quot;图文对比学习&quot;]
+    TR --&gt; C
+    C --&gt; O[&quot;零样本分割&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>层次化分组</strong>：</li>
+<li>阶段 1：64 个可学习 group token 与 patch 做注意力，聚合为 64 个区域</li>
+<li>阶段 2：8 个 group token 进一步聚合为 8 个区域</li>
+<li><strong>分组机制</strong>：用 <strong>Gumbel-Softmax</strong> 做硬分配，每个 patch 只属于一个 group。</li>
+<li><strong>图文对齐</strong>：最终 group token 与文本嵌入做对比学习。</li>
+<li><strong>零样本分割</strong>：训练后可直接用文本查询分割区域。</li>
+<li><strong>性能</strong>：PASCAL VOC 零样本 mIoU 52.2%。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明无像素标注也能学分割，推动弱监督分割研究。</li>
+</ul>
+<hr />
+<h3>10. CLIPasso (2022) — 跨界生成简笔画</h3>
+<p><strong>核心思想</strong></p>
+<p>用 CLIP 的语义理解能力<strong>生成简笔画</strong>：优化一组贝塞尔曲线的参数，使渲染结果在 CLIP 空间中与目标文本/图像相似。</p>
+<pre class="mermaid">flowchart LR
+    N[&quot;n 条贝塞尔曲线&lt;br/&gt;可学习控制点&quot;] --&gt; R[&quot;可微光栅化&lt;br/&gt;渲染为图像&quot;]
+    R --&gt; CL[&quot;CLIP 编码器&quot;]
+    T[&quot;目标文本 / 图像&quot;] --&gt; CL2[&quot;CLIP 编码器&quot;]
+    CL --&gt; SL[&quot;语义损失&lt;br/&gt;CLIP 嵌入相似度&quot;]
+    CL2 --&gt; SL
+    R --&gt; GL[&quot;几何损失&lt;br/&gt;VGG 感知损失&quot;]
+    T --&gt; GL
+    SL --&gt; OPT[&quot;梯度优化&lt;br/&gt;更新控制点&quot;]
+    GL --&gt; OPT
+    OPT -.-&gt; N
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>表示</strong>：$n$ 条贝塞尔曲线（如 4 条、16 条），每条由控制点定义。</li>
+<li><strong>优化目标</strong>：</li>
+<li><strong>语义损失</strong>：CLIP 嵌入相似度（生成图 vs 目标）</li>
+<li><strong>几何损失</strong>：与目标图像的感知损失（VGG 特征）</li>
+<li><strong>可微渲染</strong>：用可微光栅化器渲染曲线，支持梯度回传。</li>
+<li><strong>抽象程度控制</strong>：曲线数量决定抽象程度（4 条 = 极简，16 条 = 较详细）。</li>
+<li><strong>性能</strong>：生成的简笔画在语义上可识别，风格抽象。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>展示 CLIP 作为「通用感知损失」的潜力，开创矢量图形生成。</li>
+</ul>
+<hr />
+<h3>11. DepthCLIP (2022) — 用文本跨界估计深度</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>零样本单目深度估计</strong>：利用 CLIP 的图文对齐能力，将深度估计转化为「图像 patch 与深度文本描述的对齐」问题。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; P[&quot;Patch 切分&quot;]
+    P --&gt; IE[&quot;CLIP 图像编码器&quot;]
+    IE --&gt; PE[&quot;Patch 嵌入&quot;]
+    D[&quot;深度文本&lt;br/&gt;very close / far&quot;] --&gt; TE[&quot;CLIP 文本编码器&quot;]
+    TE --&gt; DE[&quot;深度文本嵌入&quot;]
+    PE --&gt; S[&quot;相似度计算&quot;]
+    DE --&gt; S
+    S --&gt; O[&quot;相对深度排序&lt;br/&gt;无需深度标注&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>深度文本化</strong>：将深度值离散化为文本描述（如 "very close"、"far"）。</li>
+<li><strong>Patch-文本对齐</strong>：图像 patch 嵌入与深度文本嵌入计算相似度，得到相对深度。</li>
+<li><strong>无需深度标注</strong>：完全零样本，不需要任何深度训练数据。</li>
+<li><strong>局限</strong>：只能估计<strong>相对深度</strong>（排序），无法得到绝对深度值。</li>
+<li><strong>性能</strong>：在多个数据集上零样本深度排序准确率超越随机。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>探索 CLIP 在几何任务上的能力边界，启发后续工作。</li>
+</ul>
+<hr />
+<h3>12. METER (2021) — 多模态 Transformer 的系统性研究</h3>
+<p><strong>核心思想</strong></p>
+<p>对视觉-语言 Transformer 的各个组件做<strong>系统性消融研究</strong>，找出最优设计组合。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; VE[&quot;视觉编码器&lt;br/&gt;CLIP-ViT ✓&quot;]
+    T[&quot;文本&quot;] --&gt; TE[&quot;文本编码器&lt;br/&gt;RoBERTa&quot;]
+    VE --&gt; F[&quot;多模态融合&lt;br/&gt;共同注意力 ✓&quot;]
+    TE --&gt; F
+    F --&gt; H[&quot;下游任务头&lt;br/&gt;VQA / 检索&quot;]
+    N1[&quot;消融结论 1&lt;br/&gt;CLIP-ViT &gt; 区域特征&quot;] -.-&gt; VE
+    N2[&quot;消融结论 2&lt;br/&gt;共同注意力最优&quot;] -.-&gt; F
+    N3[&quot;消融结论 3&lt;br/&gt;融合越早越好&quot;] -.-&gt; F
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>四个组件</strong>：</li>
+<li><strong>视觉编码器</strong>：CLIP-ViT（比区域特征好）</li>
+<li><strong>文本编码器</strong>：RoBERTa</li>
+<li><strong>多模态融合</strong>：<strong>共同注意力（Co-Attention）</strong> 优于其他</li>
+<li><strong>融合位置</strong>：早期融合 vs 晚期融合</li>
+<li><strong>关键发现</strong>：</li>
+<li>CLIP-ViT 视觉编码器显著优于 Faster R-CNN 区域特征</li>
+<li>共同注意力（图像和文本互相注意）效果最好</li>
+<li>融合越早越好</li>
+<li><strong>性能</strong>：VQA 上 77.68%（当时 SOTA）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>为多模态模型设计提供实证指南，被后续工作广泛参考。</li>
+</ul>
+<hr />
+<h3>13. BridgeTower (2022) — 桥接视觉与语言</h3>
+<p><strong>核心思想</strong></p>
+<p>在<strong>单模态编码器与跨模态编码器之间架桥</strong>：让跨模态层的每一层都能直接访问单模态特征，缓解「单模态信息在深层丢失」的问题。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; VE[&quot;视觉编码器&lt;br/&gt;CLIP-ViT&quot;]
+    T[&quot;文本&quot;] --&gt; TE[&quot;文本编码器&lt;br/&gt;RoBERTa&quot;]
+    VE --&gt; V1[&quot;视觉层 1&quot;]
+    VE --&gt; V2[&quot;视觉层 2&quot;]
+    TE --&gt; T1[&quot;文本层 1&quot;]
+    TE --&gt; T2[&quot;文本层 2&quot;]
+    V1 --&gt; B1[&quot;跨模态层 1&lt;br/&gt;桥接拼接&quot;]
+    T1 --&gt; B1
+    B1 --&gt; B2[&quot;跨模态层 2&lt;br/&gt;桥接拼接&quot;]
+    V2 --&gt; B2
+    T2 --&gt; B2
+    B2 --&gt; O[&quot;VQA / 检索&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>桥接层（Bridge Layer）</strong>：在跨模态编码器的每一层，将单模态编码器的对应层输出与跨模态表示拼接。</li>
+<li><strong>架构</strong>：</li>
+<li>视觉编码器（CLIP-ViT）+ 文本编码器（RoBERTa）</li>
+<li>跨模态编码器（多层 Transformer）</li>
+<li>每层跨模态层接收：上一层跨模态输出 + 视觉层输出 + 文本层输出</li>
+<li><strong>优势</strong>：保留单模态细节，提升细粒度理解。</li>
+<li><strong>性能</strong>：VQA 上 78.73%，且参数量更少。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出有效的多模态融合架构，被后续工作借鉴。</li>
+</ul>
+<hr />
+<h3>14. ALBEF (2021) — 动量蒸馏</h3>
+<p><strong>核心思想</strong></p>
+<p>解决 VLP 中「<strong>噪声图文对</strong>」问题：网络爬取的图文对常不匹配。用<strong>动量蒸馏</strong>让模型从「软标签」学习，而非硬标签。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; M[&quot;主模型&lt;br/&gt;编码器 + 融合&quot;]
+    T[&quot;文本&quot;] --&gt; M
+    M --&gt; L1[&quot;ITC 对比损失&quot;]
+    M --&gt; L2[&quot;ITM 匹配损失&quot;]
+    M --&gt; L3[&quot;MLM 掩码损失&quot;]
+    MM[&quot;动量模型&lt;br/&gt;EMA 更新&quot;] --&gt; S[&quot;软标签&lt;br/&gt;动量预测&quot;]
+    S --&gt; D[&quot;动量蒸馏&lt;br/&gt;缓解假负样本&quot;]
+    L1 --&gt; D
+    L2 --&gt; D
+    L3 --&gt; D
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>三个损失</strong>：</li>
+<li><strong>ITC（图像文本对比）</strong>：对齐图文嵌入</li>
+<li><strong>ITM（图像文本匹配）</strong>：二分类判断匹配</li>
+<li><strong>MLM（掩码语言建模）</strong>：预测掩码词</li>
+<li><strong>动量蒸馏（Momentum Distillation）</strong>：</li>
+<li>维护一个动量模型（EMA 更新）</li>
+<li>用动量模型的预测作为<strong>软标签</strong>，蒸馏到主模型</li>
+<li>解决 ITC 中负样本可能是「假负样本」（实际匹配但被当负样本）</li>
+<li><strong>困难负样本挖掘</strong>：用 ITC 相似度选困难负样本给 ITM。</li>
+<li><strong>性能</strong>：VQA 上 74.54%，且训练数据更少。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出动量蒸馏解决噪声标签问题，被 BLIP 等沿用。</li>
+</ul>
+<hr />
+<h3>15. BLIP (2022) — 引导语言-图像预训练</h3>
+<p><strong>核心思想</strong></p>
+<p>统一<strong>理解与生成</strong>任务：既能做检索、VQA（理解），也能做图像描述生成（生成）。用<strong>Captioner + Filter</strong> 清洗网络数据。</p>
+<pre class="mermaid">flowchart LR
+    W[&quot;网络图文对&lt;br/&gt;含噪声&quot;] --&gt; CAP[&quot;Captioner&lt;br/&gt;生成图像描述&quot;]
+    CAP --&gt; FIL[&quot;Filter&lt;br/&gt;过滤低质量对&quot;]
+    FIL --&gt; D[&quot;清洗后数据集&quot;]
+    D --&gt; M[&quot;BLIP 模型&quot;]
+    M --&gt; L1[&quot;ITC 对比学习&quot;]
+    M --&gt; L2[&quot;ITM 匹配判断&quot;]
+    M --&gt; L3[&quot;LM 语言建模&lt;br/&gt;生成描述&quot;]
+    L1 --&gt; O[&quot;理解 + 生成统一&quot;]
+    L2 --&gt; O
+    L3 --&gt; O
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>三个模型</strong>：</li>
+<li><strong>ITC</strong>：对比学习（对齐）</li>
+<li><strong>ITM</strong>：匹配判断（用 CapFilt 挖掘困难负样本）</li>
+<li><strong>LM</strong>：语言建模（生成描述）</li>
+<li><strong>CapFilt（Captioning and Filtering）</strong>：</li>
+<li><strong>Captioner</strong>：为网络图像生成描述</li>
+<li><strong>Filter</strong>：过滤掉低质量图文对</li>
+<li>用清洗后的数据重新训练，提升质量</li>
+<li><strong>统一框架</strong>：一个模型同时支持理解与生成。</li>
+<li><strong>性能</strong>：图像描述 CIDEr 提升 2.7%，VQA 提升 1.6%。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出数据清洗的自举（bootstrapping）范式，被 BLIP-2 等沿用。</li>
+</ul>
+<hr />
+<h3>16. ERNIE-ViL 2 (2022) — 多视角视觉-语言预训练</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>多视角</strong>（不同图像 + 不同文本描述）构建<strong>跨视角对齐</strong>，学习更鲁棒的图文表示。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; V1[&quot;视角 1&lt;br/&gt;描述 A&quot;]
+    I --&gt; V2[&quot;视角 2&lt;br/&gt;描述 B&quot;]
+    I2[&quot;相似图像&quot;] --&gt; V3[&quot;视角 3&quot;]
+    V1 --&gt; E[&quot;编码器&quot;]
+    V2 --&gt; E
+    V3 --&gt; E
+    E --&gt; C[&quot;跨视角对比学习&lt;br/&gt;同语义视角应相似&quot;]
+    SG[&quot;场景图预测&lt;br/&gt;物体 + 关系&quot;] --&gt; C
+    C --&gt; O[&quot;鲁棒图文表示&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>多视角数据构造</strong>：</li>
+<li>同一图像的不同描述（多文本视角）</li>
+<li>同一描述对应的不同图像（多图像视角）</li>
+<li><strong>跨视角对比学习</strong>：同一语义的不同视角应相似。</li>
+<li><strong>场景图预测</strong>：用场景图（物体 + 关系）作为结构化监督。</li>
+<li><strong>性能</strong>：中文图文检索、VQA 等任务上 SOTA。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出多视角预训练范式，提升图文表示鲁棒性。</li>
+</ul>
+<hr />
+<h3>17. BLIP-2 (2023) — 冻结大模型，只训练 Q-Former</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>冻结</strong>预训练的图像编码器和 LLM，只训练一个轻量的 <strong>Q-Former</strong> 连接两者，大幅降低训练成本。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; VE[&quot;冻结的图像编码器&lt;br/&gt;ViT&quot;]
+    VE --&gt; VF[&quot;视觉特征&quot;]
+    Q[&quot;32 个可学习&lt;br/&gt;Query Token&quot;] --&gt; QF[&quot;Q-Former&lt;br/&gt;轻量 Transformer&quot;]
+    VF --&gt; QF
+    QF --&gt; VQ[&quot;固定数量&lt;br/&gt;视觉表示&quot;]
+    VQ --&gt; P[&quot;线性投影&quot;]
+    P --&gt; LLM[&quot;冻结的 LLM&lt;br/&gt;OPT / FlanT5&quot;]
+    LLM --&gt; O[&quot;文本输出&lt;br/&gt;描述 / 问答&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>Q-Former（Querying Transformer）</strong>：</li>
+<li>32 个可学习 query token</li>
+<li>通过交叉注意力从冻结的图像编码器提取视觉信息</li>
+<li>输出固定数量的视觉表示</li>
+<li><strong>两阶段训练</strong>：</li>
+<li><strong>视觉-语言表示学习</strong>：ITC + ITM + ITG（图像引导文本生成）</li>
+<li><strong>视觉到语言生成学习</strong>：将 Q-Former 输出接入冻结的 LLM（如 OPT、FlanT5）</li>
+<li><strong>优势</strong>：</li>
+<li>训练参数量极少（Q-Former 仅 188M）</li>
+<li>可灵活替换 LLM</li>
+<li>零样本 VQA 性能超越 Flamingo-80B（参数量 1/54）</li>
+<li><strong>涌现能力</strong>：零样本图像描述、VQA、对话。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出高效的「冻结 + 桥接」范式，推动多模态大模型发展。</li>
+</ul>
+<hr />
+<h3>18. SAM (2023) — 分割一切</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>提示驱动的通用分割</strong>：给定任意提示（点、框、掩码、文本），分割出对应物体。用 <strong>11 亿掩码</strong>训练，实现零样本分割。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; IE[&quot;图像编码器&lt;br/&gt;MAE 预训练 ViT&lt;br/&gt;每图只跑一次&quot;]
+    IE --&gt; F[&quot;图像嵌入&quot;]
+    P[&quot;提示&lt;br/&gt;点 / 框 / 掩码 / 文本&quot;] --&gt; PE[&quot;提示编码器&quot;]
+    PE --&gt; PT[&quot;提示 Token&quot;]
+    F --&gt; MD[&quot;掩码解码器&lt;br/&gt;轻量 Transformer&lt;br/&gt;50ms&quot;]
+    PT --&gt; MD
+    MD --&gt; O[&quot;分割掩码&lt;br/&gt;多候选处理歧义&quot;]
+    DE[&quot;数据引擎&lt;br/&gt;11 亿掩码 SA-1B&quot;] -.-&gt;|&quot;训练&quot;| MD
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>三组件架构</strong>：</li>
+<li><strong>图像编码器</strong>：MAE 预训练的 ViT（每图只跑一次）</li>
+<li><strong>提示编码器</strong>：编码点、框、掩码、文本</li>
+<li><strong>掩码解码器</strong>：轻量 Transformer，快速生成掩码（50ms）</li>
+<li><strong>数据引擎（Data Engine）</strong>：</li>
+<li>三阶段：辅助标注 → 半自动 → 全自动</li>
+<li>最终生成 <strong>11 亿掩码</strong>（SA-1B 数据集）</li>
+<li><strong>可提示分割</strong>：同一模型处理多种提示类型。</li>
+<li><strong>歧义处理</strong>：对同一提示输出多个掩码（整体、部分、子部分）。</li>
+<li><strong>零样本性能</strong>：在 23 个分割数据集上零样本超越或接近有监督方法。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>视觉领域的「GPT-3 时刻」，成为分割基础模型。</li>
+<li>后续 SAM 2 扩展到视频。</li>
+</ul>
+<hr />
+<h3>19. Chinese-CLIP (2022) — 中文 CLIP</h3>
+<p><strong>核心思想</strong></p>
+<p>将 CLIP 迁移到<strong>中文</strong>：用中文图文对训练，并针对中文特点优化。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; IE[&quot;图像编码器&lt;br/&gt;ViT-B/16 · L/14 · H/14&quot;]
+    T[&quot;中文文本&quot;] --&gt; TE[&quot;中文文本编码器&lt;br/&gt;中文 RoBERTa&quot;]
+    IE --&gt; IV[&quot;图像嵌入&quot;]
+    TE --&gt; TV[&quot;文本嵌入&quot;]
+    IV --&gt; C[&quot;对比学习&lt;br/&gt;2 亿中文图文对&quot;]
+    TV --&gt; C
+    C --&gt; O[&quot;中文零样本分类&lt;br/&gt;MUGE / Flickr30K-CN&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>数据</strong>：2 亿中文图文对（LAION-5B 中文子集 + 自建数据）。</li>
+<li><strong>模型规模</strong>：ViT-B/16、ViT-L/14、ViT-H/14 等多个规模。</li>
+<li><strong>中文优化</strong>：</li>
+<li>文本编码器用中文 RoBERTa</li>
+<li>针对中文分词优化</li>
+<li><strong>零样本性能</strong>：MUGE、Flickr30K-CN 等中文基准上超越多语言 CLIP。</li>
+<li><strong>开源</strong>：模型与代码开源，推动中文多模态研究。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>填补中文多模态预训练空白，成为中文 CLIP 的标准实现。</li>
+</ul>
+<hr />
+<h2>八、自然语言处理 - Transformer</h2>
+<h3>1. Transformer (2017) — 继 MLP、CNN、RNN 后的第四大类架构</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>完全基于注意力</strong>，抛弃循环和卷积。用<strong>自注意力</strong>并行建模序列中任意位置的依赖关系。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入嵌入&lt;br/&gt;+ 位置编码&quot;] --&gt; E[&quot;编码器 × N&quot;]
+    E --&gt; ER[&quot;编码器输出&quot;]
+    B[&quot;输出嵌入&lt;br/&gt;+ 位置编码&lt;br/&gt;右移&quot;] --&gt; D[&quot;解码器 × N&quot;]
+    ER --&gt; D
+    D --&gt; DR[&quot;解码器输出&quot;]
+    DR --&gt; L[&quot;线性 + Softmax&lt;br/&gt;输出概率&quot;]
+    subgraph E1[&quot;编码器层&quot;]
+        E1A[&quot;多头自注意力&quot;] --&gt; E1B[&quot;Add + Norm&quot;] --&gt; E1C[&quot;FFN&quot;] --&gt; E1D[&quot;Add + Norm&quot;]
+    end
+    subgraph D1[&quot;解码器层&quot;]
+        D1A[&quot;掩码多头自注意力&quot;] --&gt; D1B[&quot;Add + Norm&quot;] --&gt; D1C[&quot;交叉注意力&lt;br/&gt;K,V 来自编码器&quot;] --&gt; D1D[&quot;Add + Norm&quot;] --&gt; D1E[&quot;FFN&quot;] --&gt; D1F[&quot;Add + Norm&quot;]
+    end
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>缩放点积注意力</strong>：
+  $$\text{Attention}(Q,K,V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$
+  除以 $\sqrt{d_k}$ 防止点积过大导致 softmax 梯度消失。</li>
+<li><strong>多头注意力（Multi-Head）</strong>：并行多个注意力头，捕捉不同子空间的关系：
+  $$\text{MultiHead}(Q,K,V) = \text{Concat}(\text{head}_1,\dots,\text{head}_h)W^O$$</li>
+<li><strong>位置编码</strong>：正弦/余弦函数注入位置信息：
+  $$PE_{(pos,2i)} = \sin(pos/10000^{2i/d_{model}})$$</li>
+<li><strong>编码器-解码器结构</strong>：</li>
+<li>编码器：自注意力 + FFN（各带残差 + LayerNorm）</li>
+<li>解码器：掩码自注意力 + 交叉注意力 + FFN</li>
+<li><strong>复杂度</strong>：$O(n^2 d)$，序列长度的平方（长序列的瓶颈）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>奠定现代 NLP 与多模态的基础架构。</li>
+<li>后续 GPT、BERT、ViT 等均基于此。</li>
+</ul>
+<hr />
+<h3>2. GPT (2018) — 使用 Transformer 解码器做预训练</h3>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>Transformer 解码器</strong>做<strong>生成式预训练</strong>：在大规模无标注文本上训练语言模型，再微调下游任务。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入 Token&lt;br/&gt;+ 位置编码&quot;] --&gt; B[&quot;Transformer 解码器 × 12&lt;br/&gt;掩码自注意力&quot;]
+    B --&gt; C[&quot;输出投影&quot;]
+    C --&gt; D[&quot;下一 Token 概率&quot;]
+    D --&gt; E[&quot;预训练&lt;br/&gt;语言建模&quot;]
+    E --&gt; F[&quot;微调&lt;br/&gt;加任务头&quot;]
+    F --&gt; G[&quot;分类 / 蕴含 / 相似度 / 问答&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>两阶段</strong>：</li>
+<li><strong>无监督预训练</strong>：标准语言建模目标 $\mathcal{L} = \sum \log P(w_i | w_{&lt;i})$</li>
+<li><strong>有监督微调</strong>：加任务特定头，微调全部参数</li>
+<li><strong>单向（自回归）</strong>：只用左侧上下文（因果掩码）。</li>
+<li><strong>架构</strong>：12 层解码器，768 维，12 头（GPT-1 为 117M 参数）。</li>
+<li><strong>输入格式</strong>：用特殊 token 统一不同任务（如 <code>[Start]</code>、<code>[Delim]</code>、<code>[Extract]</code>）。</li>
+<li><strong>性能</strong>：9 个任务中 7 个超越当时 SOTA。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开创「预训练 + 微调」范式，GPT 系列的开端。</li>
+</ul>
+<hr />
+<h3>3. BERT (2018) — Transformer 一统 NLP 的开始</h3>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>Transformer 编码器</strong>做<strong>双向预训练</strong>：同时看左右上下文，学习深层双向表示。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;[CLS] 句子 A [SEP] 句子 B [SEP]&quot;] --&gt; B[&quot;Token + Segment&lt;br/&gt;+ Position 嵌入&quot;]
+    B --&gt; C[&quot;Transformer 编码器 × 12/24&lt;br/&gt;双向自注意力&quot;]
+    C --&gt; D[&quot;[CLS] 输出&quot;]
+    C --&gt; E[&quot;各 Token 输出&quot;]
+    D --&gt; F[&quot;NSP 头&lt;br/&gt;下一句预测&quot;]
+    E --&gt; G[&quot;MLM 头&lt;br/&gt;掩码词预测&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>两个预训练任务</strong>：</li>
+<li><strong>MLM（掩码语言建模）</strong>：随机掩码 15% 的 token，预测被掩码的词<ul>
+<li>80% 替换为 <code>[MASK]</code>，10% 随机词，10% 保持不变</li>
+</ul>
+</li>
+<li><strong>NSP（下一句预测）</strong>：判断两句是否连续</li>
+<li><strong>双向性</strong>：与 GPT 的单向不同，BERT 可同时利用左右上下文。</li>
+<li><strong>输入表示</strong>：Token + Segment + Position 三种嵌入相加。</li>
+<li><strong>特殊 token</strong>：<code>[CLS]</code>（分类）、<code>[SEP]</code>（分隔）。</li>
+<li><strong>规模</strong>：BERT-Base（110M）、BERT-Large（340M）。</li>
+<li><strong>性能</strong>：GLUE 上提升 7.7%，11 个任务 SOTA。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开启 NLP 预训练时代，催生 RoBERTa、ALBERT、ELECTRA 等。</li>
+<li><code>[CLS]</code> token 与双向编码思想被 ViT 等借鉴。</li>
+</ul>
+<hr />
+<h3>4. GPT-2 (2019) — 更大的 GPT，朝 zero-shot 迈了一大步</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>更大 + 更多数据</strong>：15 亿参数、40GB 文本（WebText），展示<strong>零样本</strong>多任务能力。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;WebText&lt;br/&gt;40GB 800 万网页&quot;] --&gt; B[&quot;Transformer 解码器 × 48&lt;br/&gt;1600 维 25 头&quot;]
+    B --&gt; C[&quot;Pre-Norm&lt;br/&gt;LayerNorm 前置&quot;]
+    C --&gt; D[&quot;初始化缩放&lt;br/&gt;1/√N&quot;]
+    D --&gt; E[&quot;零样本任务&lt;br/&gt;翻译 / 问答 / 摘要&quot;]
+    E --&gt; F[&quot;提示驱动&lt;br/&gt;无需微调&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>规模</strong>：1.5B 参数（GPT-1 的 10 倍），48 层，1600 维。</li>
+<li><strong>数据</strong>：WebText（800 万网页，40GB），从 Reddit 高赞链接爬取。</li>
+<li><strong>零样本能力</strong>：无需微调即可做翻译、问答、摘要（通过提示）。</li>
+<li><strong>架构微调</strong>：</li>
+<li>LayerNorm 移到子层前（Pre-Norm）</li>
+<li>最后一层自注意力后加 LayerNorm</li>
+<li>初始化缩放 $1/\sqrt{N}$（$N$ 为残差层数）</li>
+<li>增大词表（50257）与上下文（1024）</li>
+<li><strong>结论</strong>：语言模型是<strong>无监督多任务学习器</strong>。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>首次展示大模型的零样本能力，开启「规模即能力」的认知。</li>
+</ul>
+<hr />
+<h3>5. GPT-3 (2020) — 100 倍更大的 GPT-2，few-shot 效果显著</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>规模爆炸</strong>：1750 亿参数，展示<strong>上下文学习（In-Context Learning）</strong>能力——无需梯度更新，仅通过提示中的几个示例即可完成新任务。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;3000 亿 Token&lt;br/&gt;Common Crawl + WebText2&lt;br/&gt;+ Books + Wikipedia&quot;] --&gt; B[&quot;Transformer 解码器 × 96&lt;br/&gt;12288 维 96 头&lt;br/&gt;175B 参数&quot;]
+    B --&gt; C[&quot;稀疏注意力&lt;br/&gt;交替稠密/稀疏&quot;]
+    C --&gt; D[&quot;上下文学习&quot;]
+    D --&gt; E[&quot;Zero-shot&lt;br/&gt;仅任务描述&quot;]
+    D --&gt; F[&quot;One-shot&lt;br/&gt;1 个示例&quot;]
+    D --&gt; G[&quot;Few-shot&lt;br/&gt;10~100 个示例&quot;]
+    E --&gt; H[&quot;无需梯度更新&lt;br/&gt;仅前向推理&quot;]
+    F --&gt; H
+    G --&gt; H
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>规模</strong>：175B 参数（GPT-2 的 100 倍），96 层，12288 维，96 头。</li>
+<li><strong>数据</strong>：3000 亿 token（Common Crawl + WebText2 + Books + Wikipedia）。</li>
+<li><strong>上下文学习</strong>：</li>
+<li><strong>Zero-shot</strong>：只给任务描述</li>
+<li><strong>One-shot</strong>：给一个示例</li>
+<li><strong>Few-shot</strong>：给几个示例（10~100）</li>
+<li>无需参数更新，仅靠前向推理。</li>
+<li><strong>稀疏注意力</strong>：交替使用稠密与稀疏注意力层，降低计算量。</li>
+<li><strong>性能</strong>：Few-shot 在多个任务上接近或超越微调模型。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出「提示 + 上下文学习」新范式，开启大模型时代。</li>
+<li>催生 ChatGPT、GPT-4 等。</li>
+</ul>
+<hr />
+<h3>6. InstructGPT (2022) — 用人类反馈对齐语言模型</h3>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>RLHF（人类反馈强化学习）</strong>让 GPT-3 的输出<strong>符合人类意图</strong>：更有用、更诚实、更无害。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;GPT-3&lt;br/&gt;预训练模型&quot;] --&gt; B[&quot;1. SFT 监督微调&lt;br/&gt;人类标注指令-回答&quot;]
+    B --&gt; C[&quot;SFT 模型&quot;]
+    C --&gt; D[&quot;2. RM 奖励模型&lt;br/&gt;人类排序多个输出&quot;]
+    D --&gt; E[&quot;奖励模型&quot;]
+    C --&gt; F[&quot;3. PPO 强化学习&lt;br/&gt;用 RM 优化策略&quot;]
+    E --&gt; F
+    F --&gt; G[&quot;InstructGPT&lt;br/&gt;1.3B 超越 175B GPT-3&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>三阶段训练</strong>：</li>
+<li><strong>SFT（监督微调）</strong>：用人类标注的「指令-回答」对微调</li>
+<li><strong>RM（奖励模型）</strong>：人类对多个输出排序，训练奖励模型
+     $$\text{loss} = -\mathbb{E}\left[\log \sigma(r_\theta(x, y_w) - r_\theta(x, y_l))\right]$$</li>
+<li><strong>PPO（近端策略优化）</strong>：用奖励模型优化策略
+     $$\text{objective} = \mathbb{E}[r_\theta(x,y)] - \beta \text{KL}(\pi_{RL} | \pi_{SFT})$$
+     KL 惩罚防止偏离 SFT 模型太远。</li>
+<li><strong>关键发现</strong>：</li>
+<li>1.3B 的 InstructGPT 比 175B 的 GPT-3 更受人类偏好</li>
+<li>对齐税（alignment tax）：RLHF 后某些任务性能略降，可混合预训练梯度缓解</li>
+<li><strong>数据</strong>：4 万条人类标注。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>奠定 ChatGPT 的技术基础，RLHF 成为对齐的标准方法。</li>
+</ul>
+<hr />
+<h3>7. GPT-4 (2023) — 多模态大模型</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>多模态 + 更强推理</strong>：接受图像和文本输入，在专业考试（如律师资格考）上达到人类水平。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像输入&quot;] --&gt; VE[&quot;视觉编码器&quot;]
+    T[&quot;文本输入&quot;] --&gt; TE[&quot;文本 Token 化&quot;]
+    VE --&gt; F[&quot;多模态融合&lt;br/&gt;统一 Transformer&quot;]
+    TE --&gt; F
+    F --&gt; M[&quot;GPT-4&lt;br/&gt;MoE 架构&lt;br/&gt;32K 上下文&quot;]
+    M --&gt; O[&quot;文本输出&lt;br/&gt;推理 / 代码 / 分析&quot;]
+    M --&gt; S[&quot;安全对齐&lt;br/&gt;RLHF + 规则奖励&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>多模态</strong>：支持图像 + 文本输入（视觉理解）。</li>
+<li><strong>规模</strong>：未公开（传闻 1.8T 参数，MoE 架构）。</li>
+<li><strong>能力提升</strong>：</li>
+<li>专业考试：模拟律师考试前 10%（GPT-3.5 后 10%）</li>
+<li>多语言：26 种语言中 24 种超越 GPT-3.5</li>
+<li>长上下文：32K token</li>
+<li><strong>可预测的缩放</strong>：用训练损失可预测下游性能。</li>
+<li><strong>安全对齐</strong>：RLHF + 规则奖励模型（RBRM）。</li>
+<li><strong>局限</strong>：仍有幻觉、上下文窗口限制。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>展示大模型在专业领域的潜力，推动 AGI 讨论。</li>
+</ul>
+<hr />
+<h2>九、分布式训练系统</h2>
+<h3>1. 参数服务器 (2014) — 支持千亿参数的传统机器学习模型</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>参数服务器（Parameter Server）</strong>架构：将模型参数分布到多台服务器，工作节点并行计算梯度，服务器聚合更新。</p>
+<pre class="mermaid">flowchart TD
+    W1[&quot;Worker 1&quot;] --&gt;|&quot;Push 梯度&quot;| S1[&quot;Server 1&lt;br/&gt;参数分片 1&quot;]
+    W2[&quot;Worker 2&quot;] --&gt;|&quot;Push 梯度&quot;| S1
+    W3[&quot;Worker 3&quot;] --&gt;|&quot;Push 梯度&quot;| S2[&quot;Server 2&lt;br/&gt;参数分片 2&quot;]
+    W4[&quot;Worker 4&quot;] --&gt;|&quot;Push 梯度&quot;| S2
+    S1 --&gt;|&quot;Pull 参数&quot;| W1
+    S1 --&gt;|&quot;Pull 参数&quot;| W2
+    S2 --&gt;|&quot;Pull 参数&quot;| W3
+    S2 --&gt;|&quot;Pull 参数&quot;| W4
+    C[&quot;一致性模型&lt;br/&gt;同步 / 异步 / 有界延迟&quot;] -.-&gt; S1
+    C -.-&gt; S2
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>两种角色</strong>：</li>
+<li><strong>Server</strong>：存储参数分片，聚合梯度，更新参数</li>
+<li><strong>Worker</strong>：拉取参数，计算梯度，推送更新</li>
+<li><strong>通信模式</strong>：异步、同步、半同步。</li>
+<li><strong>一致性模型</strong>：</li>
+<li><strong>Sequential</strong>：完全同步</li>
+<li><strong>Eventual</strong>：最终一致（异步）</li>
+<li><strong>Bounded Delay</strong>：有界延迟</li>
+<li><strong>关键优化</strong>：</li>
+<li><strong>Range Push/Pull</strong>：按范围推送/拉取参数</li>
+<li><strong>用户自定义过滤</strong>：只通信重要参数</li>
+<li><strong>压缩</strong>：减少通信量</li>
+<li><strong>规模</strong>：支持千亿参数、数百节点。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>奠定分布式机器学习系统的基础架构，被 TensorFlow、PyTorch 等借鉴。</li>
+</ul>
+<hr />
+<h3>2. GPipe (2018) — 流水线并行</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>流水线并行（Pipeline Parallelism）</strong>：将模型按层切分到多个设备，用<strong>微批次（Micro-batch）</strong>填充流水线，减少气泡（bubble）。</p>
+<pre class="mermaid">flowchart LR
+    subgraph T1[&quot;时间 →&quot;]
+        direction LR
+        A1[&quot;设备 1&lt;br/&gt;层 1-4&quot;] --&gt; A2[&quot;设备 2&lt;br/&gt;层 5-8&quot;] --&gt; A3[&quot;设备 3&lt;br/&gt;层 9-12&quot;] --&gt; A4[&quot;设备 4&lt;br/&gt;层 13-16&quot;]
+    end
+    M[&quot;Mini-batch&lt;br/&gt;切分为 M 个 Micro-batch&quot;] --&gt; T1
+    T1 --&gt; B[&quot;气泡率&lt;br/&gt;(K-1)/(M+K-1)&quot;]
+    B --&gt; C[&quot;重计算&lt;br/&gt;Re-materialization&lt;br/&gt;省显存&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>模型切分</strong>：$L$ 层模型切到 $K$ 个设备，每个设备 $L/K$ 层。</li>
+<li><strong>微批次流水线</strong>：将 mini-batch 分成 $M$ 个 micro-batch，流水执行：</li>
+<li>设备 $k$ 处理完 micro-batch $m$ 后立即传给设备 $k+1$</li>
+<li>同时开始处理 micro-batch $m+1$</li>
+<li><strong>气泡率</strong>：$\frac{K-1}{M+K-1}$，$M \gg K$ 时气泡可忽略。</li>
+<li><strong>重计算（Re-materialization）</strong>：只存每层的输入，反向时重算中间激活，节省显存。</li>
+<li><strong>性能</strong>：8 倍加速（4 设备），支持 8B 参数模型。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出流水线并行范式，被 PipeDream、Megatron 等改进。</li>
+</ul>
+<hr />
+<h3>3. Megatron-LM (2019) — 张量并行</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>张量并行（Tensor Parallelism）</strong>：将<strong>单个矩阵乘法</strong>切分到多个设备，实现层内并行。</p>
+<pre class="mermaid">flowchart LR
+    X[&quot;输入 X&quot;] --&gt; C1[&quot;列并行&lt;br/&gt;A 按列切分&lt;br/&gt;各设备算部分输出&quot;]
+    C1 --&gt; C2[&quot;无需通信&lt;br/&gt;前向&quot;]
+    C2 --&gt; R1[&quot;行并行&lt;br/&gt;A 按行切分&lt;br/&gt;各设备算部分和&quot;]
+    R1 --&gt; R2[&quot;All-Reduce&lt;br/&gt;聚合部分和&quot;]
+    R2 --&gt; O[&quot;输出 Y&quot;]
+    N[&quot;Transformer 应用&lt;br/&gt;MLP: 列并行 → 行并行&lt;br/&gt;注意力: 多头天然并行&quot;] -.-&gt; C1
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>两种切分方式</strong>：</li>
+<li><strong>列并行（Column Parallel）</strong>：$Y = XA$，$A$ 按列切分，各设备算部分输出，<strong>无需通信</strong>（前向）</li>
+<li><strong>行并行（Row Parallel）</strong>：$Y = XA$，$A$ 按行切分，各设备算部分和，需 <strong>All-Reduce</strong></li>
+<li><strong>Transformer 中的组合</strong>：</li>
+<li><strong>MLP</strong>：第一个 FC 用列并行，第二个 FC 用行并行 → 前向只需 1 次 All-Reduce</li>
+<li><strong>自注意力</strong>：多头注意力天然可并行（每个头一个设备）</li>
+<li><strong>通信优化</strong>：只在必要处通信，前向 2 次、反向 2 次 All-Reduce。</li>
+<li><strong>性能</strong>：8.3B 参数模型，8 路张量并行，76% 扩展效率。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出高效的张量并行方案，成为大模型训练的标配（与流水线并行、数据并行组合成 3D 并行）。</li>
+</ul>
+<hr />
+<h3>4. ZeRO (2019) — 参数分片</h3>
+<p><strong>核心思想</strong></p>
+<p>数据并行中每个设备都存<strong>完整模型状态</strong>（参数 + 梯度 + 优化器状态），显存浪费严重。ZeRO 将模型状态<strong>分片</strong>到各设备，按需通信。</p>
+<pre class="mermaid">flowchart TD
+    A[&quot;数据并行&lt;br/&gt;每卡存完整状态&lt;br/&gt;16N 显存&quot;] --&gt; B[&quot;ZeRO-1&lt;br/&gt;分片优化器状态&lt;br/&gt;省 4 倍&quot;]
+    B --&gt; C[&quot;ZeRO-2&lt;br/&gt;+ 分片梯度&lt;br/&gt;省 8 倍&quot;]
+    C --&gt; D[&quot;ZeRO-3&lt;br/&gt;+ 分片参数&lt;br/&gt;省 N_d 倍&quot;]
+    D --&gt; E[&quot;All-Gather&lt;br/&gt;收集参数&quot;]
+    D --&gt; F[&quot;Reduce-Scatter&lt;br/&gt;聚合梯度&quot;]
+    E --&gt; G[&quot;可训练 1 万亿参数&lt;br/&gt;1024 张 V100&quot;]
+    F --&gt; G
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>显存占用分析</strong>（混合精度，$N$ 参数）：</li>
+<li>参数（FP16）：$2N$</li>
+<li>梯度（FP16）：$2N$</li>
+<li>优化器状态（FP32 参数 + 动量 + 方差）：$12N$</li>
+<li><strong>总计：$16N$</strong>（如 7.5B 模型需 120GB）</li>
+<li><strong>三级分片</strong>：</li>
+<li><strong>ZeRO-1</strong>：分片优化器状态（省 4 倍）</li>
+<li><strong>ZeRO-2</strong>：分片梯度（省 8 倍）</li>
+<li><strong>ZeRO-3</strong>：分片参数（省 $N_d$ 倍，$N_d$ 为设备数）</li>
+<li><strong>通信策略</strong>：用 All-Gather 收集参数，Reduce-Scatter 聚合梯度。</li>
+<li><strong>性能</strong>：ZeRO-3 可训练 1 万亿参数模型（1024 张 V100）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>大幅降低大模型训练显存门槛，成为 DeepSpeed 的核心技术。</li>
+</ul>
+<hr />
+<h3>5. Pathways (2022) — 将 JAX 拓展到上千 TPU 核上</h3>
+<p><strong>核心思想</strong></p>
+<p><strong>异步分布式数据流</strong>：支持在数千 TPU 上运行<strong>多个异构任务</strong>，实现「单模型多模态、多任务、稀疏激活」。</p>
+<pre class="mermaid">flowchart TD
+    A[&quot;多个异构任务&quot;] --&gt; B[&quot;异步分布式数据流&lt;br/&gt;Pathways&quot;]
+    B --&gt; C[&quot;资源隔离&lt;br/&gt;不同任务共享 TPU&lt;br/&gt;互不干扰&quot;]
+    B --&gt; D[&quot;SPMD + MPMD&lt;br/&gt;单程序多数据&lt;br/&gt;+ 多程序多数据&quot;]
+    B --&gt; E[&quot;稀疏激活&lt;br/&gt;MoE 只激活部分参数&quot;]
+    C --&gt; F[&quot;2048+ TPU v4&quot;]
+    D --&gt; F
+    E --&gt; F
+    F --&gt; G[&quot;PaLM / Gemini&lt;br/&gt;训练基础设施&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>异步分布式数据流（Asynchronous Distributed Dataflow）</strong>：</li>
+<li>支持并行、分布式、异步执行</li>
+<li>支持<strong>gang scheduling</strong>（部分任务可独立调度）</li>
+<li><strong>SPMD + MPMD</strong>：同时支持单程序多数据与多程序多数据。</li>
+<li><strong>关键特性</strong>：</li>
+<li><strong>资源隔离</strong>：不同任务可共享 TPU 但互不干扰</li>
+<li><strong>路径（Pathways）</strong>：任务间的数据流图</li>
+<li><strong>稀疏激活</strong>：MoE 模型只激活部分参数</li>
+<li><strong>规模</strong>：支持 2048+ TPU v4 芯片。</li>
+<li><strong>应用</strong>：PaLM、Gemini 等模型的训练基础设施。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>为超大规模、多任务、稀疏模型提供基础设施。</li>
+<li>推动 MoE 与多模态大模型发展。</li>
+</ul>
+<hr />
+<h2>十、图神经网络</h2>
+<h3>1. GNN 介绍 (2021) — GNN 的可视化介绍</h3>
+<p><strong>核心思想</strong></p>
+<p>Distill 的交互式文章，系统介绍图神经网络：<strong>图表示什么、GNN 如何工作、如何设计</strong>。</p>
+<pre class="mermaid">flowchart LR
+    G[&quot;图&lt;br/&gt;节点 V + 边 E + 全局 U&quot;] --&gt; M[&quot;消息传递&quot;]
+    M --&gt; M1[&quot;1. 消息生成&lt;br/&gt;m_e = f_e(h_v, h_u, e_uv)&quot;]
+    M1 --&gt; M2[&quot;2. 消息聚合&lt;br/&gt;ρ 聚合入边消息&quot;]
+    M2 --&gt; M3[&quot;3. 节点更新&lt;br/&gt;h_v' = f_v(h_v, agg)&quot;]
+    M3 --&gt; M4[&quot;4. 全局更新&lt;br/&gt;u' = f_u(u, agg)&quot;]
+    M4 --&gt; T[&quot;三大任务&lt;br/&gt;图级 / 节点级 / 边级&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>图的四要素</strong>：</li>
+<li><strong>节点（V）</strong>：实体（原子、用户、图像区域）</li>
+<li><strong>边（E）</strong>：关系（化学键、关注、相似度）</li>
+<li><strong>全局属性（U）</strong>：整图信息（分子性质）</li>
+<li><strong>三大任务</strong>：</li>
+<li><strong>图级</strong>：预测整图属性（分子是否有毒）</li>
+<li><strong>节点级</strong>：预测节点属性（用户是否机器人）</li>
+<li><strong>边级</strong>：预测边属性（两实体是否相关）</li>
+<li><strong>消息传递（Message Passing）</strong>：</li>
+<li><strong>消息生成</strong>：每条边生成消息 $m_e = f_e(h_v, h_u, e_{uv})$</li>
+<li><strong>消息聚合</strong>：节点聚合所有入边消息 $\rho^{(e \to v)}$</li>
+<li><strong>节点更新</strong>：$h_v' = f_v(h_v, \text{agg})$</li>
+<li><strong>全局更新</strong>：$u' = f_u(u, \text{agg})$</li>
+<li><strong>采样与批处理</strong>：大图用邻居采样（GraphSAGE）或子图采样。</li>
+<li><strong>设计空间</strong>：GCN、GAT、GraphSAGE、MPNN 等。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>最优秀的 GNN 入门材料，被广泛引用。</li>
+</ul>
+<hr />
+<h2>十一、优化算法与理论</h2>
+<h3>1. Adam (2014) — 深度学习里最常用的优化算法之一</h3>
+<p><strong>核心思想</strong></p>
+<p>结合 <strong>Momentum</strong>（一阶矩）与 <strong>RMSProp</strong>（二阶矩），自适应调整每个参数的学习率。</p>
+<pre class="mermaid">flowchart LR
+    G[&quot;梯度 g_t&quot;] --&gt; M[&quot;一阶矩&lt;br/&gt;m_t = β₁·m + (1-β₁)·g&quot;]
+    G --&gt; V[&quot;二阶矩&lt;br/&gt;v_t = β₂·v + (1-β₂)·g²&quot;]
+    M --&gt; MH[&quot;偏差修正&lt;br/&gt;m̂ = m / (1-β₁ᵗ)&quot;]
+    V --&gt; VH[&quot;偏差修正&lt;br/&gt;v̂ = v / (1-β₂ᵗ)&quot;]
+    MH --&gt; U[&quot;参数更新&lt;br/&gt;θ -= α · m̂ / (√v̂ + ε)&quot;]
+    VH --&gt; U
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>算法流程</strong>：
+  $$m_t = \beta_1 m_{t-1} + (1-\beta_1)g_t \quad \text{（一阶矩）}$$
+  $$v_t = \beta_2 v_{t-1} + (1-\beta_2)g_t^2 \quad \text{（二阶矩）}$$
+  $$\hat{m}<em t-1="t-1">t = \frac{m_t}{1-\beta_1^t},\quad \hat{v}_t = \frac{v_t}{1-\beta_2^t} \quad \text{（偏差修正）}$$
+  $$\theta_t = \theta</em>$$} - \alpha \frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \epsilon</li>
+<li><strong>偏差修正</strong>：初期 $m_t$、$v_t$ 偏向 0，除以 $1-\beta^t$ 修正。</li>
+<li><strong>默认超参</strong>：$\alpha=0.001$，$\beta_1=0.9$，$\beta_2=0.999$，$\epsilon=10^{-8}$。</li>
+<li><strong>优势</strong>：计算高效、内存少、适合非平稳目标、超参不敏感。</li>
+<li><strong>变体</strong>：AdamW（解耦权重衰减）、AdaBound、RAdam 等。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>成为深度学习最常用的优化器，几乎所有大模型训练都用 Adam/AdamW。</li>
+</ul>
+<hr />
+<h3>2. 为什么超大的模型泛化性不错 (2016) — 重新思考泛化</h3>
+<p><strong>核心思想</strong></p>
+<p>经典学习理论认为「参数量 ≫ 样本数 = 过拟合」，但深度网络<strong>能拟合随机标签却仍有良好泛化</strong>。论文提出用<strong>容量度量</strong>而非参数量解释泛化。</p>
+<pre class="mermaid">flowchart TD
+    A[&quot;实验 1&lt;br/&gt;真实标签训练&quot;] --&gt; B[&quot;训练误差低&lt;br/&gt;测试误差低&quot;]
+    C[&quot;实验 2&lt;br/&gt;随机标签训练&quot;] --&gt; D[&quot;训练误差 0&lt;br/&gt;完美记忆&quot;]
+    D --&gt; E[&quot;但真实标签下&lt;br/&gt;泛化仍好&quot;]
+    E --&gt; F[&quot;结论&lt;br/&gt;参数量 ≠ 泛化度量&quot;]
+    F --&gt; G[&quot;解释假说&lt;br/&gt;有效容量 / 早停 / 平滑性&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>实验发现</strong>：</li>
+<li>网络可以<strong>完美记住随机标签</strong>（训练误差 0）</li>
+<li>但用真实标签训练时，测试误差仍然很低</li>
+<li>说明<strong>参数量不是泛化的有效度量</strong></li>
+<li><strong>解释假说</strong>：</li>
+<li><strong>有效容量</strong>：SGD 的隐式正则化限制了有效假设空间</li>
+<li><strong>早停</strong>：训练早期学到简单模式</li>
+<li><strong>线性区域的平滑性</strong>：ReLU 网络的函数在参数空间分段线性</li>
+<li><strong>实验</strong>：用随机标签训练，测试误差与训练误差的差距随深度增加而增大。</li>
+<li><strong>结论</strong>：需要新的理论工具理解深度学习的泛化。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>引发对深度学习泛化理论的广泛研究（隐式正则、平坦极小值等）。</li>
+</ul>
+<hr />
+<h3>3. 为什么 Momentum 有效 (2017) — Distill 的可视化介绍</h3>
+<p><strong>核心思想</strong></p>
+<p>Distill 的交互式文章，用<strong>条件数（condition number）</strong>解释 Momentum 为何加速收敛。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;病态问题&lt;br/&gt;条件数 κ = λmax/λmin 大&quot;] --&gt; B[&quot;梯度下降&lt;br/&gt;峡谷中震荡&quot;]
+    B --&gt; C[&quot;Momentum&lt;br/&gt;累积历史梯度&quot;]
+    C --&gt; D[&quot;抑制震荡方向&lt;br/&gt;加速平坦方向&quot;]
+    D --&gt; E[&quot;有效学习率&lt;br/&gt;平坦方向放大 (1+β)/(1-β)&quot;]
+    E --&gt; F[&quot;收敛速度&lt;br/&gt;O(κ) → O(√κ)&quot;]
+    G[&quot;最优动量&lt;br/&gt;β = ((κ-1)/(κ+1))²&quot;] -.-&gt; C
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>病态问题</strong>：Hessian 矩阵条件数 $\kappa = \lambda_{max}/\lambda_{min}$ 大时，梯度下降在「峡谷」中震荡。</li>
+<li><strong>Momentum 的作用</strong>：</li>
+<li>累积历史梯度，抑制震荡方向</li>
+<li>加速平坦方向</li>
+<li>有效学习率在平坦方向放大 $\frac{1+\beta}{1-\beta}$ 倍</li>
+<li><strong>最优动量</strong>：
+  $$\beta_{opt} = \left(\frac{\kappa-1}{\kappa+1}\right)^2$$
+  收敛速度从 $O(\kappa)$ 提升到 $O(\sqrt{\kappa})$。</li>
+<li><strong>Nesterov 加速</strong>：前瞻式梯度，理论收敛率更优。</li>
+<li><strong>可视化</strong>：交互式展示不同 $\beta$ 下的优化轨迹。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>用直观可视化解释优化理论，是 Distill 的经典之作。</li>
+</ul>
+<hr />
+<h2>十二、新领域应用</h2>
+<h3>1. AlphaGo (2016) — 强化学习出圈</h3>
+<p><strong>核心思想</strong></p>
+<p>结合<strong>深度神经网络 + 蒙特卡洛树搜索（MCTS）+ 强化学习</strong>，首次击败人类围棋世界冠军。</p>
+<pre class="mermaid">flowchart TD
+    S[&quot;当前棋局 s&quot;] --&gt; PN[&quot;策略网络&lt;br/&gt;预测落子概率 p&quot;]
+    S --&gt; VN[&quot;价值网络&lt;br/&gt;评估胜率 v&quot;]
+    PN --&gt; MCTS[&quot;蒙特卡洛树搜索&quot;]
+    VN --&gt; MCTS
+    MCTS --&gt; M1[&quot;选择&lt;br/&gt;UCB 平衡探索利用&quot;]
+    M1 --&gt; M2[&quot;扩展&lt;br/&gt;策略网络指导&quot;]
+    M2 --&gt; M3[&quot;评估&lt;br/&gt;价值网络 + 快速走子&quot;]
+    M3 --&gt; M4[&quot;回溯&lt;br/&gt;更新节点统计&quot;]
+    M4 --&gt; A[&quot;落子决策&quot;]
+    A --&gt; T[&quot;训练&lt;br/&gt;自我对弈强化学习&quot;]
+    T -.-&gt; PN
+    T -.-&gt; VN
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>两个网络</strong>：</li>
+<li><strong>策略网络（Policy Network）</strong>：预测下一步落子概率，用人类棋谱监督学习 + 自我对弈强化学习</li>
+<li><strong>价值网络（Value Network）</strong>：评估局面胜率，用自我对弈数据训练</li>
+<li><strong>蒙特卡洛树搜索（MCTS）</strong>：</li>
+<li><strong>选择</strong>：用 UCB 公式平衡探索与利用</li>
+<li><strong>扩展</strong>：用策略网络指导扩展</li>
+<li><strong>评估</strong>：用价值网络 + 快速走子</li>
+<li><strong>回溯</strong>：更新节点统计</li>
+<li><strong>训练流程</strong>：</li>
+<li>监督学习初始化策略网络</li>
+<li>自我对弈强化学习改进策略</li>
+<li>训练价值网络</li>
+<li>MCTS 结合两网络对弈</li>
+<li><strong>性能</strong>：5:0 击败欧洲冠军樊麾，4:1 击败李世石。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>强化学习与深度学习的里程碑，引发全球 AI 热潮。</li>
+</ul>
+<hr />
+<h3>2. AlphaFold (2020) — 赢得比赛的蛋白质 3D 结构预测</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>深度学习</strong>预测蛋白质 3D 结构，在 CASP14 上达到实验精度水平（GDT_TS 92.4）。</p>
+<pre class="mermaid">flowchart LR
+    S[&quot;蛋白质序列&quot;] --&gt; MSA[&quot;MSA 多序列比对&lt;br/&gt;进化信息&quot;]
+    S --&gt; P[&quot;残基对表示&lt;br/&gt;L×L 距离/角度&quot;]
+    MSA --&gt; EV[&quot;Evoformer × 48&lt;br/&gt;双轨交替更新&quot;]
+    P --&gt; EV
+    EV --&gt; SM[&quot;结构模块&lt;br/&gt;等变注意力&quot;]
+    SM --&gt; O[&quot;3D 结构&lt;br/&gt;主链 + 侧链扭转角&quot;]
+    O --&gt; L[&quot;FAPE 损失&lt;br/&gt;端到端训练&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>输入表示</strong>：</li>
+<li><strong>MSA（多序列比对）</strong>：进化信息</li>
+<li><strong>残基对表示</strong>：$L \times L$ 的距离/角度矩阵</li>
+<li><strong>Evoformer 模块</strong>：48 个块，交替更新 MSA 表示与残基对表示。</li>
+<li><strong>结构模块</strong>：</li>
+<li>等变注意力（Equivariant Attention）</li>
+<li>输出主链与侧链的扭转角</li>
+<li><strong>端到端训练</strong>：用 FAPE（Frame Aligned Point Error）损失。</li>
+<li><strong>性能</strong>：CASP14 GDT_TS 92.4（第二名 75.0），达到实验精度。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>解决生物学 50 年难题，被 Science 评为 2021 年度突破。</li>
+</ul>
+<hr />
+<h3>3. AlphaFold 2 (2021) — 原子级别精度的蛋白质 3D 结构预测</h3>
+<p><strong>核心思想</strong></p>
+<p>AlphaFold 的完整版，实现<strong>原子级精度</strong>，并开源代码与数据库。</p>
+<pre class="mermaid">flowchart LR
+    S[&quot;蛋白质序列&quot;] --&gt; MSA[&quot;MSA&lt;br/&gt;进化信息&quot;]
+    S --&gt; P[&quot;残基对表示&quot;]
+    MSA --&gt; EV[&quot;Evoformer × 48&lt;br/&gt;MSA + 残基对双轨&quot;]
+    P --&gt; EV
+    EV --&gt; SM[&quot;结构模块 × 8&lt;br/&gt;IPA 等变注意力&lt;br/&gt;三角乘法更新&quot;]
+    SM --&gt; O[&quot;3D 结构&lt;br/&gt;原子级精度&lt;br/&gt;中位 0.96 Å&quot;]
+    O --&gt; L[&quot;FAPE + 辅助损失&quot;]
+    SD[&quot;自蒸馏&lt;br/&gt;用预测增强数据&quot;] -.-&gt; EV
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>架构细节</strong>：</li>
+<li><strong>Evoformer</strong>：48 块，MSA + 残基对双轨更新</li>
+<li><strong>结构模块</strong>：8 块，等变注意力 + 三角乘法更新</li>
+<li><strong>IPA（Invariant Point Attention）</strong>：在 3D 空间中做注意力，保持旋转平移不变性</li>
+<li><strong>训练</strong>：</li>
+<li>用 PDB 数据（约 17 万结构）</li>
+<li>自蒸馏（用预测结构增强数据）</li>
+<li>损失：FAPE + 辅助损失</li>
+<li><strong>性能</strong>：</li>
+<li>中位精度 0.96 Å（实验精度约 1 Å）</li>
+<li>大部分残基误差 &lt; 1 Å</li>
+<li><strong>开源</strong>：代码 + 数据库（20 万+ 结构预测）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>推动结构生物学革命，被 Nature 评为 2021 年度方法。</li>
+</ul>
+<hr />
+<h3>4. Codex (2021) — 使用注释生成代码</h3>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>GPT-3 微调</strong>得到代码生成模型，从自然语言注释生成可执行代码（HumanEval 通过率 28.8%）。</p>
+<pre class="mermaid">flowchart LR
+    C[&quot;注释 / 描述&quot;] --&gt; M[&quot;Codex&lt;br/&gt;GPT-3 12B 微调&quot;]
+    M --&gt; O[&quot;生成代码&quot;]
+    O --&gt; T[&quot;单元测试验证&quot;]
+    T --&gt; P[&quot;pass@k&lt;br/&gt;n 次采样取通过率&quot;]
+    D[&quot;训练数据&lt;br/&gt;GitHub 159GB Python&quot;] -.-&gt; M
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>数据</strong>：GitHub 上 159GB Python 代码（去重、过滤）。</li>
+<li><strong>模型</strong>：GPT-3 12B 参数版本微调。</li>
+<li><strong>评估基准 HumanEval</strong>：164 个手写编程题，用单元测试验证。</li>
+<li><strong>采样策略</strong>：$n$ 次采样取通过率（pass@k），$n=100$ 时通过率 70.2%。</li>
+<li><strong>能力</strong>：函数补全、注释生成代码、代码翻译。</li>
+<li><strong>局限</strong>：复杂逻辑、长程序仍困难。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开启 AI 编程助手时代（GitHub Copilot 的技术基础）。</li>
+</ul>
+<hr />
+<h3>5. 指导数学直觉 (2021) — 分析数学物体之间的联系来帮助发现新定理</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>机器学习</strong>辅助数学家发现新定理：通过分析数学对象间的<strong>模式与联系</strong>，提出猜想。</p>
+<pre class="mermaid">flowchart LR
+    D[&quot;数学对象数据&lt;br/&gt;纽结 / 表示&quot;] --&gt; M[&quot;监督学习模型&quot;]
+    M --&gt; P[&quot;发现模式&lt;br/&gt;不变量间关系&quot;]
+    P --&gt; C[&quot;提出猜想&quot;]
+    C --&gt; V[&quot;数学家验证证明&quot;]
+    V --&gt; N[&quot;新定理&quot;]
+    N -.-&gt;|&quot;反馈&quot;| M
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>方法</strong>：用监督学习在数学对象（如纽结、表示）的数据上训练，发现不变量间的关系。</li>
+<li><strong>案例</strong>：</li>
+<li>纽结理论：发现代数不变量与几何不变量间的联系</li>
+<li>表示论：发现 Kazhdan-Lusztig 多项式的性质</li>
+<li><strong>人机协作</strong>：AI 提出猜想，数学家验证证明。</li>
+<li><strong>意义</strong>：展示 AI 作为「数学直觉放大器」的潜力。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开创 AI for Mathematics 领域，后续 AlphaTensor、AlphaGeometry 等跟进。</li>
+</ul>
+<hr />
+<h3>6. AlphaCode (2022) — 媲美一般程序员的编程解题水平</h3>
+<p><strong>核心思想</strong></p>
+<p>在<strong>竞赛编程</strong>（Codeforces）上达到人类参赛者中位数水平（前 54.3%）。</p>
+<pre class="mermaid">flowchart LR
+    P[&quot;竞赛题目&quot;] --&gt; M[&quot;编码器-解码器&lt;br/&gt;Transformer 41B&quot;]
+    M --&gt; S[&quot;大规模采样&lt;br/&gt;百万级候选程序&quot;]
+    S --&gt; F1[&quot;示例测试过滤&lt;br/&gt;编译 + 示例通过&quot;]
+    F1 --&gt; F2[&quot;聚类去重&lt;br/&gt;按程序行为聚类&quot;]
+    F2 --&gt; F3[&quot;每簇选 1 个&lt;br/&gt;最多提交 10 个&quot;]
+    F3 --&gt; R[&quot;Codeforces&lt;br/&gt;前 54.3%&quot;]
+    D[&quot;预训练&lt;br/&gt;GitHub 715GB&quot;] -.-&gt; M
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>大规模采样 + 过滤</strong>：</li>
+<li>为每题生成<strong>百万级</strong>候选程序</li>
+<li>用示例测试过滤（去掉编译失败、示例不通过的）</li>
+<li>聚类去重（按程序行为聚类）</li>
+<li>从每个簇选一个提交（最多 10 个）</li>
+<li><strong>模型</strong>：编码器-解码器 Transformer（基于 Codex 架构），参数量 41B。</li>
+<li><strong>预训练</strong>：GitHub 代码（715GB）+ 微调（竞赛数据）。</li>
+<li><strong>性能</strong>：Codeforces 前 54.3%（约 1238 分），超越 46% 的人类参赛者。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>展示大模型在复杂推理任务上的潜力，推动 AI 编程研究。</li>
+</ul>
+<hr />
+<h2>十三、CLIP 应用生态</h2>
+<h3>13.1 CLIP 检测</h3>
+<table>
+<thead>
+<tr>
+<th>论文</th>
+<th>核心思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GLIP</strong> (2112.03857)</td>
+<td>统一检测与定位为视觉-语言对齐任务，深度融合图像与文本编码器，零样本 COCO 49.8 AP</td>
+</tr>
+<tr>
+<td><strong>GLIPv2</strong> (2206.05836)</td>
+<td>进一步统一检测、定位、分割，用「定位即分割」的视角，支持短语定位与区域分类</td>
+</tr>
+<tr>
+<td><strong>ViLD</strong> (2104.13921)</td>
+<td>用 CLIP 蒸馏训练开集检测器，区域嵌入对齐 CLIP 文本嵌入，LVIS 稀有类提升 5.5%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>共同原理</strong></p>
+<ul>
+<li>用 CLIP 的<strong>图文对齐空间</strong>作为「通用分类器」</li>
+<li>检测器的区域特征通过<strong>蒸馏</strong>对齐到 CLIP 空间</li>
+<li>推理时用<strong>文本嵌入</strong>作为分类权重，支持任意类别</li>
+</ul>
+<hr />
+<h3>13.2 深度、3D（点云）、音频</h3>
+<table>
+<thead>
+<tr>
+<th>论文</th>
+<th>核心思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>NeRF</strong> (2003.08934)</td>
+<td>用 MLP 表示 3D 场景的<strong>辐射场</strong>：输入 5D 坐标（位置 + 方向），输出颜色 + 密度，体渲染合成新视角</td>
+</tr>
+<tr>
+<td><strong>AudioCLIP</strong> (2106.13043)</td>
+<td>将 CLIP 扩展到<strong>音频</strong>：三模态（图像-文本-音频）对比学习，支持音频分类与检索</td>
+</tr>
+<tr>
+<td><strong>PointCLIP</strong> (2112.02413)</td>
+<td>点云投影为多视角深度图，用 CLIP 零样本分类 3D 物体</td>
+</tr>
+<tr>
+<td><strong>DepthCLIP</strong> (2207.01077)</td>
+<td>用文本描述深度（"very close"、"far"），零样本单目深度估计</td>
+</tr>
+<tr>
+<td><strong>ULIP</strong> (2212.05171)</td>
+<td>统一<strong>语言-图像-点云</strong>三模态预训练，用 CLIP 对齐点云与文本</td>
+</tr>
+<tr>
+<td><strong>Point-E</strong> (2212.08751)</td>
+<td>用扩散模型从文本生成 <strong>3D 点云</strong></td>
+</tr>
+<tr>
+<td><strong>Shap-E</strong> (2305.02463)</td>
+<td>从文本生成 <strong>3D 隐式函数</strong>（可渲染为网格/NeRF）</td>
+</tr>
+<tr>
+<td><strong>ULIP-2</strong> (2305.08275)</td>
+<td>ULIP 的改进版，用多视角渲染图像自动生成点云描述，扩展训练数据</td>
+</tr>
+<tr>
+<td><strong>AvatarBooth</strong> (2306.09864)</td>
+<td>从文本/图像生成<strong>个性化 3D 头像</strong>，支持细粒度控制</td>
+</tr>
+</tbody>
+</table>
+<p><strong>NeRF 架构</strong></p>
+<pre class="mermaid">flowchart LR
+    R[&quot;相机光线&lt;br/&gt;原点 o + 方向 d&quot;] --&gt; S[&quot;沿光线采样&lt;br/&gt;t₁ ... t_N&quot;]
+    S --&gt; P[&quot;5D 坐标&lt;br/&gt;(x, y, z, θ, φ)&quot;]
+    P --&gt; MLP[&quot;MLP 辐射场&lt;br/&gt;F_Θ&quot;]
+    MLP --&gt; C[&quot;颜色 c&lt;br/&gt;+ 密度 σ&quot;]
+    C --&gt; VR[&quot;体渲染&lt;br/&gt;C = ∫ T(t)σ(t)c(t)dt&quot;]
+    VR --&gt; I[&quot;合成像素&lt;br/&gt;新视角图像&quot;]
+</pre>
+<p><strong>Stable Diffusion 架构</strong></p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像 x&quot;] --&gt; VAE[&quot;VAE 编码器&quot;]
+    VAE --&gt; Z[&quot;潜表示 z&lt;br/&gt;64×64×4&quot;]
+    Z --&gt;|&quot;加噪&quot;| ZT[&quot;z_T 纯噪声&quot;]
+    ZT --&gt; UN[&quot;U-Net 去噪&lt;br/&gt;交叉注意力注入文本&quot;]
+    T[&quot;文本提示&quot;] --&gt; TE[&quot;CLIP 文本编码器&quot;]
+    TE --&gt; UN
+    UN --&gt; Z0[&quot;去噪潜表示 z₀&quot;]
+    Z0 --&gt; VD[&quot;VAE 解码器&quot;]
+    VD --&gt; O[&quot;生成图像&lt;br/&gt;512×512&quot;]
+</pre>
+<p><strong>共同原理</strong></p>
+<ul>
+<li><strong>跨模态对齐</strong>：将 3D/音频表示投影到 CLIP 空间</li>
+<li><strong>多视角投影</strong>：3D → 2D 投影后复用 2D 模型</li>
+<li><strong>扩散生成</strong>：用扩散模型生成 3D 表示</li>
+</ul>
+<hr />
+<h3>13.3 使用 CLIP 实现语义分割</h3>
+<table>
+<thead>
+<tr>
+<th>论文</th>
+<th>核心思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GroupViT</strong> (2202.11094)</td>
+<td>层次化分组 token 聚合像素为语义区域，用图文对比学习训练，<strong>无需像素标注</strong></td>
+</tr>
+<tr>
+<td><strong>LSeg</strong> (2201.03546)</td>
+<td>像素嵌入与 CLIP 文本嵌入对齐，实现<strong>语言驱动分割</strong>，支持零样本类别</td>
+</tr>
+</tbody>
+</table>
+<p><strong>共同原理</strong></p>
+<ul>
+<li>将<strong>像素/区域嵌入</strong>对齐到 CLIP 文本空间</li>
+<li>用文本查询实现<strong>开放词汇</strong>分割</li>
+</ul>
+<hr />
+<h3>13.4 视频、动作捕捉</h3>
+<table>
+<thead>
+<tr>
+<th>论文</th>
+<th>核心思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ActionCLIP</strong> (2109.08472)</td>
+<td>动作识别重构为多模态对比学习，视频特征与动作类别文本对齐，支持零样本</td>
+</tr>
+<tr>
+<td><strong>CLIP4Clip</strong> (2104.08860)</td>
+<td>CLIP 迁移到视频-文本检索，帧特征时序聚合</td>
+</tr>
+<tr>
+<td><strong>VideoCLIP</strong> (2109.14084)</td>
+<td>视频-文本对比预训练，用<strong>未来预测</strong>作为额外监督，支持零样本视频理解</td>
+</tr>
+</tbody>
+</table>
+<p><strong>共同原理</strong></p>
+<ul>
+<li>用 CLIP 编码<strong>视频帧</strong>，时序聚合得到视频表示</li>
+<li>与文本嵌入对比学习，实现零样本视频任务</li>
+</ul>
+<hr />
+<h3>13.5 图像生成</h3>
+<table>
+<thead>
+<tr>
+<th>论文</th>
+<th>核心思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>VQGAN</strong> (2012.09841)</td>
+<td>用<strong>矢量量化</strong> + GAN 学习离散码本，Transformer 在码本上建模，实现高质量图像生成</td>
+</tr>
+<tr>
+<td><strong>CLIPDraw</strong> (2106.14843)</td>
+<td>用 CLIP 作为损失函数，优化<strong>矢量笔画</strong>参数生成简笔画</td>
+</tr>
+<tr>
+<td><strong>VQGAN-CLIP</strong> (2204.08583)</td>
+<td>VQGAN 生成 + CLIP 引导，用 CLIP 相似度作为优化目标实现文本生成图像</td>
+</tr>
+<tr>
+<td><strong>Stable Diffusion</strong> (CVPR 2022)</td>
+<td><strong>潜空间扩散</strong>：在 VAE 压缩的潜空间做扩散，大幅降低计算量，实现高效文生图</td>
+</tr>
+<tr>
+<td><strong>CLIPasso</strong> (2202.05822)</td>
+<td>优化贝塞尔曲线参数，用 CLIP 语义损失 + 几何损失生成简笔画</td>
+</tr>
+<tr>
+<td><strong>Midjourney</strong> (2302.08961)</td>
+<td>商业文生图系统（论文为技术报告），强调美学质量与用户体验</td>
+</tr>
+</tbody>
+</table>
+<p><strong>VQGAN 架构</strong></p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; E[&quot;编码器&quot;]
+    E --&gt; Z[&quot;连续特征 z&quot;]
+    Z --&gt; VQ[&quot;矢量量化&lt;br/&gt;最近邻查码本&quot;]
+    CB[&quot;码本&lt;br/&gt;K 个离散向量&quot;] --&gt; VQ
+    VQ --&gt; IDX[&quot;离散 Token 序列&quot;]
+    IDX --&gt; TR[&quot;Transformer&lt;br/&gt;自回归建模&quot;]
+    TR --&gt; D[&quot;解码器&quot;]
+    VQ --&gt; D
+    D --&gt; O[&quot;重建 / 生成图像&quot;]
+    D --&gt; GAN[&quot;PatchGAN 判别器&lt;br/&gt;对抗损失&quot;]
+</pre>
+<p><strong>共同原理</strong></p>
+<ul>
+<li><strong>CLIP 作为损失/引导</strong>：用 CLIP 相似度指导生成</li>
+<li><strong>潜空间建模</strong>：在压缩空间做生成，降低计算量</li>
+<li><strong>扩散 + 引导</strong>：扩散模型 + 分类器/无分类器引导</li>
+</ul>
+<hr />
+<h3>13.6 语言视觉下游任务</h3>
+<table>
+<thead>
+<tr>
+<th>论文</th>
+<th>核心思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Vision-Language Downstream</strong> (2107.06383)</td>
+<td>综述视觉-语言预训练在下游任务（VQA、检索、定位等）的应用与迁移方法</td>
+</tr>
+</tbody>
+</table>
+<p><strong>核心内容</strong></p>
+<ul>
+<li>预训练模型在下游任务的<strong>迁移策略</strong>（微调、提示、零样本）</li>
+<li>任务分类：分类、检索、生成、定位</li>
+<li>挑战与未来方向</li>
+</ul>
+<hr />
+<h2>十四、综述类</h2>
+<h3>1. A Comprehensive Survey on Pretrained Foundation Models (2023)</h3>
+<p><strong>核心内容</strong></p>
+<p>从 BERT 到 ChatGPT 的预训练基础模型综述。</p>
+<p><strong>关键要点</strong></p>
+<ul>
+<li><strong>模型分类</strong>：语言、视觉、多模态、具身</li>
+<li><strong>技术演进</strong>：Transformer → 预训练 → 提示学习 → 指令微调 → RLHF</li>
+<li><strong>关键能力</strong>：涌现能力、上下文学习、思维链</li>
+<li><strong>挑战</strong>：幻觉、对齐、效率、伦理</li>
+</ul>
+<hr />
+<h3>2. On the Opportunities and Risks of Foundation Models (2021)</h3>
+<p><strong>核心思想</strong></p>
+<p>斯坦福 CRFM 的报告，系统分析基础模型的<strong>机遇与风险</strong>。</p>
+<pre class="mermaid">flowchart TD
+    D[&quot;基础模型定义&lt;br/&gt;大规模预训练 + 多任务适配&quot;] --&gt; O[&quot;机遇&quot;]
+    D --&gt; R[&quot;风险&quot;]
+    O --&gt; O1[&quot;同质化&lt;br/&gt;一个模型多任务&quot;]
+    O --&gt; O2[&quot;涌现能力&quot;]
+    R --&gt; R1[&quot;性能风险&lt;br/&gt;偏见 / 鲁棒性 / 不确定性&quot;]
+    R --&gt; R2[&quot;误用风险&lt;br/&gt;虚假信息 / 恶意使用&quot;]
+    R --&gt; R3[&quot;系统性风险&lt;br/&gt;垄断 / 劳动市场 / 环境&quot;]
+    O1 --&gt; S[&quot;建议&lt;br/&gt;跨学科研究 / 透明性 / 参与式设计&quot;]
+    R1 --&gt; S
+    R2 --&gt; S
+    R3 --&gt; S
+</pre>
+<p><strong>关键要点</strong></p>
+<ul>
+<li><strong>定义</strong>：基础模型 = 在大规模数据上预训练、可适配多任务的模型</li>
+<li><strong>机遇</strong>：同质化（一个模型多任务）、涌现能力</li>
+<li><strong>风险</strong>：</li>
+<li><strong>性能风险</strong>：偏见、鲁棒性、不确定性</li>
+<li><strong>误用风险</strong>：虚假信息、恶意使用</li>
+<li><strong>系统性风险</strong>：垄断、劳动市场、环境影响</li>
+<li><strong>建议</strong>：跨学科研究、透明性、参与式设计</li>
+</ul>
+<hr />
+<h3>3. Holistic Evaluation of Language Models (2022)</h3>
+<p><strong>核心思想</strong></p>
+<p>HELM 基准：<strong>全面</strong>评估语言模型（准确性、校准、鲁棒性、公平性、偏见、毒性、效率）。</p>
+<pre class="mermaid">flowchart LR
+    M[&quot;语言模型&quot;] --&gt; H[&quot;HELM 评估框架&quot;]
+    S[&quot;16 个场景&quot;] --&gt; H
+    D[&quot;30 个数据集&quot;] --&gt; H
+    H --&gt; M1[&quot;准确性&quot;]
+    H --&gt; M2[&quot;校准&quot;]
+    H --&gt; M3[&quot;鲁棒性&quot;]
+    H --&gt; M4[&quot;公平性&quot;]
+    H --&gt; M5[&quot;偏见&quot;]
+    H --&gt; M6[&quot;毒性&quot;]
+    H --&gt; M7[&quot;效率&quot;]
+    M1 --&gt; C[&quot;结论&lt;br/&gt;无模型全维度最优&lt;br/&gt;存在权衡&quot;]
+    M3 --&gt; C
+    M4 --&gt; C
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>多维度评估</strong>：7 大指标 × 16 个场景 × 30 个数据集</li>
+<li><strong>标准化</strong>：统一提示格式、统一评估协议</li>
+<li><strong>发现</strong>：</li>
+<li>没有模型在所有维度都最优</li>
+<li>准确性与鲁棒性/公平性存在权衡</li>
+<li>指令微调提升准确性但可能增加偏见</li>
+<li><strong>开源</strong>：评估框架与结果公开。</li>
+</ul>
+<hr />
+<h3>4. Prompt (2107.13586) — 提示工程综述</h3>
+<p><strong>核心思想</strong></p>
+<p>系统综述<strong>提示（Prompt）</strong>在 NLP 中的应用：从手工设计到自动搜索。</p>
+<pre class="mermaid">flowchart TD
+    P[&quot;提示 Prompt&quot;] --&gt; F1[&quot;完形填空 Cloze&lt;br/&gt;[MASK] 预测&quot;]
+    P --&gt; F2[&quot;前缀 Prefix&lt;br/&gt;生成式提示&quot;]
+    P --&gt; DM[&quot;设计方法&quot;]
+    DM --&gt; D1[&quot;手工模板&quot;]
+    DM --&gt; D2[&quot;自动搜索&quot;]
+    D2 --&gt; D21[&quot;离散搜索&lt;br/&gt;梯度无关&quot;]
+    D2 --&gt; D22[&quot;连续优化&lt;br/&gt;软提示&quot;]
+    F1 --&gt; E[&quot;多提示集成&lt;br/&gt;投票&quot;]
+    F2 --&gt; E
+    D1 --&gt; E
+    D2 --&gt; E
+    E --&gt; A[&quot;应用&lt;br/&gt;分类 / 生成 / 问答 / 推理&quot;]
+</pre>
+<p><strong>关键内容</strong></p>
+<ul>
+<li><strong>提示形式</strong>：</li>
+<li><strong>完形填空（Cloze）</strong>：<code>[MASK]</code> 预测</li>
+<li><strong>前缀（Prefix）</strong>：生成式提示</li>
+<li><strong>设计方法</strong>：</li>
+<li><strong>手工模板</strong>：人工设计</li>
+<li><strong>自动搜索</strong>：离散搜索（梯度无关）、连续优化（软提示）</li>
+<li><strong>多提示集成</strong>：多个提示投票</li>
+<li><strong>应用</strong>：分类、生成、问答、推理</li>
+<li><strong>挑战</strong>：提示敏感性、模板选择、评估困难</li>
+</ul>
+<hr />
+<h3>5. SELF-INSTRUCT (2022) — 用模型自己生成指令数据</h3>
+<p><strong>核心思想</strong></p>
+<p>用<strong>模型自己生成</strong>指令-回答数据，微调自己，减少对人工标注的依赖。</p>
+<pre class="mermaid">flowchart LR
+    S[&quot;175 个种子任务&quot;] --&gt; G[&quot;1. 指令生成&lt;br/&gt;模型生成新指令&quot;]
+    G --&gt; C[&quot;2. 分类&lt;br/&gt;是否分类任务&quot;]
+    C --&gt; I[&quot;3. 实例生成&lt;br/&gt;输入输出对&quot;]
+    I --&gt; F[&quot;4. 过滤&lt;br/&gt;去无效 / 去相似&quot;]
+    F --&gt; D[&quot;52K 指令-回答对&quot;]
+    D --&gt; FT[&quot;5. 微调模型&quot;]
+    FT --&gt; R[&quot;SuperNI +33.1%&lt;br/&gt;接近 InstructGPT&quot;]
+    FT -.-&gt;|多轮自举| G
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>自举流程</strong>：</li>
+<li><strong>指令生成</strong>：用 175 个种子任务，让模型生成新指令</li>
+<li><strong>分类</strong>：判断是否为分类任务</li>
+<li><strong>实例生成</strong>：为指令生成输入输出实例</li>
+<li><strong>过滤</strong>：去掉无效/相似指令</li>
+<li><strong>微调</strong>：用生成的数据微调模型</li>
+<li><strong>数据量</strong>：52K 指令-回答对。</li>
+<li><strong>性能</strong>：在 SuperNI 上提升 33.1%，接近 InstructGPT 的 1/10 数据量效果。</li>
+<li><strong>迭代</strong>：可多轮自举，持续提升。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出「自指令」范式，被 Alpaca、Vicuna 等广泛采用。</li>
+</ul>
+<hr />
+<h2>十五、大模型时代最新进展 (2023-2025)</h2>
+<blockquote>
+<p>本章节补充 2023-2025 年深度学习领域的核心进展，涵盖大语言模型架构、推理模型、对齐技术、多模态大模型、扩散生成、视频生成、3D 重建、具身智能与 Agent 等方向。</p>
+</blockquote>
+<h3>15.1 大语言模型架构与效率</h3>
+<h4>1. LLaMA 2 (2023) — 开源可商用的大语言模型</h4>
+<p><strong>核心思想</strong></p>
+<p>Meta 发布的开源 LLM 系列（7B/13B/70B），用<strong>更多数据 + 更长训练 + RLHF 对齐</strong>，在开源模型中达到接近闭源模型的水平。</p>
+<pre class="mermaid">flowchart LR
+    D[&quot;2T tokens&lt;br/&gt;公开数据&quot;] --&gt; P[&quot;预训练&lt;br/&gt;7B / 13B / 70B&quot;]
+    P --&gt; S[&quot;监督微调 SFT&lt;br/&gt;27K 高质量对话&quot;]
+    S --&gt; R[&quot;拒绝采样&lt;br/&gt;多次采样选最优&quot;]
+    R --&gt; PPO[&quot;PPO 强化学习&lt;br/&gt;两个奖励模型&lt;br/&gt;有用性 + 安全性&quot;]
+    PPO --&gt; M[&quot;LLaMA 2 Chat&quot;]
+    G[&quot;GQA 分组查询注意力&lt;br/&gt;70B&quot;] -.-&gt; P
+    GA[&quot;Ghost Attention&lt;br/&gt;多轮对话一致性&quot;] -.-&gt; S
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>数据</strong>：2 万亿 token，全部来自公开数据（比 LLaMA 1 多 40%）。</li>
+<li><strong>GQA</strong>：70B 使用分组查询注意力，推理时 KV cache 减少 8 倍。</li>
+<li><strong>上下文</strong>：4096 token（LLaMA 1 为 2048）。</li>
+<li><strong>RLHF 流程</strong>：拒绝采样 + PPO，训练两个独立的奖励模型（有用性、安全性）。</li>
+<li><strong>Ghost Attention</strong>：解决多轮对话中指令遗忘问题。</li>
+<li><strong>安全</strong>：红队测试 + 安全微调，发布 Llama Guard 安全分类器。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开源可商用，成为开源 LLM 生态的基石（Alpaca、Vicuna、Zephyr 等均基于此）。</li>
+<li>证明开源模型可以接近闭源模型水平。</li>
+</ul>
+<hr />
+<h4>2. Mistral 7B (2023) — 小模型的高效设计</h4>
+<p><strong>核心思想</strong></p>
+<p>7.3B 参数模型，通过 <strong>GQA + 滑动窗口注意力（SWA）+ SwiGLU</strong> 三项工程优化，性能超越 13B 的 LLaMA 2。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入序列&quot;] --&gt; GQA[&quot;GQA 分组查询注意力&lt;br/&gt;8 KV 头 / 32 Q 头&quot;]
+    GQA --&gt; SWA[&quot;滑动窗口注意力&lt;br/&gt;窗口 4096&lt;br/&gt;O(n·w) 复杂度&quot;]
+    SWA --&gt; FFN[&quot;SwiGLU 前馈层&quot;]
+    FFN --&gt; O[&quot;输出&quot;]
+    R[&quot;滚动缓冲区&lt;br/&gt;KV cache 固定大小&quot;] -.-&gt; SWA
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>滑动窗口注意力（SWA）</strong>：每层只关注前 4096 个 token，堆叠后感受野线性增长，KV cache 固定大小。</li>
+<li><strong>GQA</strong>：8 个 KV 头、32 个查询头，加速推理。</li>
+<li><strong>SwiGLU</strong>：门控激活函数，提升质量。</li>
+<li><strong>性能</strong>：超越 LLaMA 2 13B，接近 LLaMA 1 34B。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明架构优化比单纯堆参数更有效。</li>
+<li>SWA 被 Gemma 2 等后续模型采用。</li>
+</ul>
+<hr />
+<h4>3. Mixtral 8x7B (2024) — 稀疏混合专家</h4>
+<p><strong>核心思想</strong></p>
+<p><strong>稀疏混合专家（SMoE）</strong>架构：每层 8 个专家网络，每个 token 只激活 2 个，总参数 46.7B 但每 token 只计算 12.9B。</p>
+<pre class="mermaid">flowchart LR
+    T[&quot;Token&quot;] --&gt; R[&quot;路由器 Router&lt;br/&gt;计算 8 个专家得分&quot;]
+    R --&gt;|&quot;Top-2&quot;| E1[&quot;专家 1&quot;]
+    R --&gt;|&quot;Top-2&quot;| E3[&quot;专家 3&quot;]
+    R -.-&gt;|&quot;不激活&quot;| E2[&quot;专家 2&quot;]
+    R -.-&gt;|&quot;不激活&quot;| E8[&quot;专家 8&quot;]
+    E1 --&gt; S[&quot;加权求和&quot;]
+    E3 --&gt; S
+    S --&gt; O[&quot;输出&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>稀疏激活</strong>：46.7B 总参数，12.9B 激活参数（每 token 只用 2 个专家）。</li>
+<li><strong>性能</strong>：匹配或超越 LLaMA 2 70B 和 GPT-3.5，推理成本仅 1/5。</li>
+<li><strong>上下文</strong>：32K token。</li>
+<li><strong>多语言</strong>：法语、德语、西班牙语、意大利语表现优异。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明 MoE 是「大容量 + 低推理成本」的有效路径。</li>
+<li>推动 DeepSeek、Qwen 等采用 MoE 架构。</li>
+</ul>
+<hr />
+<h4>4. DeepSeek-V3 (2024) — 671B MoE 的高效训练</h4>
+<p><strong>核心思想</strong></p>
+<p>671B 总参数 / 37B 激活参数的 MoE 模型，用 <strong>MLA + 无辅助损失负载均衡 + FP8 训练 + 多 token 预测</strong> 四大创新，以 1/10 成本达到 GPT-4 级别。</p>
+<pre class="mermaid">flowchart LR
+    T[&quot;Token&quot;] --&gt; MLA[&quot;MLA 多头潜在注意力&lt;br/&gt;KV cache 压缩 93%&quot;]
+    MLA --&gt; MOE[&quot;DeepSeekMoE&lt;br/&gt;1 共享 + 256 路由专家&lt;br/&gt;Top-8 激活&quot;]
+    MOE --&gt; MTP[&quot;多 Token 预测 MTP&lt;br/&gt;一次预测多个 token&quot;]
+    MTP --&gt; O[&quot;输出&quot;]
+    FP8[&quot;FP8 混合精度训练&quot;] -.-&gt; MLA
+    BAL[&quot;无辅助损失负载均衡&lt;br/&gt;动态偏置调整&quot;] -.-&gt; MOE
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>MLA（Multi-head Latent Attention）</strong>：将 KV 压缩为低维潜在向量，KV cache 减少 93.3%，推理吞吐提升 5.76 倍。</li>
+<li><strong>DeepSeekMoE</strong>：1 个共享专家 + 256 个路由专家，细粒度专家分割，每 token 激活 8 个。</li>
+<li><strong>无辅助损失负载均衡</strong>：用动态偏置项替代辅助损失，避免性能损失。</li>
+<li><strong>FP8 混合精度训练</strong>：首次在超大规模模型上验证 FP8，训练速度提升。</li>
+<li><strong>多 Token 预测（MTP）</strong>：一次预测多个未来 token，提升数据效率。</li>
+<li><strong>成本</strong>：14.8T token，2048 张 H800，278.8 万 GPU 小时，约 557 万美元。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开源模型首次在多项基准上匹敌 GPT-4o / Claude 3.5。</li>
+<li>证明训练效率创新可以大幅降低成本。</li>
+</ul>
+<hr />
+<h4>5. Mamba (2023) — 选择性状态空间模型</h4>
+<p><strong>核心思想</strong></p>
+<p>用<strong>选择性状态空间模型（S6）</strong>替代注意力机制，实现<strong>线性复杂度</strong>的序列建模，推理速度比 Transformer 快 5 倍。</p>
+<pre class="mermaid">flowchart LR
+    X[&quot;输入 x_t&quot;] --&gt; S[&quot;选择机制&lt;br/&gt;Δ, B, C 依赖输入&quot;]
+    S --&gt; SSM[&quot;状态空间递推&lt;br/&gt;h_t = Ā·h + B̄·x_t&quot;]
+    SSM --&gt; Y[&quot;输出 y_t = C·h_t&quot;]
+    P[&quot;硬件感知并行扫描&lt;br/&gt;GPU SRAM 优化&quot;] -.-&gt; SSM
+    C1[&quot;复杂度 O(n)&lt;br/&gt;vs 注意力 O(n²)&quot;] -.-&gt; SSM
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>选择机制</strong>：SSM 参数（Δ、B、C）由输入动态决定，实现「内容感知」的过滤与记忆。</li>
+<li><strong>硬件感知算法</strong>：并行扫描 + 核融合，充分利用 GPU SRAM。</li>
+<li><strong>复杂度</strong>：训练 O(n)，推理 O(1) 每步（RNN 式递推）。</li>
+<li><strong>性能</strong>：Mamba-3B 超越同规模 Transformer，匹配 2 倍规模 Transformer。</li>
+<li><strong>Mamba-2</strong>：提出状态空间对偶（SSD），与注意力统一框架，速度再提升 8 倍。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>挑战 Transformer 的统治地位，成为线性序列建模的代表。</li>
+<li>被 Jamba、Codestral Mamba 等混合架构采用。</li>
+</ul>
+<hr />
+<h4>6. FlashAttention (2022) — IO 感知的精确注意力</h4>
+<p><strong>核心思想</strong></p>
+<p>注意力瓶颈不在计算而在<strong>显存读写（HBM ↔ SRAM）</strong>。用<strong>分块（tiling）+ 重计算</strong>避免存储 n×n 注意力矩阵，实现 2-4 倍加速。</p>
+<pre class="mermaid">flowchart LR
+    Q[&quot;Q, K, V 分块&quot;] --&gt; T[&quot;Tiling&lt;br/&gt;块加载到 SRAM&quot;]
+    T --&gt; S[&quot;在线 Softmax&lt;br/&gt;增量更新统计量&quot;]
+    S --&gt; A[&quot;块内注意力计算&quot;]
+    A --&gt; O[&quot;输出累加&quot;]
+    O --&gt; W[&quot;写回 HBM&lt;br/&gt;不存 n×n 矩阵&quot;]
+    R[&quot;反向重计算&lt;br/&gt;不存中间结果&quot;] -.-&gt; T
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>IO 感知</strong>：HBM 读写是瓶颈，目标是最小化 HBM 访问。</li>
+<li><strong>分块计算</strong>：Q/K/V 分块加载到 SRAM，块内计算注意力。</li>
+<li><strong>在线 Softmax</strong>：增量式更新 softmax 统计量（最大值、指数和），无需完整行。</li>
+<li><strong>重计算</strong>：反向传播时重新计算注意力矩阵，不存储中间结果。</li>
+<li><strong>效果</strong>：BERT 训练提速 15%，GPT-2 提速 3 倍，内存线性而非平方。</li>
+<li><strong>FlashAttention-2</strong>：优化并行度与工作划分，再提速 2 倍。</li>
+<li><strong>FlashAttention-3</strong>：针对 Hopper 架构，利用 TMA 与 WGMMA，达 75% 峰值。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>成为所有大模型训练/推理的标准组件。</li>
+<li>开启「IO 感知算法」研究方向。</li>
+</ul>
+<hr />
+<h3>15.2 推理与测试时计算</h3>
+<h4>7. Chain-of-Thought (2022) — 思维链提示</h4>
+<p><strong>核心思想</strong></p>
+<p>在提示中加入<strong>中间推理步骤</strong>示例，让模型「一步步思考」，大幅提升复杂推理能力。</p>
+<pre class="mermaid">flowchart LR
+    Q[&quot;问题&lt;br/&gt;罗杰有 5 个网球...&quot;] --&gt; P[&quot;CoT 提示&lt;br/&gt;示例含推理步骤&quot;]
+    P --&gt; M[&quot;LLM 生成&quot;]
+    M --&gt; S1[&quot;步骤 1&lt;br/&gt;罗杰有 5 个球&quot;]
+    S1 --&gt; S2[&quot;步骤 2&lt;br/&gt;买 2 罐 × 3 = 6 个&quot;]
+    S2 --&gt; S3[&quot;步骤 3&lt;br/&gt;5 + 6 = 11&quot;]
+    S3 --&gt; A[&quot;答案 11&quot;]
+    E[&quot;涌现能力&lt;br/&gt;~100B 参数才有效&quot;] -.-&gt; M
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>少样本 CoT</strong>：8 个含推理链的示例，模型模仿生成推理步骤。</li>
+<li><strong>涌现性</strong>：模型规模需 ~100B 才显著有效（小模型反而变差）。</li>
+<li><strong>零样本 CoT</strong>：加一句「Let's think step by step」即可（Kojima et al.）。</li>
+<li><strong>效果</strong>：GSM8K 数学题从 17.9% → 56.9%（PaLM 540B）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开启「推理增强提示」研究方向。</li>
+<li>是 o1、DeepSeek-R1 等推理模型的思想源头。</li>
+</ul>
+<hr />
+<h4>8. Tree of Thoughts (2023) — 思维树</h4>
+<p><strong>核心思想</strong></p>
+<p>将推理从<strong>线性链</strong>扩展为<strong>树搜索</strong>：生成多个思维分支，评估状态，回溯或前瞻，实现深思熟虑的问题求解。</p>
+<pre class="mermaid">flowchart TD
+    R[&quot;问题&quot;] --&gt; T1[&quot;思维 1&quot;]
+    R --&gt; T2[&quot;思维 2&quot;]
+    R --&gt; T3[&quot;思维 3&quot;]
+    T1 --&gt; E1[&quot;评估&lt;br/&gt;确定 / 可能 / 不可能&quot;]
+    T2 --&gt; E2[&quot;评估&quot;]
+    T3 --&gt; E3[&quot;评估&quot;]
+    E1 --&gt;|&quot;好&quot;| T11[&quot;思维 1.1&quot;]
+    E2 --&gt;|&quot;好&quot;| T21[&quot;思维 2.1&quot;]
+    E3 --&gt;|&quot;差&quot;| X[&quot;剪枝&quot;]
+    T11 --&gt; F[&quot;最终答案&quot;]
+    T21 --&gt; F
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>思维分解</strong>：将问题拆为中间思维步骤。</li>
+<li><strong>思维生成</strong>：采样或提议多个候选思维。</li>
+<li><strong>状态评估</strong>：用 LLM 自评估（确定/可能/不可能）或投票。</li>
+<li><strong>搜索算法</strong>：BFS（广度优先）或 DFS（深度优先）+ 回溯。</li>
+<li><strong>效果</strong>：24 点游戏从 4% → 74%（GPT-4）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>将经典搜索算法与 LLM 结合，推动「系统 2」式推理。</li>
+<li>影响 o1 等推理模型的搜索式训练。</li>
+</ul>
+<hr />
+<h4>9. o1 (2024) — 用强化学习训练推理</h4>
+<p><strong>核心思想</strong></p>
+<p>OpenAI 的推理模型：用<strong>大规模强化学习</strong>训练模型生成长思维链，推理时通过<strong>测试时计算扩展</strong>提升性能。</p>
+<pre class="mermaid">flowchart LR
+    P[&quot;问题&quot;] --&gt; M[&quot;o1 模型&quot;]
+    M --&gt; C[&quot;长思维链&lt;br/&gt;数千 token 内部推理&quot;]
+    C --&gt; A[&quot;答案&quot;]
+    RL[&quot;大规模 RL 训练&lt;br/&gt;学习推理策略&quot;] -.-&gt; M
+    T[&quot;测试时计算&lt;br/&gt;思考越久效果越好&quot;] -.-&gt; C
+    S[&quot;性能随训练计算&lt;br/&gt;与测试计算平滑提升&quot;] -.-&gt; A
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>RL 训练</strong>：用强化学习让模型学会「如何思考」，而非模仿人类推理。</li>
+<li><strong>长思维链</strong>：内部生成数千 token 的推理过程，对用户隐藏。</li>
+<li><strong>测试时计算扩展</strong>：性能随思考时间对数增长。</li>
+<li><strong>性能</strong>：AIME 数学竞赛 83%（GPT-4o 仅 13%），Codeforces 第 89 百分位。</li>
+<li><strong>o1-mini</strong>：更小更便宜，专注 STEM 推理。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开启「推理模型」新范式，Scaling Law 从训练扩展到推理。</li>
+<li>引发 o3、DeepSeek-R1、QwQ 等推理模型浪潮。</li>
+</ul>
+<hr />
+<h4>10. DeepSeek-R1 (2025) — 纯强化学习涌现推理</h4>
+<p><strong>核心思想</strong></p>
+<p>证明<strong>无需监督微调</strong>，纯 RL 即可让模型涌现推理能力（R1-Zero），并给出可复现的完整训练流程（R1）。</p>
+<pre class="mermaid">flowchart LR
+    B[&quot;基座模型&lt;br/&gt;DeepSeek-V3-Base&quot;] --&gt; Z[&quot;R1-Zero&lt;br/&gt;纯 GRPO 强化学习&lt;br/&gt;无 SFT&quot;]
+    Z --&gt; E[&quot;涌现行为&lt;br/&gt;长思维链 / 自我验证&lt;br/&gt;『啊哈时刻』&quot;]
+    B --&gt; R[&quot;R1 多阶段训练&quot;]
+    R --&gt; C1[&quot;1. 冷启动 SFT&lt;br/&gt;数千条长 CoT 数据&quot;]
+    C1 --&gt; C2[&quot;2. 推理导向 RL&lt;br/&gt;语言一致性奖励&quot;]
+    C2 --&gt; C3[&quot;3. 拒绝采样 + SFT&lt;br/&gt;80 万条数据&quot;]
+    C3 --&gt; C4[&quot;4. 全场景 RL&lt;br/&gt;推理 + 有用性 + 安全&quot;]
+    C4 --&gt; M[&quot;DeepSeek-R1&quot;]
+    M --&gt; D[&quot;蒸馏到小模型&lt;br/&gt;1.5B - 70B&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>GRPO</strong>：组相对策略优化，无需价值网络，用组内奖励均值作基线。</li>
+<li><strong>R1-Zero</strong>：纯 RL，无 SFT 冷启动，自发涌现长思维链、自我验证、「啊哈时刻」。</li>
+<li><strong>规则奖励</strong>：数学/代码用规则验证（准确率 + 格式），避免奖励模型被钻空子。</li>
+<li><strong>R1 四阶段</strong>：冷启动 → 推理 RL → 拒绝采样 SFT → 全场景 RL。</li>
+<li><strong>蒸馏</strong>：将 R1 推理能力蒸馏到 Qwen/Llama 小模型（1.5B-70B）。</li>
+<li><strong>性能</strong>：AIME 2024 79.8%，MATH-500 97.3%，与 o1 相当。</li>
+<li><strong>开源</strong>：模型权重 + 训练细节全部公开。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>首个开源复现 o1 级别推理的模型，引发全球复现浪潮。</li>
+<li>证明 RL 可以激发而非仅对齐能力。</li>
+</ul>
+<hr />
+<h4>11. s1 (2025) — 简单的测试时扩展</h4>
+<p><strong>核心思想</strong></p>
+<p>用<strong>1000 条精选样本 + 预算强制（budget forcing）</strong>，以极低成本实现测试时计算扩展。</p>
+<pre class="mermaid">flowchart LR
+    D[&quot;1000 条精选样本&lt;br/&gt;含推理轨迹&quot;] --&gt; SFT[&quot;SFT 微调&lt;br/&gt;Qwen2.5-32B&quot;]
+    SFT --&gt; M[&quot;s1 模型&quot;]
+    M --&gt; BF[&quot;预算强制&lt;br/&gt;Budget Forcing&quot;]
+    BF --&gt; B1[&quot;『Wait』注入&lt;br/&gt;延长思考&quot;]
+    BF --&gt; B2[&quot;强制结束&lt;br/&gt;截断思考&quot;]
+    B1 --&gt; A[&quot;答案&quot;]
+    B2 --&gt; A
+    T[&quot;测试时计算&lt;br/&gt;可控思考长度&quot;] -.-&gt; BF
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>数据</strong>：仅 1000 条高质量样本（含推理轨迹），从 59K 中筛选。</li>
+<li><strong>预算强制</strong>：通过追加「Wait」或强制结束 token，控制思考长度。</li>
+<li><strong>测试时扩展</strong>：思考越长性能越好，但超过某点后下降（需截断）。</li>
+<li><strong>性能</strong>：AIME 2024 从 50% → 57%（仅 26 分钟训练，16 张 H100）。</li>
+<li><strong>对比</strong>：用 1/50 的数据和成本达到 o1-preview 水平。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明测试时扩展可以「极简」实现，降低复现门槛。</li>
+<li>推动「小数据 + 强推理」研究。</li>
+</ul>
+<hr />
+<h3>15.3 对齐与高效微调</h3>
+<h4>12. DPO (2023) — 直接偏好优化</h4>
+<p><strong>核心思想</strong></p>
+<p>跳过奖励模型与 RL，用<strong>闭式解</strong>将 RLHF 目标转化为简单的<strong>分类损失</strong>，直接在偏好数据上优化策略。</p>
+<pre class="mermaid">flowchart LR
+    P[&quot;偏好数据&lt;br/&gt;(x, y_w, y_l)&quot;] --&gt; L[&quot;DPO 损失&lt;br/&gt;-log σ(β·Δ)&quot;]
+    L --&gt; M[&quot;策略模型 π_θ&quot;]
+    R[&quot;参考模型 π_ref&lt;br/&gt;冻结&quot;] --&gt; L
+    D[&quot;Δ = log π_θ(y_w)/π_ref(y_w)&lt;br/&gt;- log π_θ(y_l)/π_ref(y_l)&quot;] -.-&gt; L
+    C[&quot;无需奖励模型&lt;br/&gt;无需采样&lt;br/&gt;无需 PPO&quot;] -.-&gt; L
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>数学推导</strong>：RLHF 最优策略有闭式解 $\pi^*(y|x) \propto \pi_{ref}(y|x)e^{r(x,y)/\beta}$，反解出奖励函数代入 Bradley-Terry 模型。</li>
+<li><strong>损失函数</strong>：$\mathcal{L} = -\log\sigma(\beta\log\frac{\pi_\theta(y_w)}{\pi_{ref}(y_w)} - \beta\log\frac{\pi_\theta(y_l)}{\pi_{ref}(y_l)})$</li>
+<li><strong>优势</strong>：无需训练奖励模型、无需在线采样、无需 PPO，训练稳定。</li>
+<li><strong>效果</strong>：在情感控制、摘要、对话任务上匹配或超越 PPO。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>成为 RLHF 的主流替代方案，被 Zephyr、Tülu 等广泛采用。</li>
+<li>衍生出 IPO、KTO、ORPO、SimPO 等变体。</li>
+</ul>
+<hr />
+<h4>13. Constitutional AI (2022) — 宪法式 AI</h4>
+<p><strong>核心思想</strong></p>
+<p>用<strong>AI 反馈替代人类反馈（RLAIF）</strong>：模型根据「宪法」（原则清单）自我批评与修订，实现可扩展的对齐。</p>
+<pre class="mermaid">flowchart LR
+    R[&quot;有害回复&quot;] --&gt; C[&quot;自我批评&lt;br/&gt;对照宪法原则&quot;]
+    C --&gt; V[&quot;修订回复&quot;]
+    V --&gt; S[&quot;监督学习&lt;br/&gt;SL-CAI 阶段&quot;]
+    S --&gt; PM[&quot;偏好模型&lt;br/&gt;AI 生成偏好对&quot;]
+    PM --&gt; RL[&quot;RL-CAI 阶段&lt;br/&gt;RLAIF&quot;]
+    RL --&gt; M[&quot;无害且有用模型&quot;]
+    CO[&quot;宪法&lt;br/&gt;联合国人权宣言等&quot;] -.-&gt; C
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>两阶段</strong>：</li>
+<li><strong>SL-CAI</strong>：模型自我批评 + 修订，生成无害回复，监督微调。</li>
+<li><strong>RL-CAI</strong>：用 AI 生成偏好对训练偏好模型，再做 RL。</li>
+<li><strong>宪法</strong>：约 16 条原则（如「选择最不有害的回复」），源自人权宣言等。</li>
+<li><strong>RLAIF</strong>：AI 反馈与人类反馈效果相当，成本大幅降低。</li>
+<li><strong>效果</strong>：无害性大幅提升，且不牺牲有用性（甚至更好）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出 RLAIF 范式，被 Claude 系列采用。</li>
+<li>推动「可扩展监督」研究。</li>
+</ul>
+<hr />
+<h4>14. LoRA (2021) — 低秩适配</h4>
+<p><strong>核心思想</strong></p>
+<p>冻结预训练权重，只训练<strong>低秩分解矩阵</strong> $\Delta W = BA$，可训练参数减少 10000 倍。</p>
+<pre class="mermaid">flowchart LR
+    X[&quot;输入 x&quot;] --&gt; W[&quot;预训练权重 W₀&lt;br/&gt;冻结 d×d&quot;]
+    X --&gt; A[&quot;A 矩阵&lt;br/&gt;d×r 降维&quot;]
+    A --&gt; B[&quot;B 矩阵&lt;br/&gt;r×d 升维&quot;]
+    W --&gt; S[&quot;h = W₀x + BAx&quot;]
+    B --&gt; S
+    S --&gt; O[&quot;输出&quot;]
+    R[&quot;秩 r ≪ d&lt;br/&gt;如 r=8&quot;] -.-&gt; A
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>低秩假设</strong>：微调时的权重更新具有低内在秩。</li>
+<li><strong>参数化</strong>：$W = W_0 + BA$，$B \in \mathbb{R}^{d \times r}$，$A \in \mathbb{R}^{r \times k}$，$r \ll \min(d,k)$。</li>
+<li><strong>初始化</strong>：A 用高斯初始化，B 用零初始化（训练开始时 ΔW = 0）。</li>
+<li><strong>推理无延迟</strong>：可将 BA 合并回 W₀，不增加推理成本。</li>
+<li><strong>效果</strong>：GPT-3 175B 可训练参数从 175B 降至 4.7M（10000 倍），性能与全量微调相当。</li>
+<li><strong>应用</strong>：可插拔任务模块，一个基座 + 多个 LoRA。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>成为 PEFT（参数高效微调）的事实标准。</li>
+<li>催生社区 LoRA 生态（如 Stable Diffusion LoRA）。</li>
+</ul>
+<hr />
+<h4>15. QLoRA (2023) — 4 比特量化微调</h4>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>4 比特量化 + 分页优化器</strong>，在单张 48GB GPU 上微调 65B 模型，性能不降。</p>
+<pre class="mermaid">flowchart LR
+    W[&quot;预训练权重&quot;] --&gt; NF4[&quot;NF4 量化&lt;br/&gt;4 比特正态浮点&quot;]
+    NF4 --&gt; DQ[&quot;双重量化&lt;br/&gt;量化常数再量化&quot;]
+    DQ --&gt; M[&quot;4 比特基座模型&lt;br/&gt;冻结&quot;]
+    L[&quot;LoRA 适配器&lt;br/&gt;BF16&quot;] --&gt; M
+    M --&gt; P[&quot;分页优化器&lt;br/&gt;CPU 卸载防 OOM&quot;]
+    P --&gt; O[&quot;微调完成&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>NF4（4-bit NormalFloat）</strong>：信息论最优的 4 比特数据类型，假设权重服从正态分布。</li>
+<li><strong>双重量化</strong>：对量化常数再量化，每参数再省 0.37 bit。</li>
+<li><strong>分页优化器</strong>：用 NVIDIA 统一内存，优化器状态在 CPU/GPU 间自动换页，避免 OOM。</li>
+<li><strong>效果</strong>：65B 模型微调显存从 &gt;780GB 降至 48GB，性能与 16 比特全量微调相当。</li>
+<li><strong>Guanaco</strong>：在 Vicuna 基准上达到 ChatGPT 99.3% 水平。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>让个人研究者也能微调大模型，推动开源微调生态。</li>
+<li>成为消费级 GPU 微调的标准方案。</li>
+</ul>
+<hr />
+<h3>15.4 多模态大模型</h3>
+<h4>16. LLaVA (2023) — 视觉指令微调</h4>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>GPT-4 生成多模态指令数据</strong>，将 CLIP 视觉编码器与 Vicuna 语言模型连接，实现视觉指令跟随。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; V[&quot;CLIP ViT-L/14&lt;br/&gt;视觉编码器&quot;]
+    V --&gt; P[&quot;投影层 W&lt;br/&gt;线性 / MLP&quot;]
+    P --&gt; T[&quot;视觉 Token&quot;]
+    Q[&quot;文本指令&quot;] --&gt; E[&quot;词嵌入&quot;]
+    T --&gt; L[&quot;Vicuna&lt;br/&gt;LLM&quot;]
+    E --&gt; L
+    L --&gt; A[&quot;文本回复&quot;]
+    G[&quot;GPT-4 生成&lt;br/&gt;158K 指令数据&quot;] -.-&gt; L
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>架构</strong>：CLIP ViT-L/14 + 线性投影 + Vicuna 13B。</li>
+<li><strong>两阶段训练</strong>：</li>
+<li><strong>特征对齐</strong>：冻结视觉与语言模型，只训投影层（595K 图文对）。</li>
+<li><strong>端到端微调</strong>：冻结视觉编码器，微调投影层 + LLM（158K 指令数据）。</li>
+<li><strong>数据生成</strong>：用 GPT-4（仅文本）基于 COCO 标注生成对话、详细描述、复杂推理三类数据。</li>
+<li><strong>LLaVA-1.5</strong>：投影层改 2 层 MLP，加入学术 VQA 数据，性能大幅提升。</li>
+<li><strong>LLaVA-NeXT</strong>：支持任意分辨率（AnyRes），更强。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开创「视觉指令微调」范式，成为开源多模态模型的标准架构。</li>
+<li>证明高质量数据比复杂架构更重要。</li>
+</ul>
+<hr />
+<h4>17. Qwen2-VL (2024) — 原生动态分辨率</h4>
+<p><strong>核心思想</strong></p>
+<p>用<strong>朴素动态分辨率 + M-RoPE</strong>，让模型处理任意分辨率的图像与视频，无需固定尺寸。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;任意分辨率图像&quot;] --&gt; D[&quot;动态分辨率&lt;br/&gt;按 28×28 切 patch&lt;br/&gt;生成可变数量 token&quot;]
+    V[&quot;视频&quot;] --&gt; D
+    D --&gt; R[&quot;M-RoPE&lt;br/&gt;时间 / 高度 / 宽度&lt;br/&gt;三维位置编码&quot;]
+    R --&gt; T[&quot;Transformer&quot;]
+    T --&gt; O[&quot;输出&quot;]
+    C[&quot;2D-RoPE&lt;br/&gt;图像空间结构&quot;] -.-&gt; R
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>朴素动态分辨率</strong>：图像按原生分辨率切分为 28×28 patch，token 数可变，避免形变。</li>
+<li><strong>M-RoPE（多模态旋转位置编码）</strong>：将位置编码分解为时间、高度、宽度三个分量，统一处理文本/图像/视频。</li>
+<li><strong>视频理解</strong>：支持长视频，用 M-RoPE 的时间分量建模时序。</li>
+<li><strong>模型规模</strong>：2B / 7B / 72B。</li>
+<li><strong>性能</strong>：多项基准超越 GPT-4o 和 Claude 3.5 Sonnet（文档理解、视频理解）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>推动多模态模型从「固定分辨率」走向「原生分辨率」。</li>
+<li>被 Qwen2.5-VL、InternVL 等跟进。</li>
+</ul>
+<hr />
+<h4>18. GPT-4o (2024) — 原生多模态</h4>
+<p><strong>核心思想</strong></p>
+<p><strong>单一模型端到端</strong>处理文本、视觉、音频，无需多个独立模型拼接，实现实时语音对话（平均 320ms 响应）。</p>
+<pre class="mermaid">flowchart LR
+    A[&quot;音频&quot;] --&gt; M[&quot;单一多模态模型&lt;br/&gt;端到端训练&quot;]
+    V[&quot;视觉&quot;] --&gt; M
+    T[&quot;文本&quot;] --&gt; M
+    M --&gt; AO[&quot;音频输出&quot;]
+    M --&gt; VO[&quot;视觉输出&quot;]
+    M --&gt; TO[&quot;文本输出&quot;]
+    E[&quot;跨模态理解&lt;br/&gt;语音情感 / 视觉情绪&quot;] -.-&gt; M
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>原生多模态</strong>：一个模型处理所有模态，而非「视觉编码器 + 语音模型 + LLM」拼接。</li>
+<li><strong>实时交互</strong>：平均 320ms 响应，接近人类对话延迟。</li>
+<li><strong>跨模态能力</strong>：能感知语音中的情感、语气，理解视觉内容。</li>
+<li><strong>性能</strong>：文本/视觉能力匹配 GPT-4 Turbo，音频英语性能更强。</li>
+<li><strong>免费开放</strong>：GPT-4o 对免费用户开放。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>定义「原生多模态」标准，推动 Gemini、Claude 等跟进。</li>
+<li>开启实时语音 AI 助手时代。</li>
+</ul>
+<hr />
+<h4>19. Gemini 1.5 (2024) — 百万级上下文</h4>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>MoE 架构 + 长上下文技术</strong>，实现 1M-10M token 上下文，可处理整本书、长视频。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;超长输入&lt;br/&gt;1M - 10M token&quot;] --&gt; M[&quot;Gemini 1.5&lt;br/&gt;稀疏 MoE Transformer&quot;]
+    M --&gt; O[&quot;输出&quot;]
+    T[&quot;长上下文技术&lt;br/&gt;高效注意力&quot;] -.-&gt; M
+    E[&quot;实验&lt;br/&gt;10M token 检索&lt;br/&gt;99.7% 召回&quot;] -.-&gt; M
+    V[&quot;视频理解&lt;br/&gt;1 小时视频&quot;] -.-&gt; M
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>MoE 架构</strong>：Gemini 1.5 Pro 为稀疏 MoE，训练与服务更高效。</li>
+<li><strong>上下文窗口</strong>：标准 128K，实验性 1M（Pro）/ 10M（研究）。</li>
+<li><strong>长上下文能力</strong>：10M token 下「大海捞针」召回率 99.7%。</li>
+<li><strong>多模态长上下文</strong>：可处理 1 小时视频、11 小时音频、3 万行代码。</li>
+<li><strong>Gemini 1.5 Flash</strong>：轻量版，低延迟高吞吐。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>将上下文窗口从 100K 级推向 1M-10M 级。</li>
+<li>开启「长上下文 = 新范式」讨论（RAG vs 长上下文）。</li>
+</ul>
+<hr />
+<h4>20. SigLIP (2023) — Sigmoid 损失图文预训练</h4>
+<p><strong>核心思想</strong></p>
+<p>用<strong>成对 Sigmoid 损失</strong>替代 Softmax 对比损失，无需全局归一化，小 batch 下性能更好。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; VI[&quot;视觉编码器&quot;]
+    T[&quot;文本&quot;] --&gt; VT[&quot;文本编码器&quot;]
+    VI --&gt; EI[&quot;图像嵌入&quot;]
+    VT --&gt; ET[&quot;文本嵌入&quot;]
+    EI --&gt; S[&quot;成对 Sigmoid 损失&lt;br/&gt;每对独立计算&quot;]
+    ET --&gt; S
+    S --&gt; O[&quot;对齐空间&quot;]
+    C[&quot;无需全局归一化&lt;br/&gt;小 batch 友好&quot;] -.-&gt; S
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>Sigmoid 损失</strong>：$\mathcal{L} = -\frac{1}{N}\sum_{i,j}\log\sigma(z_{ij}(t\cdot x_i\cdot y_j + b))$，正对 $z=1$，负对 $z=-1$。</li>
+<li><strong>无需全局归一化</strong>：每对独立计算，不依赖 batch 内所有样本。</li>
+<li><strong>小 batch 优势</strong>：batch 4096 时与 CLIP 相当，batch 小 4 倍时仍更优。</li>
+<li><strong>性能</strong>：SigLIP ViT-g/14 在 ImageNet 零样本达 83.1%（CLIP 为 80.2%）。</li>
+<li><strong>应用</strong>：被 PaliGemma、LLaVA、OpenVLA 等广泛采用。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>成为 CLIP 的高效替代，多模态模型的标配视觉编码器。</li>
+<li>证明损失函数设计对对比学习的重要性。</li>
+</ul>
+<hr />
+<h3>15.5 扩散与图像生成新进展</h3>
+<h4>21. DiT (2022) — 扩散 Transformer</h4>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>Transformer 替代 U-Net</strong> 作为扩散模型骨干，证明架构可扩展性（Gflops 越大，FID 越低）。</p>
+<pre class="mermaid">flowchart LR
+    Z[&quot;噪声潜表示&quot;] --&gt; P[&quot;Patchify&lt;br/&gt;切块 + 线性嵌入&quot;]
+    T[&quot;时间步 t&quot;] --&gt; C[&quot;adaLN-Zero&lt;br/&gt;自适应层归一化&quot;]
+    L[&quot;类别标签&quot;] --&gt; C
+    P --&gt; B[&quot;DiT Block × N&lt;br/&gt;自注意力 + 前馈&quot;]
+    C --&gt; B
+    B --&gt; U[&quot;Unpatchify&quot;]
+    U --&gt; O[&quot;预测噪声 / 方差&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>Patchify</strong>：将潜表示切成 patch，线性嵌入为 token 序列。</li>
+<li><strong>adaLN-Zero</strong>：用自适应层归一化注入时间步与类别条件，零初始化使训练稳定。</li>
+<li><strong>可扩展性</strong>：DiT-XL/2（675M）FID 2.27，Gflops 与 FID 强相关。</li>
+<li><strong>变体</strong>：DiT、Cross-DiT（交叉注意力）、Context-DiT（上下文拼接）。</li>
+<li><strong>影响</strong>：Sora、SD3、PixArt 等均基于 DiT。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明 Transformer 是扩散模型的可扩展骨干。</li>
+<li>成为视频生成（Sora）与新一代文生图（SD3）的基础。</li>
+</ul>
+<hr />
+<h4>22. ControlNet (2023) — 可控生成</h4>
+<p><strong>核心思想</strong></p>
+<p>给预训练扩散模型加一个<strong>可训练副本</strong>，用<strong>零卷积</strong>连接，实现空间条件控制（边缘、深度、姿态）。</p>
+<pre class="mermaid">flowchart LR
+    C[&quot;控制条件&lt;br/&gt;Canny / 深度 / 姿态&quot;] --&gt; E[&quot;可训练编码器副本&lt;br/&gt;复制自原模型&quot;]
+    X[&quot;输入 + 时间步&quot;] --&gt; L[&quot;锁定原模型&lt;br/&gt;冻结&quot;]
+    E --&gt; Z[&quot;零卷积&lt;br/&gt;1×1 卷积初始化为 0&quot;]
+    Z --&gt; L
+    L --&gt; O[&quot;受控生成结果&quot;]
+    ZC[&quot;零卷积保证&lt;br/&gt;初始无影响&lt;br/&gt;渐进学习&quot;] -.-&gt; Z
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>可训练副本</strong>：复制 U-Net 编码器（约 361M 参数），原模型冻结。</li>
+<li><strong>零卷积</strong>：1×1 卷积初始化为 0，训练开始时输出为 0，不破坏原模型。</li>
+<li><strong>渐进学习</strong>：条件从无到有渐进注入，训练稳定。</li>
+<li><strong>多种条件</strong>：Canny 边缘、Hough 线、深度图、法线图、人体姿态、涂鸦、分割图。</li>
+<li><strong>效果</strong>：单张 A100 训练 1 周内即可学会新条件。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>成为 Stable Diffusion 生态最重要的插件。</li>
+<li>定义「可控生成」范式，被 T2I-Adapter、IP-Adapter 等跟进。</li>
+</ul>
+<hr />
+<h4>23. SD3 / MMDiT (2024) — 多模态扩散 Transformer</h4>
+<p><strong>核心思想</strong></p>
+<p>用 <strong>MMDiT（多模态扩散 Transformer）</strong> 为文本与图像 token 使用<strong>独立权重</strong>，配合 <strong>Rectified Flow</strong> 提升生成质量。</p>
+<pre class="mermaid">flowchart LR
+    T[&quot;文本提示&quot;] --&gt; TE[&quot;三个文本编码器&lt;br/&gt;CLIP-L + CLIP-G + T5&quot;]
+    TE --&gt; TT[&quot;文本 Token&quot;]
+    I[&quot;噪声潜表示&quot;] --&gt; IT[&quot;图像 Token&quot;]
+    TT --&gt; B[&quot;MMDiT Block × 38&lt;br/&gt;双流注意力&lt;br/&gt;独立 QKV 权重&quot;]
+    IT --&gt; B
+    B --&gt; O[&quot;去噪输出&quot;]
+    RF[&quot;Rectified Flow&lt;br/&gt;直线轨迹采样&quot;] -.-&gt; B
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>MMDiT</strong>：文本与图像 token 各自有独立的 Q/K/V 权重，但共享注意力（双向信息流）。</li>
+<li><strong>三个文本编码器</strong>：CLIP ViT-L/14、OpenCLIP ViT-bigG/14、T5-XXL，兼顾语义与细节。</li>
+<li><strong>Rectified Flow</strong>：用直线轨迹连接噪声与数据，采样步数更少、质量更高。</li>
+<li><strong>模型规模</strong>：800M - 8B，8B 版本匹配 DALL·E 3。</li>
+<li><strong>性能</strong>：在提示跟随、排版、人体结构上大幅超越 SDXL。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>成为开源文生图新标杆（SD3、Flux 均基于此）。</li>
+<li>证明 Transformer 在文生图上的可扩展性。</li>
+</ul>
+<hr />
+<h4>24. Consistency Models (2023) — 一步生成</h4>
+<p><strong>核心思想</strong></p>
+<p>学习<strong>从噪声直接映射到数据</strong>的一致性函数，实现 1-2 步生成，比扩散快 100 倍。</p>
+<pre class="mermaid">flowchart LR
+    N[&quot;噪声 x_T&quot;] --&gt; F[&quot;一致性函数 f_θ&quot;]
+    F --&gt; D[&quot;数据 x_0&quot;]
+    P[&quot;概率流 ODE&lt;br/&gt;轨迹上任意点&lt;br/&gt;映射到同一起点&quot;] -.-&gt; F
+    T1[&quot;一致性蒸馏 CD&lt;br/&gt;从预训练扩散蒸馏&quot;] -.-&gt; F
+    T2[&quot;一致性训练 CT&lt;br/&gt;从头训练&quot;] -.-&gt; F
+    L[&quot;LCM 潜空间版本&lt;br/&gt;4 步生成&quot;] -.-&gt; F
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>自一致性</strong>：概率流 ODE 轨迹上任意点都映射到同一数据点。</li>
+<li><strong>一致性损失</strong>：$f_\theta(x_{t_{n+1}}) \approx f_\theta(x_{t_n})$，用相邻时间步的预测互相监督。</li>
+<li><strong>两种训练</strong>：</li>
+<li><strong>CD（一致性蒸馏）</strong>：从预训练扩散模型蒸馏。</li>
+<li><strong>CT（一致性训练）</strong>：从头训练，无需预训练模型。</li>
+<li><strong>效果</strong>：CIFAR-10 FID 3.55（1 步），ImageNet 64×64 FID 6.20（1 步）。</li>
+<li><strong>LCM</strong>：潜空间一致性模型，4 步生成，被 SD 生态广泛采用。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开启「少步生成」研究方向。</li>
+<li>推动实时图像生成（LCM-LoRA、SDXL Turbo、SD Turbo）。</li>
+</ul>
+<hr />
+<h3>15.6 视频生成</h3>
+<h4>25. Sora (2024) — 视频生成的世界模拟器</h4>
+<p><strong>核心思想</strong></p>
+<p>将视频视为<strong>时空 patch 序列</strong>，用 <strong>DiT 架构</strong>在潜空间做扩散，实现可变时长/分辨率的高质量视频生成。</p>
+<pre class="mermaid">flowchart LR
+    V[&quot;视频&quot;] --&gt; VE[&quot;视频压缩网络&lt;br/&gt;时空 VAE&quot;]
+    VE --&gt; P[&quot;时空 Patch&lt;br/&gt;统一 token 表示&quot;]
+    P --&gt; D[&quot;DiT 扩散模型&quot;]
+    T[&quot;文本提示&quot;] --&gt; D
+    D --&gt; G[&quot;生成视频&lt;br/&gt;可变时长 / 分辨率&quot;]
+    W[&quot;世界模拟能力&lt;br/&gt;3D 一致 / 物体持久&quot;] -.-&gt; G
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>时空 patch</strong>：视频压缩为低维潜表示，再切分为时空 patch，统一处理不同分辨率/时长。</li>
+<li><strong>DiT 骨干</strong>：扩散 Transformer，可扩展性强。</li>
+<li><strong>可变时长</strong>：支持 1 分钟视频，可变分辨率（宽屏/竖屏）。</li>
+<li><strong>世界模拟</strong>：涌现 3D 一致性、物体持久性、物理交互等能力。</li>
+<li><strong>技术报告</strong>：OpenAI 未公开模型细节，仅发布技术报告。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>定义视频生成新标准，引发全球视频生成竞赛。</li>
+<li>提出「世界模拟器」愿景。</li>
+</ul>
+<hr />
+<h4>26. CogVideoX (2024) — 开源视频生成</h4>
+<p><strong>核心思想</strong></p>
+<p>开源视频生成模型：<strong>3D 因果 VAE + 专家 Transformer</strong>，用 3D 注意力统一时空建模。</p>
+<pre class="mermaid">flowchart LR
+    V[&quot;视频&quot;] --&gt; VAE[&quot;3D 因果 VAE&lt;br/&gt;时空压缩&quot;]
+    VAE --&gt; L[&quot;潜表示&quot;]
+    T[&quot;文本&quot;] --&gt; TE[&quot;T5 编码器&quot;]
+    TE --&gt; ET[&quot;专家 Transformer&lt;br/&gt;3D 注意力&lt;br/&gt;文本-视频对齐&quot;]
+    L --&gt; ET
+    ET --&gt; D[&quot;去噪&quot;]
+    D --&gt; O[&quot;生成视频&lt;br/&gt;720×480, 6 秒&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>3D 因果 VAE</strong>：时空压缩，因果卷积支持流式生成。</li>
+<li><strong>专家 Transformer</strong>：3D 注意力 + 专家自适应层归一化，文本-视频对齐。</li>
+<li><strong>渐进训练</strong>：低分辨率 → 高分辨率，短时长 → 长时长。</li>
+<li><strong>显式均匀采样</strong>：改善视频字幕生成质量。</li>
+<li><strong>开源</strong>：2B / 5B 模型权重 + 训练代码全部开源。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>首个高质量开源视频生成模型之一。</li>
+<li>推动开源视频生成生态（Open-Sora、Mochi 等）。</li>
+</ul>
+<hr />
+<h3>15.7 3D 生成与重建</h3>
+<h4>27. 3D Gaussian Splatting (2023) — 实时辐射场渲染</h4>
+<p><strong>核心思想</strong></p>
+<p>用<strong>显式 3D 高斯球</strong>表示场景，配合<strong>瓦片光栅化</strong>，实现 1080p 实时（30+ FPS）渲染，训练仅需数分钟。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;多视角图像&quot;] --&gt; S[&quot;SfM 稀疏点云&lt;br/&gt;初始化高斯&quot;]
+    S --&gt; G[&quot;3D 高斯球&lt;br/&gt;位置 + 协方差&lt;br/&gt;不透明度 + 球谐颜色&quot;]
+    G --&gt; P[&quot;投影到 2D&lt;br/&gt;各向异性溅射&quot;]
+    P --&gt; T[&quot;瓦片光栅化&lt;br/&gt;按深度排序 α 混合&quot;]
+    T --&gt; R[&quot;实时渲染&lt;br/&gt;1080p 30+ FPS&quot;]
+    O[&quot;自适应密度控制&lt;br/&gt;分裂 / 克隆 / 剪枝&quot;] -.-&gt; G
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>显式表示</strong>：每个高斯有位置、协方差（各向异性）、不透明度、球谐系数（视角相关颜色）。</li>
+<li><strong>瓦片光栅化</strong>：屏幕分 16×16 瓦片，按深度排序做 α 混合，GPU 友好。</li>
+<li><strong>自适应密度控制</strong>：根据梯度分裂/克隆高斯，剪枝透明高斯。</li>
+<li><strong>性能</strong>：训练 30-40 分钟（NeRF 需数小时），渲染 1080p 30+ FPS（NeRF 需数秒/帧）。</li>
+<li><strong>质量</strong>：与 Mip-NeRF 360 相当或更好。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>颠覆 NeRF 的隐式表示，成为 3D 重建新范式。</li>
+<li>推动实时 3D 应用（VR/AR、数字孪生）。</li>
+</ul>
+<hr />
+<h4>28. LRM (2023) — 单图 3D 重建大模型</h4>
+<p><strong>核心思想</strong></p>
+<p>用<strong>大规模 Transformer</strong> 从单张图像直接预测 <strong>3D 三平面 NeRF</strong>，5 秒内完成重建。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;单张图像&quot;] --&gt; E[&quot;DINO 图像编码器&quot;]
+    E --&gt; T[&quot;Transformer&lt;br/&gt;图像 → 三平面&quot;]
+    Q[&quot;查询 Token&quot;] --&gt; T
+    T --&gt; TP[&quot;三平面表示&lt;br/&gt;3×32×32×64&quot;]
+    TP --&gt; N[&quot;NeRF MLP&lt;br/&gt;解码颜色 + 密度&quot;]
+    N --&gt; R[&quot;多视角渲染&quot;]
+    D[&quot;100 万 3D 数据&lt;br/&gt;Objaverse 渲染&quot;] -.-&gt; T
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>三平面表示</strong>：3 个正交特征平面，紧凑且表达力强。</li>
+<li><strong>Transformer 架构</strong>：图像 token + 查询 token 交叉注意力，直接回归三平面。</li>
+<li><strong>大规模训练</strong>：Objaverse 100 万 3D 物体渲染数据。</li>
+<li><strong>速度</strong>：单图 → 3D 仅需 5 秒（优化类方法需数分钟到数小时）。</li>
+<li><strong>泛化</strong>：可处理真实世界图像（零样本）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开启「3D 重建大模型」方向。</li>
+<li>被 TripoSR、InstantMesh、Hunyuan3D 等跟进。</li>
+</ul>
+<hr />
+<h4>29. TRELLIS (2024) — 结构化 3D 潜表示</h4>
+<p><strong>核心思想</strong></p>
+<p>提出 <strong>SLAT（Structured LATent）</strong>：将 3D 资产表示为稀疏体素结构 + 局部潜特征，统一支持多种输出格式。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像 / 文本&quot;] --&gt; E[&quot;条件编码&quot;]
+    E --&gt; S1[&quot;第一阶段&lt;br/&gt;稀疏结构生成&lt;br/&gt;稀疏体素&quot;]
+    S1 --&gt; S2[&quot;第二阶段&lt;br/&gt;SLAT 潜特征生成&lt;br/&gt;每体素局部特征&quot;]
+    S2 --&gt; D1[&quot;3D 高斯&quot;]
+    S2 --&gt; D2[&quot;辐射场 NeRF&quot;]
+    S2 --&gt; D3[&quot;网格 Mesh&quot;]
+    S2 --&gt; D4[&quot;3D 纹理&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>SLAT</strong>：稀疏体素 + 每体素局部潜特征，兼顾结构与细节。</li>
+<li><strong>两阶段生成</strong>：先生成稀疏结构，再生成潜特征。</li>
+<li><strong>多格式解码</strong>：同一潜表示可解码为高斯、NeRF、网格、纹理。</li>
+<li><strong>整 rectified flow</strong>：用 Rectified Flow 训练生成模型。</li>
+<li><strong>性能</strong>：在图像/文本到 3D 任务上超越 LRM、InstantMesh 等。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>统一 3D 生成表示，支持多格式输出。</li>
+<li>推动 3D 生成从「单一格式」走向「通用表示」。</li>
+</ul>
+<hr />
+<h3>15.8 具身智能与世界模型</h3>
+<h4>30. RT-2 (2023) — 视觉-语言-动作模型</h4>
+<p><strong>核心思想</strong></p>
+<p>将机器人动作表示为<strong>文本 token</strong>，与网络数据<strong>联合微调</strong>，让 VLM 直接输出动作，涌现语义推理能力。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; V[&quot;VLM&lt;br/&gt;PaLI-X / PaLM-E&quot;]
+    T[&quot;指令&lt;br/&gt;『捡起快没电的电池』&quot;] --&gt; V
+    V --&gt; A[&quot;动作 Token&lt;br/&gt;『1 128 91 241』&quot;]
+    A --&gt; R[&quot;机器人执行&quot;]
+    W[&quot;网络图文数据&lt;br/&gt;+ 机器人数据&lt;br/&gt;联合微调&quot;] -.-&gt; V
+    E[&quot;涌现能力&lt;br/&gt;符号理解 / 推理&quot;] -.-&gt; V
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>动作即文本</strong>：将 7 维动作离散化为 256 个 bin，表示为文本 token。</li>
+<li><strong>联合微调</strong>：网络图文数据 + 机器人轨迹数据一起微调，避免灾难性遗忘。</li>
+<li><strong>涌现能力</strong>：能理解「快没电的电池」「给泰勒·斯威夫特的东西」等抽象指令。</li>
+<li><strong>泛化</strong>：未见物体、未见指令、未见场景下成功率显著提升。</li>
+<li><strong>模型</strong>：基于 PaLI-X（55B）和 PaLM-E（12B）。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>开创 VLA（Vision-Language-Action）模型范式。</li>
+<li>证明互联网知识可迁移到机器人控制。</li>
+</ul>
+<hr />
+<h4>31. OpenVLA (2024) — 开源 VLA</h4>
+<p><strong>核心思想</strong></p>
+<p>开源 7B VLA 模型：<strong>Llama 2 + DINOv2/SigLIP 双视觉编码器</strong>，在 97 万机器人演示上训练。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; D[&quot;DINOv2&lt;br/&gt;空间特征&quot;]
+    I --&gt; S[&quot;SigLIP&lt;br/&gt;语义特征&quot;]
+    D --&gt; F[&quot;特征拼接&quot;]
+    S --&gt; F
+    F --&gt; P[&quot;投影层&quot;]
+    T[&quot;指令&quot;] --&gt; L[&quot;Llama 2 7B&quot;]
+    P --&gt; L
+    L --&gt; A[&quot;7 维动作&lt;br/&gt;离散 token&quot;]
+    A --&gt; R[&quot;机器人执行&quot;]
+    DD[&quot;97 万真实演示&lt;br/&gt;Open X-Embodiment&quot;] -.-&gt; L
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>双视觉编码器</strong>：DINOv2（空间细节）+ SigLIP（语义），特征拼接。</li>
+<li><strong>Llama 2 7B</strong>：语言骨干，动作离散化为 token。</li>
+<li><strong>数据</strong>：Open X-Embodiment 97 万演示，覆盖多种机器人。</li>
+<li><strong>性能</strong>：超越 RT-2-X（55B）16.5%，参数仅 1/7。</li>
+<li><strong>开源</strong>：权重 + 代码 + 微调脚本全部开源。</li>
+<li><strong>LoRA 微调</strong>：可在消费级 GPU 上适配新任务。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>首个真正开源的通用机器人操作模型。</li>
+<li>降低具身智能研究门槛。</li>
+</ul>
+<hr />
+<h4>32. π0 (2024) — 流匹配 VLA</h4>
+<p><strong>核心思想</strong></p>
+<p>用<strong>流匹配（Flow Matching）</strong>生成连续动作块，实现 50Hz 高频控制，跨机器人形态泛化。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;多视角图像&quot;] --&gt; V[&quot;PaliGemma VLM&lt;br/&gt;3B&quot;]
+    T[&quot;指令&quot;] --&gt; V
+    V --&gt; A[&quot;动作专家&lt;br/&gt;流匹配头&quot;]
+    A --&gt; C[&quot;动作块&lt;br/&gt;50 步 × 50Hz&quot;]
+    C --&gt; R[&quot;机器人执行&quot;]
+    D[&quot;跨形态数据&lt;br/&gt;8 种机器人&lt;br/&gt;1 万小时&quot;] -.-&gt; V
+    F[&quot;流匹配&lt;br/&gt;连续动作分布&quot;] -.-&gt; A
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>流匹配</strong>：用连续归一化流生成动作，比扩散采样更快（10 步）。</li>
+<li><strong>动作块（Action Chunking）</strong>：一次预测 50 步动作，50Hz 控制频率。</li>
+<li><strong>跨形态训练</strong>：8 种机器人、1 万小时数据、68 个任务。</li>
+<li><strong>预训练 + 后训练</strong>：通用预训练 + 任务特定微调。</li>
+<li><strong>性能</strong>：叠衣服、清理桌子等复杂任务表现优异。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明流匹配在机器人控制上的优势。</li>
+<li>推动通用机器人策略研究（π0.5、GR00T 等）。</li>
+</ul>
+<hr />
+<h4>33. Genie (2024) — 生成式交互环境</h4>
+<p><strong>核心思想</strong></p>
+<p>从<strong>单张图像</strong>生成可交互的 2D 游戏环境，用<strong>潜在动作模型</strong>无监督学习动作空间。</p>
+<pre class="mermaid">flowchart LR
+    I[&quot;单张图像&lt;br/&gt;或文本描述&quot;] --&gt; VT[&quot;视频 Tokenizer&lt;br/&gt;时空压缩&quot;]
+    VT --&gt; DM[&quot;动力学模型&lt;br/&gt;自回归生成下一帧&quot;]
+    LAM[&quot;潜在动作模型&lt;br/&gt;无监督学动作&quot;] --&gt; DM
+    A[&quot;用户按键&quot;] --&gt; LAM
+    DM --&gt; F[&quot;下一帧&lt;br/&gt;可交互环境&quot;]
+    D[&quot;3 万小时&lt;br/&gt;公开游戏视频&quot;] -.-&gt; VT
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>三组件</strong>：</li>
+<li><strong>视频 Tokenizer</strong>：时空压缩为离散 token。</li>
+<li><strong>潜在动作模型</strong>：从帧间变化无监督学习动作表示。</li>
+<li><strong>动力学模型</strong>：自回归预测下一帧。</li>
+<li><strong>数据</strong>：3 万小时公开游戏视频，无需动作标注。</li>
+<li><strong>规模</strong>：11B 参数。</li>
+<li><strong>交互</strong>：生成的环境可逐帧交互，动作空间由模型自学。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>提出「生成式交互环境」新范式。</li>
+<li>为具身智能提供无限训练环境（Genie 2、Genie 3 跟进）。</li>
+</ul>
+<hr />
+<h3>15.9 Agent 与工具使用</h3>
+<h4>34. ReAct (2022) — 推理与行动协同</h4>
+<p><strong>核心思想</strong></p>
+<p>让 LLM <strong>交替生成推理轨迹与行动</strong>，用外部工具（搜索、计算器）获取信息，实现「思考-行动-观察」循环。</p>
+<pre class="mermaid">flowchart LR
+    Q[&quot;问题&quot;] --&gt; T1[&quot;思考&lt;br/&gt;我需要搜索...&quot;]
+    T1 --&gt; A1[&quot;行动&lt;br/&gt;search 问题&quot;]
+    A1 --&gt; O1[&quot;观察&lt;br/&gt;搜索结果&quot;]
+    O1 --&gt; T2[&quot;思考&lt;br/&gt;结果说明...&quot;]
+    T2 --&gt; A2[&quot;行动&lt;br/&gt;lookup 关键词&quot;]
+    A2 --&gt; O2[&quot;观察&quot;]
+    O2 --&gt; T3[&quot;思考&lt;br/&gt;可以回答了&quot;]
+    T3 --&gt; F[&quot;最终答案&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>交错推理与行动</strong>：Thought → Action → Observation 循环。</li>
+<li><strong>工具调用</strong>：搜索、查找、计算器等外部工具。</li>
+<li><strong>对比</strong>：</li>
+<li>仅推理（CoT）：无法获取外部信息，易幻觉。</li>
+<li>仅行动：缺乏推理，无法调整策略。</li>
+<li>ReAct：两者协同，减少幻觉，提升可解释性。</li>
+<li><strong>效果</strong>：HotpotQA 问答、ALFWorld 决策任务显著提升。</li>
+<li><strong>可解释性</strong>：推理轨迹可人工检查与干预。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>成为 LLM Agent 的基础范式。</li>
+<li>被 LangChain、AutoGPT 等广泛采用。</li>
+</ul>
+<hr />
+<h4>35. Toolformer (2023) — 自监督学习使用工具</h4>
+<p><strong>核心思想</strong></p>
+<p>让模型<strong>自己标注</strong>何时调用哪个 API，用自监督方式学会工具使用。</p>
+<pre class="mermaid">flowchart LR
+    T[&quot;文本语料&quot;] --&gt; S1[&quot;1. 采样候选位置&lt;br/&gt;API 调用插入点&quot;]
+    S1 --&gt; S2[&quot;2. 执行 API 调用&lt;br/&gt;计算器 / 搜索 / 翻译&quot;]
+    S2 --&gt; S3[&quot;3. 过滤&lt;br/&gt;调用是否降低困惑度&quot;]
+    S3 --&gt; S4[&quot;4. 微调&lt;br/&gt;在标注数据上训练&quot;]
+    S4 --&gt; M[&quot;Toolformer&lt;br/&gt;自主决定何时调用工具&quot;]
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>自监督标注</strong>：在文本中采样位置，尝试插入 API 调用，保留能降低后续 token 困惑度的调用。</li>
+<li><strong>工具集</strong>：计算器、问答系统、搜索引擎、翻译、日历。</li>
+<li><strong>过滤标准</strong>：调用结果必须降低后续文本的困惑度（加权交叉熵）。</li>
+<li><strong>效果</strong>：零样本下工具使用能力接近 GPT-3 少样本，且不损害语言建模能力。</li>
+<li><strong>模型</strong>：基于 GPT-J 6.7B。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>证明工具使用可以自监督学习。</li>
+<li>推动「工具增强语言模型」研究。</li>
+</ul>
+<hr />
+<h4>36. MCP (2024) — 模型上下文协议</h4>
+<p><strong>核心思想</strong></p>
+<p>Anthropic 提出的<strong>开放协议</strong>，标准化 LLM 与外部数据源/工具的连接方式，类似「AI 的 USB-C」。</p>
+<pre class="mermaid">flowchart LR
+    H[&quot;MCP 主机&lt;br/&gt;Claude Desktop / IDE&quot;] --&gt; C1[&quot;MCP 客户端 1&quot;]
+    H --&gt; C2[&quot;MCP 客户端 2&quot;]
+    C1 --&gt; S1[&quot;MCP 服务器&lt;br/&gt;文件系统&quot;]
+    C2 --&gt; S2[&quot;MCP 服务器&lt;br/&gt;数据库&quot;]
+    C2 --&gt; S3[&quot;MCP 服务器&lt;br/&gt;GitHub API&quot;]
+    P[&quot;协议&lt;br/&gt;JSON-RPC 2.0&lt;br/&gt;工具 / 资源 / 提示&quot;] -.-&gt; C1
+    P -.-&gt; C2
+</pre>
+<p><strong>关键设计</strong></p>
+<ul>
+<li><strong>架构</strong>：主机（Host）→ 客户端（Client）→ 服务器（Server）。</li>
+<li><strong>三种原语</strong>：</li>
+<li><strong>工具（Tools）</strong>：可执行函数。</li>
+<li><strong>资源（Resources）</strong>：可读取数据。</li>
+<li><strong>提示（Prompts）</strong>：预定义模板。</li>
+<li><strong>传输</strong>：JSON-RPC 2.0，支持 stdio 与 HTTP+SSE。</li>
+<li><strong>开源</strong>：规范 + SDK（Python/TypeScript）全部开源。</li>
+<li><strong>生态</strong>：被 OpenAI、Google、VS Code 等采纳。</li>
+</ul>
+<p><strong>影响与意义</strong></p>
+<ul>
+<li>成为 AI 工具集成的事实标准。</li>
+<li>推动 Agent 生态标准化（A2A、AGNTCY 等跟进）。</li>
+</ul>
+<hr />
+<h2>附录：论文速查表</h2>
+<h3>按年份</h3>
+<table>
+<thead>
+<tr>
+<th>年份</th>
+<th>论文</th>
+<th>类别</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2012</td>
+<td>AlexNet</td>
+<td>CNN</td>
+</tr>
+<tr>
+<td>2014</td>
+<td>VGG / GoogLeNet / GAN / R-CNN / DeepVideo / Two-Stream / C3D / Adam / 参数服务器</td>
+<td>多类</td>
+</tr>
+<tr>
+<td>2015</td>
+<td>ResNet / DCGAN / Fast R-CNN / Faster R-CNN / Beyond Short Snippets</td>
+<td>多类</td>
+</tr>
+<tr>
+<td>2016</td>
+<td>pix2pix / SRGAN / SSD / YOLO / TSN / Convolutional Fusion / AlphaGo / 泛化理论</td>
+<td>多类</td>
+</tr>
+<tr>
+<td>2017</td>
+<td>MobileNet / WGAN / CycleGAN / Mask R-CNN / YOLOv2 / I3D / R(2+1)D / Non-local / Transformer / Momentum</td>
+<td>多类</td>
+</tr>
+<tr>
+<td>2018</td>
+<td>StyleGAN / YOLOv3 / InstDisc / CPC / MoCo / GPT / BERT / GPipe</td>
+<td>多类</td>
+</tr>
+<tr>
+<td>2019</td>
+<td>EfficientNet / StyleGAN2 / CenterNet / InvaSpread / CMC / MoCo / SimCLR / GPT-2 / Megatron / ZeRO</td>
+<td>多类</td>
+</tr>
+<tr>
+<td>2020</td>
+<td>ViT / DDPM / SimCLR v2 / BYOL / SWaV / SimSiam / DETR / GPT-3 / AlphaFold</td>
+<td>多类</td>
+</tr>
+<tr>
+<td>2021</td>
+<td>Swin / MLP-Mixer / MAE / Improved DDPM / Guided Diffusion / StyleGAN3 / MoCo v3 / DINO / TimeSformer / CLIP / ViLT / ViLD / GLIP / CLIP4Clip / ActionCLIP / PointCLIP / ALBEF / METER / AlphaFold 2 / Codex / GNN 介绍 / 数学直觉</td>
+<td>多类</td>
+</tr>
+<tr>
+<td>2022</td>
+<td>DALL·E 2 / Whisper / Action-GPT / LSeg / GroupViT / CLIPasso / DepthCLIP / BridgeTower / BLIP / ERNIE-ViL 2 / Pathways / AlphaCode / InstructGPT / HELM / SELF-INSTRUCT / Chinese-CLIP</td>
+<td>多类</td>
+</tr>
+<tr>
+<td>2023</td>
+<td>LLaMA / PaLM-E / HuggingGPT / DINOv2 / BLIP-2 / SAM / GPT-4 / Shap-E / ULIP-2 / AvatarBooth / LLaMA 2 / Mistral 7B / LLaVA / SigLIP / DiT / ControlNet / SDXL / Consistency Models / RT-2 / ReAct / Constitutional AI</td>
+<td>多类</td>
+</tr>
+<tr>
+<td>2024</td>
+<td>Mixtral 8x7B / DeepSeek-V3 / Mamba / FlashAttention-2 / o1 / DPO / QLoRA / Qwen2-VL / GPT-4o / Gemini 1.5 / SD3 / Sora / CogVideoX / 3DGS / LRM / TRELLIS / OpenVLA / π0 / Genie / Toolformer / MCP</td>
+<td>多类</td>
+</tr>
+<tr>
+<td>2025</td>
+<td>DeepSeek-R1 / s1</td>
+<td>推理模型</td>
+</tr>
+</tbody>
+</table>
+<h3>按技术脉络</h3>
+<pre><code>CNN 演进：
+AlexNet → VGG → GoogLeNet → ResNet → MobileNet → EfficientNet → ParNet
+
+Transformer 演进：
+Transformer → GPT/BERT → ViT → Swin → MAE → DINOv2
+
+生成模型演进：
+GAN → DCGAN → pix2pix → SRGAN → WGAN → CycleGAN → StyleGAN → StyleGAN2/3
+                                    ↓
+                              DDPM → Improved DDPM → Guided Diffusion → DALL·E 2 → Stable Diffusion
+
+目标检测演进：
+R-CNN → Fast R-CNN → Faster R-CNN → Mask R-CNN
+  ↓
+YOLO → YOLOv2 → YOLOv3
+  ↓
+SSD / CenterNet / DETR
+
+对比学习演进：
+InstDisc → CPC → InvaSpread → CMC → MoCo → SimCLR → MoCo v2 → SimCLR v2
+                                        ↓
+                              BYOL → SimSiam → SWaV → MoCo v3 → DINO → DINOv2
+
+视频理解演进：
+DeepVideo → Two-Stream → C3D → Beyond Short Snippets → Convolutional Fusion
+    → TSN → I3D → R(2+1)D → Non-local → SlowFast → TimeSformer
+
+多模态演进：
+CLIP → ViLT → ViLD → GLIP → ALBEF → BLIP → BLIP-2 → SAM
+     → CLIP4Clip / ActionCLIP / PointCLIP / LSeg / GroupViT / CLIPasso / DepthCLIP
+
+NLP 演进：
+Transformer → GPT → BERT → GPT-2 → GPT-3 → InstructGPT → GPT-4
+→ LLaMA 2 → Mistral 7B → Mixtral 8x7B → DeepSeek-V3 → GPT-4o / Gemini 1.5
+
+推理模型演进：
+Chain-of-Thought → Self-Consistency → Tree of Thoughts → o1 → DeepSeek-R1 → s1
+
+对齐技术演进：
+RLHF (InstructGPT) → Constitutional AI (RLAIF) → DPO → GRPO (DeepSeek-R1)
+
+高效微调演进：
+LoRA → QLoRA → FlashAttention → FlashAttention-2/3
+
+扩散模型演进：
+DDPM → Improved DDPM → Guided Diffusion → DALL·E 2 → Stable Diffusion
+→ DiT → ControlNet → SDXL → Consistency Models → SD3/MMDiT → Sora
+
+多模态大模型演进：
+CLIP → BLIP → BLIP-2 → LLaVA → Qwen2-VL → GPT-4o / Gemini 1.5
+
+3D 生成演进：
+NeRF → 3D Gaussian Splatting → LRM → TRELLIS
+
+具身智能演进：
+RT-2 → OpenVLA → π0 → Genie
+
+Agent 演进：
+ReAct → Toolformer → MCP
+</code></pre>
+<hr />
+<h2>结语</h2>
+<p>这份文档覆盖了深度学习发展史上的关键论文，可以按以下线索理解整体脉络：</p>
+<ol>
+<li><strong>架构演进</strong>：从 CNN 的局部归纳偏置，到 Transformer 的全局注意力，再到 MLP 的极简主义，以及 Mamba 的线性状态空间模型。</li>
+<li><strong>训练范式</strong>：从有监督学习，到自监督/对比学习，再到预训练 + 微调、提示学习、上下文学习、指令微调与 RLHF 对齐。</li>
+<li><strong>生成模型</strong>：从 GAN 的对抗博弈，到扩散模型的逐步去噪，再到 DiT/MMDiT 的 Transformer 扩散与视频生成（Sora）。</li>
+<li><strong>多模态</strong>：从 CLIP 的图文对齐，到统一的多模态大模型（BLIP-2、SAM），再到原生多模态（GPT-4o、Gemini 1.5）。</li>
+<li><strong>系统与规模</strong>：从单卡训练，到数据/流水线/张量并行，再到 ZeRO 分片、Pathways 与 MoE 稀疏激活（Mixtral、DeepSeek-V3）。</li>
+<li><strong>对齐与安全</strong>：从纯预训练，到 RLHF（InstructGPT）、Constitutional AI（RLAIF）、DPO，再到推理模型 RL（o1、DeepSeek-R1）。</li>
+<li><strong>推理与 Agent</strong>：从 Chain-of-Thought 提示，到 Tree of Thoughts 搜索，再到 RL 训练的推理模型（o1、R1）与工具使用 Agent（ReAct、MCP）。</li>
+<li><strong>具身智能</strong>：从 RT-2 的 VLA 范式，到 OpenVLA 开源生态、π0 流匹配控制与 Genie 世界模型。</li>
+</ol>
+<blockquote>
+<p><strong>建议学习路径</strong>：先掌握 CNN（AlexNet→ResNet）与 Transformer（Attention→BERT/GPT）两大基础，再按兴趣深入生成模型、检测、自监督或多模态方向。最新进展（十五章）建议重点关注：大模型架构（LLaMA 2→DeepSeek-V3）、推理模型（CoT→o1→DeepSeek-R1）、对齐技术（RLHF→DPO）与多模态大模型（LLaVA→GPT-4o）四条主线。</p>
+</blockquote>
+
+<!-- KaTeX -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // KaTeX 渲染
+    if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(document.body, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });
+    }
+    // Mermaid 渲染
+    if (typeof mermaid !== 'undefined') {
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+        mermaid.run();
+    }
+});
+</script>
+</body>
+</html>

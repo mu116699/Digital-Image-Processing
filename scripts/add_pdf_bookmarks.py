@@ -45,7 +45,13 @@ import unicodedata
 from pypdf import PdfReader, PdfWriter
 
 # 字号 -> 标题层级
-SIZE_TO_LEVEL = {36.0: 1, 28.0: 2, 24.0: 3, 20.0: 4}
+# 原始约定（wkhtmltopdf 等工具）：h1=36, h2=28, h3=24, h4=20
+# headless Chrome/Edge 会将 CSS pt 放大 4/3 倍（96/72 DPI 转换）：
+#   h1=48, h2=37.3, h3=32, h4=26.7
+SIZE_TO_LEVEL = {
+    36.0: 1, 28.0: 2, 24.0: 3, 20.0: 4,   # wkhtmltopdf
+    48.0: 1, 37.3: 2, 32.0: 3, 26.7: 4,   # headless Chrome/Edge
+}
 # 同一行内文本片段的 y 坐标容差
 Y_TOLERANCE = 3.0
 
@@ -76,10 +82,32 @@ def clean_md_title(text: str) -> str:
 
 
 def parse_md_headings(md_path: str):
-    """返回 [(level, title), ...]。"""
+    """返回 [(level, title), ...]。
+
+    跳过围栏代码块（``` 或 ~~~）和缩进代码块内的行，
+    避免将代码中的 # 注释误识别为 Markdown 标题。
+    """
     out = []
+    in_fence = False
+    fence_marker = None
     with io.open(md_path, encoding="utf-8") as f:
         for line in f:
+            stripped = line.strip()
+            # 检测围栏代码块的开始/结束
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                marker = stripped[:3]
+                if not in_fence:
+                    in_fence = True
+                    fence_marker = marker
+                elif marker == fence_marker:
+                    in_fence = False
+                    fence_marker = None
+                continue
+            if in_fence:
+                continue
+            # 跳过缩进代码块（4+ 空格或 tab 开头，且非列表项）
+            if (line.startswith("    ") or line.startswith("\t")) and not re.match(r'^\s*[-*+\d]', line):
+                continue
             m = re.match(r"^(#{1,4})\s+(.+?)\s*$", line)
             if m:
                 out.append((len(m.group(1)), clean_md_title(m.group(2))))
