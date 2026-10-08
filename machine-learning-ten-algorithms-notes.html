@@ -1,0 +1,2235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>十大机器学习算法详解：原理、逐变量解析、图像应用与深度学习联系</title>
+    <style>
+@page {
+    margin: 20mm 15mm 20mm 15mm;
+    size: A4;
+}
+* { box-sizing: border-box; }
+body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    font-size: 11pt;
+    line-height: 1.7;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── 标题 ── */
+h1 {
+    font-size: 36pt;
+    color: #1a1a2e;
+    text-align: center;
+    border-bottom: 3px solid #16213e;
+    padding-bottom: 12px;
+    margin: 0 0 20px 0;
+}
+h2 {
+    font-size: 28pt;
+    color: #16213e;
+    border-bottom: 2px solid #0f3460;
+    padding-bottom: 8px;
+    margin: 30px 0 15px 0;
+    page-break-before: always;
+}
+h2:first-of-type { page-break-before: avoid; }
+h3 {
+    font-size: 24pt;
+    color: #0f3460;
+    margin: 25px 0 10px 0;
+    page-break-after: avoid;
+}
+h4 {
+    font-size: 20pt;
+    color: #1a1a2e;
+    margin: 20px 0 8px 0;
+    page-break-after: avoid;
+}
+
+/* ── 段落 ── */
+p { margin: 8px 0; text-align: justify; }
+
+/* 粗体段落标记（核心思想、关键设计等）独占一行时加大加粗。
+   注意：不能用 :only-child —— 它只统计元素兄弟节点、不统计文本节点，
+   会把 <p><strong>标签</strong>：</p> 里的 <strong> 误判为唯一子元素，
+   导致 display:block 生效、结尾的冒号被挤到下一行。
+   因此改由 md_to_html() 给「整段只有粗体标签」的段落打上 class="label"。 */
+p.label > strong {
+    display: block;
+    font-size: 13pt;
+    color: #0f3460;
+    margin-top: 12px;
+    margin-bottom: 4px;
+}
+
+/* ── 列表 ── */
+ul, ol { margin: 8px 0; padding-left: 2em; }
+li { margin: 4px 0; }
+
+/* ── 代码 ── */
+code {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 10pt;
+    background-color: #f0f0f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+pre {
+    background-color: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    page-break-inside: avoid;
+    margin: 12px 0;
+}
+pre code {
+    background-color: transparent;
+    padding: 0;
+    font-size: 9.5pt;
+    line-height: 1.5;
+}
+
+/* ── Mermaid 图 ── */
+pre.mermaid, .mermaid {
+    text-align: center;
+    background-color: white;
+    border: none;
+    padding: 10px 0;
+}
+.mermaid svg { max-width: 100%; height: auto; }
+
+/* ── 表格 ── */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 15px 0;
+    font-size: 10pt;
+    page-break-inside: avoid;
+}
+th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+th { background-color: #e8e8e8; font-weight: bold; }
+tr:nth-child(even) { background-color: #fafafa; }
+
+/* ── 引用 ── */
+blockquote {
+    border-left: 4px solid #0f3460;
+    background-color: #f5f5fa;
+    padding: 10px 15px;
+    margin: 15px 0;
+    color: #555;
+}
+
+/* ── 链接 / 分隔线 ── */
+a { color: #0f3460; text-decoration: none; }
+hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+
+/* ── 打印优化 ── */
+h2, h3, h4 { page-break-after: avoid; }
+table, pre, blockquote { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+<h1>十大机器学习算法详解：原理、逐变量解析、图像应用与深度学习联系</h1>
+<blockquote>
+<p>本文是一份纯理论整理，不涉及任何代码改动。
+目标是围绕"十大机器学习算法"这一经典提法，做到三件事：</p>
+<ol>
+<li><strong>把每个算法的原理讲透</strong>——每个公式都给出<strong>逐项符号解释</strong>（每个变量是什么、量纲、取值范围、物理含义）；</li>
+<li><strong>厘清"十大"的版本差异</strong>——不同教材/榜单给出的名单并不一致，本文列出主流版本并补齐差异项；</li>
+<li><strong>落到图像领域</strong>——每个算法在图像处理/计算机视觉中的具体用法，并说明它与后续<strong>深度学习</strong>部分的联系。</li>
+</ol>
+<p>与仓库中 <code>feature-descriptors-notes.md</code>、<code>cnn-transformer-notes.md</code> 一脉相承：
+前者讲"手工描述子"，后者讲"深度表示学习"，本文正好补上中间那一层——
+<strong>经典机器学习</strong>，即"浅层学习"这一代。</p>
+</blockquote>
+<hr />
+<h2>目录</h2>
+<ol>
+<li>总览：什么是"十大机器学习算法"</li>
+<li>"十大"的版本差异与本文取舍</li>
+<li>监督学习（Supervised Learning）</li>
+<li>3.1 最近邻（KNN）</li>
+<li>3.2 贝叶斯分类（朴素贝叶斯）</li>
+<li>3.3 逻辑回归</li>
+<li>3.4 支持向量机（SVM）</li>
+<li>3.5 决策树与森林（随机森林）</li>
+<li>无监督学习（Unsupervised Learning）</li>
+<li>4.1 聚类</li>
+<li>4.2 K-means 与高斯混合模型</li>
+<li>4.3 主成分分析（PCA）</li>
+<li>4.4 流形学习</li>
+<li>4.5 半监督学习</li>
+<li>其他版本中的扩展算法（ICDM 2008 版差异项）</li>
+<li>5.1 C4.5</li>
+<li>5.2 CART</li>
+<li>5.3 PageRank</li>
+<li>5.4 神经网络 / 深度学习</li>
+<li>5.5 AdaBoost</li>
+<li>5.6 EM 算法</li>
+<li>5.7 Apriori</li>
+<li>图像领域应用总览</li>
+<li>与深度学习的联系（重点）</li>
+<li>速查表</li>
+<li>结论</li>
+</ol>
+<hr />
+<h2>1. 总览：什么是"十大机器学习算法"</h2>
+<h3>1.1 提法的来源</h3>
+<p>"十大机器学习算法"（Top 10 Algorithms in Data Mining / Machine Learning）并不是一个
+有严格定义的官方名单，而是源于若干<strong>综述性文章与教材</strong>的归纳。最常被引用的是：</p>
+<ul>
+<li><strong>Wu et al., 2008, <em>Top 10 algorithms in data mining</em></strong>（发表于 <em>Knowledge and Information Systems</em>），
+  由 IEEE ICDM 组织投票产生，名单为：C4.5、K-Means、SVM、Apriori、EM、
+  PageRank、AdaBoost、kNN、Naive Bayes、CART。</li>
+<li>各类<strong>入门教材与在线课程</strong>（如 Python 数据科学、机器学习入门）给出的"十大"，
+  则更偏向<strong>可上手、覆盖监督+无监督</strong>的实用清单，即用户给出的这一版：
+  KNN、朴素贝叶斯、逻辑回归、SVM、决策树/森林、聚类、K-means/GMM、PCA、流形学习、半监督学习。</li>
+</ul>
+<p>两者<strong>视角不同</strong>：前者是"数据挖掘领域最具影响力的算法"，后者是"机器学习入门必学的算法"。</p>
+<h3>1.2 三大范式</h3>
+<p>所有算法都可以归入三大学习范式：</p>
+<table>
+<thead>
+<tr>
+<th>范式</th>
+<th>数据</th>
+<th>目标</th>
+<th>代表</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>监督学习</td>
+<td>有标签 $(x_i, y_i)$</td>
+<td>学 $x \to y$ 的映射</td>
+<td>KNN、贝叶斯、逻辑回归、SVM、决策树</td>
+</tr>
+<tr>
+<td>无监督学习</td>
+<td>无标签 $x_i$</td>
+<td>发现结构（簇、子空间、流形）</td>
+<td>聚类、K-means、GMM、PCA、流形学习</td>
+</tr>
+<tr>
+<td>半监督学习</td>
+<td>少量标签 + 大量无标签</td>
+<td>用无标签数据辅助监督任务</td>
+<td>自训练、协同训练、图半监督</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>范式关系示意：</strong></p>
+<pre class="mermaid">flowchart TD
+    ML[&quot;机器学习&quot;] --&gt; SUP[&quot;监督学习&lt;br/&gt;有标签&quot;]
+    ML --&gt; UNSUP[&quot;无监督学习&lt;br/&gt;无标签&quot;]
+    ML --&gt; SEMI[&quot;半监督学习&lt;br/&gt;少量标签 + 大量无标签&quot;]
+    SUP --&gt; S1[&quot;KNN / 贝叶斯 / 逻辑回归&quot;]
+    SUP --&gt; S2[&quot;SVM / 决策树 / 随机森林&quot;]
+    UNSUP --&gt; U1[&quot;聚类 / K-means / GMM&quot;]
+    UNSUP --&gt; U2[&quot;PCA / 流形学习&quot;]
+    SEMI --&gt; M1[&quot;自训练 / 协同训练 / 图方法&quot;]
+    SUP -.-&gt;|&quot;标签稀缺时&quot;| SEMI
+    UNSUP -.-&gt;|&quot;提供结构先验&quot;| SEMI
+</pre>
+<h3>1.3 统一视角：都是"目标函数 + 优化"</h3>
+<p>尽管形式各异，几乎所有算法都可以写成同一个模板：</p>
+<p>$$
+\hat{\theta} = \arg\min_{\theta} \; \underbrace{\frac{1}{N}\sum_{i=1}^{N} L\big(y_i, f_\theta(x_i)\big)}<em _text_正则化（控制复杂度）="\text{正则化（控制复杂度）">{\text{经验风险（拟合数据）}} \;+\; \underbrace{\lambda\, \Omega(\theta)}</em>
+$$}</p>
+<p>其中：</p>
+<ul>
+<li>$\theta$：模型参数（要学的东西）。</li>
+<li>$N$：样本数量。</li>
+<li>$x_i$：第 $i$ 个样本的<strong>特征向量</strong>（图像里常是描述子、像素块、颜色直方图等）。</li>
+<li>$y_i$：第 $i$ 个样本的<strong>标签</strong>（分类标签或回归值）。</li>
+<li>$f_\theta$：由参数 $\theta$ 决定的<strong>预测函数</strong>。</li>
+<li>$L(\cdot,\cdot)$：<strong>损失函数</strong>，衡量预测与真值的差距（如平方损失、交叉熵、Hinge 损失）。</li>
+<li>$\Omega(\theta)$：<strong>正则项</strong>，惩罚模型复杂度（如 L2、L1、树深度）。</li>
+<li>$\lambda$：<strong>正则化系数</strong>，权衡"拟合数据"与"保持简单"。</li>
+<li>$\hat{\theta}$：使总目标最小的最优参数。</li>
+</ul>
+<p><strong>含义</strong>：不同算法的差别，本质上就是 $L$、$\Omega$、$f_\theta$ 三者的不同选择。
+例如 SVM 用 Hinge 损失 + L2 正则，逻辑回归用交叉熵 + L2 正则，
+决策树用不纯度下降作为"隐式损失"。</p>
+<hr />
+<h2>2. "十大"的版本差异与本文取舍</h2>
+<h3>2.1 主流版本对照</h3>
+<table>
+<thead>
+<tr>
+<th>算法</th>
+<th>用户给出的版本</th>
+<th>ICDM 2008 版</th>
+<th>常见入门教材版</th>
+<th>本文是否详解</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>KNN</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ 3.1</td>
+</tr>
+<tr>
+<td>朴素贝叶斯</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ 3.2</td>
+</tr>
+<tr>
+<td>逻辑回归</td>
+<td>✅</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅ 3.3</td>
+</tr>
+<tr>
+<td>SVM</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ 3.4</td>
+</tr>
+<tr>
+<td>决策树 / 森林</td>
+<td>✅</td>
+<td>✅（C4.5、CART）</td>
+<td>✅</td>
+<td>✅ 3.5</td>
+</tr>
+<tr>
+<td>聚类</td>
+<td>✅</td>
+<td>✅（K-Means）</td>
+<td>✅</td>
+<td>✅ 4.1</td>
+</tr>
+<tr>
+<td>K-means / GMM</td>
+<td>✅</td>
+<td>✅（K-Means）</td>
+<td>✅</td>
+<td>✅ 4.2</td>
+</tr>
+<tr>
+<td>PCA</td>
+<td>✅</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅ 4.3</td>
+</tr>
+<tr>
+<td>流形学习</td>
+<td>✅</td>
+<td>❌</td>
+<td>⚠️ 部分</td>
+<td>✅ 4.4</td>
+</tr>
+<tr>
+<td>半监督学习</td>
+<td>✅</td>
+<td>❌</td>
+<td>⚠️ 部分</td>
+<td>✅ 4.5</td>
+</tr>
+<tr>
+<td>C4.5</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ 5.1</td>
+</tr>
+<tr>
+<td>CART</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ 5.2</td>
+</tr>
+<tr>
+<td>PageRank</td>
+<td>❌</td>
+<td>✅</td>
+<td>❌</td>
+<td>✅ 5.3</td>
+</tr>
+<tr>
+<td>神经网络 / 深度学习</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅ 5.4</td>
+</tr>
+<tr>
+<td>AdaBoost</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅ 5.5</td>
+</tr>
+<tr>
+<td>EM</td>
+<td>❌</td>
+<td>✅</td>
+<td>⚠️ 部分</td>
+<td>✅ 5.6</td>
+</tr>
+<tr>
+<td>Apriori</td>
+<td>❌</td>
+<td>✅</td>
+<td>⚠️ 部分</td>
+<td>✅ 5.7</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>说明</strong>：用户给出的版本是"入门实用版"，ICDM 2008 是"数据挖掘影响力版"。
+两者交集是 KNN、朴素贝叶斯、SVM、决策树、K-means；
+差异项（逻辑回归、PCA、流形学习、半监督 vs AdaBoost、EM、Apriori、PageRank）
+本文全部补齐，做到"两版通吃"。</p>
+</blockquote>
+<h3>2.2 为什么会有差异</h3>
+<ul>
+<li><strong>ICDM 版</strong>偏重"数据挖掘"：强调关联规则（Apriori）、图排序（PageRank）、
+  概率推断（EM），这些在数据库/推荐系统里更重要。</li>
+<li><strong>入门版</strong>偏重"机器学习基础"：强调降维（PCA）、流形（t-SNE/LLE）、
+  半监督，这些在<strong>图像与高维数据</strong>里更常用。</li>
+<li><strong>图像领域</strong>的特殊性：图像是高维、强相关、带空间结构的数据，
+  因此 PCA、流形学习、K-means（用于视觉词袋）在图像里地位极高，
+  而 Apriori、PageRank 在图像里较少直接使用。</li>
+</ul>
+<hr />
+<h2>3. 监督学习（Supervised Learning）</h2>
+<h3>3.1 最近邻（Nearest Neighbors / KNN）</h3>
+<h4>3.1.1 核心思想</h4>
+<p>KNN 是最"懒惰"的算法：<strong>不训练、不建模型，把全部训练样本存起来，
+预测时找最近的 $k$ 个邻居投票</strong>。它属于<strong>非参数方法</strong>（模型复杂度随数据增长）。</p>
+<h4>3.1.2 距离度量</h4>
+<p>最常用的是<strong>欧氏距离</strong>：</p>
+<p>$$
+d(x, x') = \sqrt{\sum_{j=1}^{D} (x_j - x'_j)^2}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x, x'$：两个样本的特征向量（各 $D$ 维）。</li>
+<li>$D$：特征维度（图像里可能是描述子维度，如 SIFT 的 128）。</li>
+<li>$x_j$：向量 $x$ 的第 $j$ 个分量。</li>
+<li>$x'_j$：向量 $x'$ 的第 $j$ 个分量。</li>
+<li>$(x_j - x'_j)$：第 $j$ 维上的差。</li>
+<li>平方后求和再开方：即"直线距离"（L2 范数）。</li>
+<li>$d(x,x')$：两样本的<strong>不相似度</strong>，越小越相似。</li>
+</ul>
+<p>其他常用度量：</p>
+<table>
+<thead>
+<tr>
+<th>度量</th>
+<th>公式</th>
+<th>适用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>曼哈顿距离</td>
+<td>$\sum_j \lvert x_j - x'_j \rvert$</td>
+<td>稀疏、鲁棒</td>
+</tr>
+<tr>
+<td>余弦距离</td>
+<td>$1 - \frac{x \cdot x'}{\lVert x \rVert \lVert x' \rVert}$</td>
+<td>方向敏感（文本、描述子）</td>
+</tr>
+<tr>
+<td>汉明距离</td>
+<td>$\sum_j [x_j \neq x'_j]$</td>
+<td>二进制描述子（BRIEF/ORB）</td>
+</tr>
+<tr>
+<td>马氏距离</td>
+<td>$\sqrt{(x-x')^\top \Sigma^{-1} (x-x')}$</td>
+<td>各维尺度/相关性不同</td>
+</tr>
+</tbody>
+</table>
+<p>其中 $\Sigma$ 是特征的<strong>协方差矩阵</strong>，$\Sigma^{-1}$ 是它的逆，用于"白化"各维尺度。</p>
+<h4>3.1.3 分类决策规则</h4>
+<p class="label"><strong>多数投票：</strong></p>
+<p>$$
+\hat{y} = \arg\max_{c \in \mathcal{C}} \sum_{i \in \mathcal{N}_k(x)} \mathbb{1}[y_i = c]
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x$：待预测样本。</li>
+<li>$\mathcal{N}_k(x)$：$x$ 的 $k$ 个最近邻的<strong>下标集合</strong>。</li>
+<li>$k$：邻居个数（超参数）。</li>
+<li>$\mathcal{C}$：类别集合。</li>
+<li>$y_i$：第 $i$ 个训练样本的真实标签。</li>
+<li>$\mathbb{1}[\cdot]$：<strong>指示函数</strong>，条件成立取 1，否则取 0。</li>
+<li>$\sum_{i \in \mathcal{N}_k(x)} \mathbb{1}[y_i = c]$：邻居中属于类别 $c$ 的<strong>个数</strong>。</li>
+<li>$\arg\max_c$：取票数最多的类别。</li>
+<li>$\hat{y}$：预测标签。</li>
+</ul>
+<p><strong>距离加权投票</strong>（更常用，近的邻居权重大）：</p>
+<p>$$
+\hat{y} = \arg\max_{c} \sum_{i \in \mathcal{N}_k(x)} w_i \,\mathbb{1}[y_i = c], \qquad w_i = \frac{1}{d(x, x_i) + \epsilon}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$w_i$：第 $i$ 个邻居的<strong>权重</strong>。</li>
+<li>$d(x, x_i)$：待测样本与第 $i$ 个邻居的距离。</li>
+<li>$\epsilon$：极小正数，防止除零。</li>
+<li>含义：距离越小，$w_i$ 越大，投票越有分量。</li>
+</ul>
+<p><strong>回归</strong>时则取邻居标签的（加权）平均：</p>
+<p>$$
+\hat{y} = \frac{\sum_{i \in \mathcal{N}<em _in="\in" _mathcal_N="\mathcal{N" i="i">k(x)} w_i\, y_i}{\sum</em>
+$$}_k(x)} w_i</p>
+<h4>3.1.4 算法步骤</h4>
+<pre class="mermaid">flowchart LR
+    A[&quot;输入待测样本 x&quot;] --&gt; B[&quot;计算 x 与所有训练样本的距离&quot;]
+    B --&gt; C[&quot;按距离升序排序&quot;]
+    C --&gt; D[&quot;取前 k 个邻居&quot;]
+    D --&gt; E[&quot;投票 / 加权平均&quot;]
+    E --&gt; F[&quot;输出预测 ŷ&quot;]
+</pre>
+<h4>3.1.5 关键问题</h4>
+<ul>
+<li><strong>$k$ 的选择</strong>：$k$ 太小 → 对噪声敏感（过拟合）；$k$ 太大 → 决策边界过于平滑（欠拟合）。
+  常用交叉验证选 $k$，经验值 $k \approx \sqrt{N}$。</li>
+<li><strong>维度灾难</strong>：高维空间中所有点距离趋于相等，KNN 失效。
+  解决：先降维（PCA）或特征选择。</li>
+<li><strong>计算复杂度</strong>：预测时 $O(ND)$，大数据需 KD-Tree、Ball-Tree、LSH 加速。</li>
+</ul>
+<h4>3.1.6 图像领域用法</h4>
+<ul>
+<li><strong>图像分类基线</strong>：把图像表示为特征向量（颜色直方图、HOG、CNN 特征），用 KNN 分类。</li>
+<li><strong>图像检索</strong>：以图搜图，找特征空间最近邻。</li>
+<li><strong>特征匹配</strong>：SIFT 描述子的最近邻匹配（Lowe 的 ratio test 就是"最近邻 / 次近邻"比值）。</li>
+<li><strong>超像素 / 像素分类</strong>：对每个像素的特征做 KNN 分类（如遥感图像分割）。</li>
+</ul>
+<h4>3.1.7 与深度学习的联系</h4>
+<ul>
+<li><strong>度量学习（Metric Learning）</strong>：深度网络学一个嵌入空间，使同类近、异类远，
+  再用 KNN 分类——即 <strong>孪生网络 / Triplet Loss / 对比学习</strong>。</li>
+<li><strong>原型网络（Prototypical Networks）</strong>：few-shot 学习中，用类中心做"最近邻"。</li>
+<li><strong>KNN 是"无参数"的极端</strong>，深度网络是"全参数"的极端，二者在表示学习上互补。</li>
+</ul>
+<hr />
+<h3>3.2 贝叶斯分类（Bayesian Classification）</h3>
+<h4>3.2.1 贝叶斯定理</h4>
+<p>$$
+P(c \mid x) = \frac{P(x \mid c)\, P(c)}{P(x)}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$c$：类别（如"猫"）。</li>
+<li>$x$：样本特征向量。</li>
+<li>$P(c \mid x)$：<strong>后验概率</strong>——看到特征 $x$ 后，样本属于 $c$ 的概率（我们想要的）。</li>
+<li>$P(x \mid c)$：<strong>似然</strong>——类别 $c$ 产生特征 $x$ 的概率（从数据估计）。</li>
+<li>$P(c)$：<strong>先验概率</strong>——不看特征时，类别 $c$ 出现的概率（类别频率）。</li>
+<li>$P(x)$：<strong>证据</strong>——特征 $x$ 出现的概率，对所有类别相同，分类时可忽略。</li>
+<li>含义：后验 ∝ 似然 × 先验。</li>
+</ul>
+<p><strong>分类决策</strong>（最大后验 MAP）：</p>
+<p>$$
+\hat{y} = \arg\max_{c} P(c \mid x) = \arg\max_{c} P(x \mid c)\, P(c)
+$$</p>
+<p>其中 $\hat{y}$ 是预测类别；因为 $P(x)$ 与 $c$ 无关，可省略。</p>
+<h4>3.2.2 朴素贝叶斯：条件独立假设</h4>
+<p>直接估计 $P(x \mid c)$ 需要 $D$ 维联合分布，参数爆炸。
+<strong>朴素贝叶斯</strong>假设各维<strong>条件独立</strong>：</p>
+<p>$$
+P(x \mid c) = \prod_{j=1}^{D} P(x_j \mid c)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$D$：特征维度。</li>
+<li>$x_j$：特征向量的第 $j$ 维。</li>
+<li>$P(x_j \mid c)$：在类别 $c$ 下，第 $j$ 维取值的概率（一维分布，易估计）。</li>
+<li>$\prod$：连乘，把 $D$ 维联合概率拆成 $D$ 个一维概率之积。</li>
+<li>含义：假设"给定类别后，各特征互不影响"——这个假设通常不成立，但效果出奇地好。</li>
+</ul>
+<p class="label"><strong>最终判别式：</strong></p>
+<p>$$
+\hat{y} = \arg\max_{c} \; P(c) \prod_{j=1}^{D} P(x_j \mid c)
+$$</p>
+<h4>3.2.3 三种常见变体</h4>
+<table>
+<thead>
+<tr>
+<th>变体</th>
+<th>假设 $P(x_j \mid c)$</th>
+<th>适用特征</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>高斯朴素贝叶斯</td>
+<td>$\mathcal{N}(\mu_{jc}, \sigma_{jc}^2)$</td>
+<td>连续特征（图像像素、描述子）</td>
+</tr>
+<tr>
+<td>多项式朴素贝叶斯</td>
+<td>多项分布</td>
+<td>计数特征（词频、直方图）</td>
+</tr>
+<tr>
+<td>伯努利朴素贝叶斯</td>
+<td>伯努利分布</td>
+<td>二值特征（二值描述子）</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>高斯形式：</strong></p>
+<p>$$
+P(x_j \mid c) = \frac{1}{\sqrt{2\pi\sigma_{jc}^2}} \exp!\left(-\frac{(x_j - \mu_{jc})^2}{2\sigma_{jc}^2}\right)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mu_{jc}$：类别 $c$ 下第 $j$ 维的<strong>均值</strong>。</li>
+<li>$\sigma_{jc}^2$：类别 $c$ 下第 $j$ 维的<strong>方差</strong>。</li>
+<li>$\sigma_{jc}$：标准差。</li>
+<li>$x_j$：待测样本第 $j$ 维取值。</li>
+<li>含义：假设该维在类内服从正态分布，用均值和方差刻画。</li>
+</ul>
+<h4>3.2.4 数值稳定：对数化</h4>
+<p>连乘易下溢，取对数变连加：</p>
+<p>$$
+\hat{y} = \arg\max_{c} \left[ \log P(c) + \sum_{j=1}^{D} \log P(x_j \mid c) \right]
+$$</p>
+<p>其中 $\log$ 单调递增，不改变 $\arg\max$ 结果，但把乘积变求和，避免浮点下溢。</p>
+<h4>3.2.5 图像领域用法</h4>
+<ul>
+<li><strong>垃圾邮件 / 文本分类</strong>（经典应用，非图像）。</li>
+<li><strong>图像分类</strong>：像素或描述子作为特征，高斯朴素贝叶斯做基线。</li>
+<li><strong>肤色检测</strong>：在 YCbCr 空间对 Cb、Cr 建模高斯分布，判断像素是否肤色。</li>
+<li><strong>贝叶斯分割</strong>：结合先验形状与似然做 MRF/CRF 分割（贝叶斯框架的推广）。</li>
+<li><strong>朴素贝叶斯是"生成式模型"</strong>，与逻辑回归（判别式）形成对照。</li>
+</ul>
+<h4>3.2.6 与深度学习的联系</h4>
+<ul>
+<li><strong>贝叶斯深度学习</strong>：对网络权重加先验，做后验推断（变分推断、MC Dropout），
+  得到<strong>不确定性估计</strong>。</li>
+<li><strong>生成模型</strong>：VAE 的 ELBO 就是贝叶斯推断的变分下界。</li>
+<li><strong>Softmax 分类器</strong>可看作"判别式"版本，而朴素贝叶斯是"生成式"版本。</li>
+</ul>
+<hr />
+<h3>3.3 逻辑回归（Logistic Regression）</h3>
+<h4>3.3.1 从线性回归到概率</h4>
+<p>线性模型输出 $z = w^\top x + b$ 是实数，要变成概率需<strong>Sigmoid</strong>压缩：</p>
+<p>$$
+\sigma(z) = \frac{1}{1 + e^{-z}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$z$：线性得分（logit）。</li>
+<li>$e$：自然常数。</li>
+<li>$\sigma(z) \in (0,1)$：把实数映射到概率区间。</li>
+<li>性质：$\sigma(0)=0.5$，$z \to +\infty$ 时趋近 1，$z \to -\infty$ 时趋近 0。</li>
+</ul>
+<p class="label"><strong>二分类概率：</strong></p>
+<p>$$
+P(y=1 \mid x) = \sigma(w^\top x + b) = \frac{1}{1 + e^{-(w^\top x + b)}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$w \in \mathbb{R}^D$：<strong>权重向量</strong>，每个分量 $w_j$ 表示第 $j$ 维特征对"正类"的贡献。</li>
+<li>$b$：<strong>偏置</strong>，控制决策边界的位置。</li>
+<li>$w^\top x = \sum_j w_j x_j$：特征的加权和。</li>
+<li>$P(y=1\mid x)$：样本属于正类的概率。</li>
+<li>$P(y=0 \mid x) = 1 - P(y=1 \mid x)$。</li>
+</ul>
+<h4>3.3.2 决策边界</h4>
+<p>令 $P(y=1\mid x) = 0.5$，即 $w^\top x + b = 0$：</p>
+<p>$$
+w^\top x + b = 0
+$$</p>
+<p>这是一个<strong>超平面</strong>，把特征空间一分为二。$w$ 是超平面的<strong>法向量</strong>（决定方向），
+$b$ 决定<strong>偏移</strong>。逻辑回归是<strong>线性分类器</strong>。</p>
+<h4>3.3.3 损失函数：交叉熵</h4>
+<p>从最大似然推导。单样本似然：</p>
+<p>$$
+P(y \mid x) = \hat{p}^{\,y} (1-\hat{p})^{\,1-y}, \qquad \hat{p} = \sigma(w^\top x + b)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$y \in {0,1}$：真实标签。</li>
+<li>$\hat{p}$：预测为正类的概率。</li>
+<li>当 $y=1$ 时取 $\hat{p}$，当 $y=0$ 时取 $1-\hat{p}$。</li>
+</ul>
+<p>取负对数得<strong>交叉熵损失</strong>：</p>
+<p>$$
+L(w, b) = -\frac{1}{N}\sum_{i=1}^{N} \Big[ y_i \log \hat{p}_i + (1-y_i)\log(1-\hat{p}_i) \Big]
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$N$：样本数。</li>
+<li>$y_i$：第 $i$ 个样本标签。</li>
+<li>$\hat{p}_i = \sigma(w^\top x_i + b)$：第 $i$ 个样本的预测概率。</li>
+<li>第一项 $y_i \log \hat{p}_i$：当 $y_i=1$ 时惩罚"预测概率低"。</li>
+<li>第二项 $(1-y_i)\log(1-\hat{p}_i)$：当 $y_i=0$ 时惩罚"预测概率高"。</li>
+<li>负号：把"最大化似然"变成"最小化损失"。</li>
+</ul>
+<h4>3.3.4 梯度下降</h4>
+<p>对 $w$ 求梯度：</p>
+<p>$$
+\nabla_w L = \frac{1}{N}\sum_{i=1}^{N} (\hat{p}_i - y_i)\, x_i
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\hat{p}_i - y_i$：<strong>预测误差</strong>（残差）。</li>
+<li>$x_i$：第 $i$ 个样本特征。</li>
+<li>含义：梯度 = 误差 × 特征的平均。误差越大，更新越猛。</li>
+<li>更新：$w \leftarrow w - \eta \nabla_w L$，$\eta$ 是<strong>学习率</strong>。</li>
+</ul>
+<p><strong>这个形式与线性回归的梯度完全一致</strong>，区别只在 $\hat{p}$ 是 Sigmoid 输出。</p>
+<h4>3.3.5 多分类：Softmax 回归</h4>
+<p>$$
+P(y=c \mid x) = \frac{e^{w_c^\top x + b_c}}{\sum_{c'=1}^{C} e^{w_{c'}^\top x + b_{c'}}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$C$：类别数。</li>
+<li>$w_c$：类别 $c$ 的权重向量。</li>
+<li>$b_c$：类别 $c$ 的偏置。</li>
+<li>分母：所有类别的指数和，做<strong>归一化</strong>，使概率和为 1。</li>
+<li>含义：把每个类别的得分转成概率分布。</li>
+</ul>
+<h4>3.3.6 图像领域用法</h4>
+<ul>
+<li><strong>二分类任务</strong>：人脸/非人脸、有缺陷/无缺陷。</li>
+<li><strong>多标签分类</strong>：一张图多个标签（每个标签一个逻辑回归）。</li>
+<li><strong>作为网络最后一层</strong>：CNN 分类头就是 Softmax 回归。</li>
+<li><strong>概率输出</strong>：需要置信度时优于 SVM。</li>
+</ul>
+<h4>3.3.7 与深度学习的联系</h4>
+<ul>
+<li><strong>逻辑回归 = 单层神经网络</strong>（无隐藏层）。</li>
+<li><strong>Softmax 回归 = CNN 分类头</strong>，是深度分类器的最后一步。</li>
+<li><strong>交叉熵损失</strong>是深度分类的标准损失。</li>
+<li>逻辑回归的局限（线性边界）正是深度网络要突破的：<strong>加隐藏层 + 非线性激活</strong>。</li>
+</ul>
+<hr />
+<h3>3.4 支持向量机（Support Vector Machines, SVM）</h3>
+<h4>3.4.1 核心思想：最大间隔</h4>
+<p>SVM 要找一条<strong>离两类样本都最远</strong>的分界线（超平面），
+使<strong>间隔（margin）最大</strong>。只有少数"支撑"边界的样本（<strong>支持向量</strong>）决定分界线。</p>
+<p class="label"><strong>超平面：</strong></p>
+<p>$$
+w^\top x + b = 0
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$w$：超平面的<strong>法向量</strong>，决定方向。</li>
+<li>$b$：偏置，决定与原点的距离。</li>
+<li>$x$：特征向量。</li>
+</ul>
+<p class="label"><strong>点到超平面的距离：</strong></p>
+<p>$$
+d(x) = \frac{|w^\top x + b|}{\lVert w \rVert}
+$$</p>
+<p>其中 $\lVert w \rVert = \sqrt{\sum_j w_j^2}$ 是法向量的模长。</p>
+<h4>3.4.2 硬间隔优化问题</h4>
+<p>要求所有样本正确分类且间隔最大：</p>
+<p>$$
+\min_{w,b} \frac{1}{2}\lVert w \rVert^2 \quad \text{s.t.} \quad y_i (w^\top x_i + b) \ge 1, \; \forall i
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\frac{1}{2}\lVert w \rVert^2$：目标函数，最小化它等价于<strong>最大化间隔</strong> $2/\lVert w \rVert$。</li>
+<li>$y_i \in {-1, +1}$：标签（SVM 用 ±1 而非 0/1）。</li>
+<li>$y_i(w^\top x_i + b)$：<strong>函数间隔</strong>，要求 ≥ 1 表示"分类正确且离边界足够远"。</li>
+<li>约束对所有 $i$ 成立。</li>
+</ul>
+<h4>3.4.3 软间隔与松弛变量</h4>
+<p>现实数据有噪声，允许少量越界，引入<strong>松弛变量</strong> $\xi_i$：</p>
+<p>$$
+\min_{w,b,\xi} \frac{1}{2}\lVert w \rVert^2 + C\sum_{i=1}^{N}\xi_i \quad \text{s.t.} \quad y_i(w^\top x_i + b) \ge 1 - \xi_i, \; \xi_i \ge 0
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\xi_i \ge 0$：第 $i$ 个样本的<strong>违反程度</strong>（越界多少）。</li>
+<li>$C &gt; 0$：<strong>惩罚系数</strong>，权衡"间隔大"与"少犯错"。</li>
+<li>$C$ 大 → 不容忍错误 → 过拟合风险。</li>
+<li>$C$ 小 → 容忍错误 → 欠拟合风险。</li>
+</ul>
+<h4>3.4.4 对偶问题与核技巧</h4>
+<p>用拉格朗日乘子转成对偶问题：</p>
+<p>$$
+\max_{\alpha} \sum_{i=1}^{N}\alpha_i - \frac{1}{2}\sum_{i=1}^{N}\sum_{j=1}^{N} \alpha_i \alpha_j y_i y_j \, K(x_i, x_j)
+$$</p>
+<p>$$
+\text{s.t.} \quad 0 \le \alpha_i \le C, \quad \sum_{i=1}^{N}\alpha_i y_i = 0
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\alpha_i$：第 $i$ 个样本的<strong>拉格朗日乘子</strong>。</li>
+<li>$\alpha_i = 0$：该样本不影响边界（非支持向量）。</li>
+<li>$\alpha_i &gt; 0$：该样本是<strong>支持向量</strong>。</li>
+<li>$K(x_i, x_j)$：<strong>核函数</strong>，计算两样本在高维空间的内积，无需显式升维。</li>
+<li>含义：决策只依赖支持向量之间的核函数值。</li>
+</ul>
+<p class="label"><strong>常用核函数：</strong></p>
+<table>
+<thead>
+<tr>
+<th>核</th>
+<th>公式</th>
+<th>参数</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>线性核</td>
+<td>$x_i^\top x_j$</td>
+<td>无</td>
+</tr>
+<tr>
+<td>多项式核</td>
+<td>$(\gamma\, x_i^\top x_j + r)^d$</td>
+<td>$\gamma, r, d$</td>
+</tr>
+<tr>
+<td>RBF / 高斯核</td>
+<td>$\exp(-\gamma \lVert x_i - x_j \rVert^2)$</td>
+<td>$\gamma$</td>
+</tr>
+<tr>
+<td>Sigmoid 核</td>
+<td>$\tanh(\gamma\, x_i^\top x_j + r)$</td>
+<td>$\gamma, r$</td>
+</tr>
+</tbody>
+</table>
+<p>其中：</p>
+<ul>
+<li>$\gamma$：核宽度参数，控制"影响半径"。</li>
+<li>$d$：多项式次数。</li>
+<li>$r$：常数项。</li>
+<li>RBF 核把数据映射到<strong>无穷维</strong>空间，是最常用的非线性核。</li>
+</ul>
+<p class="label"><strong>预测函数：</strong></p>
+<p>$$
+f(x) = \text{sign}!\left( \sum_{i \in SV} \alpha_i y_i K(x_i, x) + b \right)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$SV$：支持向量集合。</li>
+<li>$\text{sign}(\cdot)$：符号函数，输出 ±1。</li>
+<li>含义：新样本的类别由它与支持向量的核函数加权和决定。</li>
+</ul>
+<h4>3.4.5 图像领域用法</h4>
+<ul>
+<li><strong>HOG + SVM</strong>：行人检测的经典组合（Dalal &amp; Triggs, 2005）。</li>
+<li><strong>图像分类</strong>：在 CNN 之前，SVM 是图像分类的主力（如 Caltech-101）。</li>
+<li><strong>目标检测</strong>：滑动窗口 + SVM 分类。</li>
+<li><strong>多类 SVM</strong>：一对多（OvR）或一对一（OvO）扩展。</li>
+</ul>
+<h4>3.4.6 与深度学习的联系</h4>
+<ul>
+<li><strong>Hinge 损失</strong>被深度度量学习沿用（如 Deep SVM、大间隔 softmax）。</li>
+<li><strong>核方法 vs 深度</strong>：核方法固定特征映射，深度网络<strong>学习</strong>特征映射。</li>
+<li><strong>神经正切核（NTK）</strong>：无限宽网络的极限等价于核方法，架起两者桥梁。</li>
+<li><strong>SVM 的间隔思想</strong>影响深度学习的 margin-based 损失（如 ArcFace、CosFace）。</li>
+</ul>
+<hr />
+<h3>3.5 决策树与森林（Decision Trees and Forests）</h3>
+<h4>3.5.1 决策树：递归划分</h4>
+<p>决策树通过一系列"if-else"问题把特征空间<strong>递归划分</strong>成若干区域，
+每个叶子给出预测。核心是<strong>如何选划分特征和阈值</strong>。</p>
+<h4>3.5.2 不纯度度量</h4>
+<p class="label"><strong>信息熵：</strong></p>
+<p>$$
+H(S) = -\sum_{c=1}^{C} p_c \log_2 p_c
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$S$：当前节点上的样本集合。</li>
+<li>$C$：类别数。</li>
+<li>$p_c$：$S$ 中属于类别 $c$ 的<strong>比例</strong>。</li>
+<li>$\log_2$：以 2 为底，单位是比特。</li>
+<li>$H(S)$：<strong>不确定性</strong>，越纯越小（纯节点 $H=0$）。</li>
+</ul>
+<p class="label"><strong>基尼不纯度：</strong></p>
+<p>$$
+\text{Gini}(S) = 1 - \sum_{c=1}^{C} p_c^2
+$$</p>
+<p>其中 $p_c$ 同上；基尼不纯度衡量"随机抽两个样本类别不同的概率"，计算比熵快。</p>
+<p><strong>信息增益</strong>（ID3 / C4.5）：</p>
+<p>$$
+\text{Gain}(S, A) = H(S) - \sum_{v \in \text{values}(A)} \frac{|S_v|}{|S|} H(S_v)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$A$：候选划分特征。</li>
+<li>$\text{values}(A)$：特征 $A$ 的取值集合。</li>
+<li>$S_v$：$S$ 中特征 $A$ 取值为 $v$ 的子集。</li>
+<li>$|S_v| / |S|$：子集权重。</li>
+<li>含义：用 $A$ 划分后，不确定性下降多少；选增益最大的特征。</li>
+</ul>
+<p class="label"><strong>C4.5 的改进——信息增益率：</strong></p>
+<p>$$
+\text{GainRatio}(S,A) = \frac{\text{Gain}(S,A)}{\text{SplitInfo}(S,A)}, \qquad \text{SplitInfo}(S,A) = -\sum_{v} \frac{|S_v|}{|S|}\log_2\frac{|S_v|}{|S|}
+$$</p>
+<p>其中 $\text{SplitInfo}$ 惩罚"取值过多的特征"，避免偏向 ID 类特征。</p>
+<p><strong>CART 用基尼不纯度</strong>，且只做<strong>二叉划分</strong>，可同时处理分类与回归。</p>
+<h4>3.5.3 剪枝</h4>
+<ul>
+<li><strong>预剪枝</strong>：提前停止（限制深度、最小样本数）。</li>
+<li><strong>后剪枝</strong>：先长满再剪掉不提升泛化的子树（代价复杂度剪枝）。</li>
+</ul>
+<h4>3.5.4 随机森林：集成学习</h4>
+<p>随机森林 = <strong>Bagging + 特征随机</strong>：</p>
+<ol>
+<li><strong>Bootstrap 采样</strong>：从 $N$ 个样本有放回抽 $N$ 个，训练一棵树。</li>
+<li><strong>特征随机</strong>：每次分裂只从随机 $m$ 个特征中选最优（$m \approx \sqrt{D}$）。</li>
+<li><strong>投票/平均</strong>：多棵树结果聚合。</li>
+</ol>
+<p class="label"><strong>预测：</strong></p>
+<p>$$
+\hat{y} = \text{majority}{ h_t(x) }<em t="1">{t=1}^{T} \quad \text{或} \quad \hat{y} = \frac{1}{T}\sum</em> h_t(x)
+$$}^{T</p>
+<p>其中：</p>
+<ul>
+<li>$T$：树的数量。</li>
+<li>$h_t$：第 $t$ 棵树。</li>
+<li>分类用多数投票，回归用平均。</li>
+<li>含义：多棵"弱相关"的树平均，方差下降，泛化提升。</li>
+</ul>
+<p><strong>为什么有效</strong>：单棵树方差大（易过拟合），
+Bagging 通过<strong>平均</strong>降低方差；特征随机进一步<strong>去相关</strong>，使平均更有效。</p>
+<h4>3.5.5 特征重要性</h4>
+<p>$$
+\text{Importance}(j) = \sum_{\text{节点 } t \text{ 用 } j \text{ 分裂}} \frac{|S_t|}{N} \cdot \Delta \text{Impurity}(t)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$j$：特征下标。</li>
+<li>$S_t$：节点 $t$ 的样本数。</li>
+<li>$\Delta \text{Impurity}(t)$：该次分裂带来的不纯度下降。</li>
+<li>含义：某特征在所有树中带来的不纯度下降的加权和，越大越重要。</li>
+</ul>
+<h4>3.5.6 图像领域用法</h4>
+<ul>
+<li><strong>像素级分类</strong>：随机森林做语义分割（早期方法，如 TextonForest）。</li>
+<li><strong>关键点分类</strong>：随机森林做<strong>随机蕨（Random Ferns）</strong>，用于特征匹配、姿态估计。</li>
+<li><strong>目标检测</strong>：Viola-Jones 人脸检测用 AdaBoost + 决策树桩。</li>
+<li><strong>特征选择</strong>：用特征重要性筛选描述子维度。</li>
+</ul>
+<h4>3.5.7 与深度学习的联系</h4>
+<ul>
+<li><strong>随机森林 = 深度网络的"浅层集成"对照</strong>：前者靠集成降方差，后者靠层次降偏差。</li>
+<li><strong>梯度提升树（GBDT/XGBoost/LightGBM）</strong> 是表格数据王者，与深度网络互补。</li>
+<li><strong>深度森林（Deep Forest / gcForest）</strong> 尝试用树堆叠模拟深度。</li>
+<li><strong>随机蕨</strong>的思想被用于深度特征匹配的加速。</li>
+</ul>
+<hr />
+<h2>4. 无监督学习（Unsupervised Learning）</h2>
+<h3>4.1 聚类（Clustering）</h3>
+<h4>4.1.1 问题定义</h4>
+<p>给定无标签数据 ${x_i}_{i=1}^N$，把它们分成若干<strong>簇</strong>，
+使<strong>簇内相似、簇间相异</strong>。</p>
+<h4>4.1.2 聚类目标（一般形式）</h4>
+<p>$$
+\min_{{C_1,\dots,C_K}} \sum_{k=1}^{K} \sum_{x_i \in C_k} d(x_i, \mu_k)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$K$：簇数。</li>
+<li>$C_k$：第 $k$ 个簇（样本集合）。</li>
+<li>$\mu_k$：第 $k$ 个簇的<strong>中心</strong>（如均值）。</li>
+<li>$d(\cdot,\cdot)$：距离度量。</li>
+<li>含义：让每个样本离自己簇中心尽量近。</li>
+</ul>
+<h4>4.1.3 聚类方法分类</h4>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>代表</th>
+<th>思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>划分式</td>
+<td>K-means、K-medoids</td>
+<td>直接划分成 $K$ 簇</td>
+</tr>
+<tr>
+<td>层次式</td>
+<td>凝聚/分裂层次聚类</td>
+<td>建树状结构（树状图）</td>
+</tr>
+<tr>
+<td>密度式</td>
+<td>DBSCAN、Mean Shift</td>
+<td>按密度连通区域成簇</td>
+</tr>
+<tr>
+<td>模型式</td>
+<td>GMM</td>
+<td>假设数据由概率模型生成</td>
+</tr>
+<tr>
+<td>图论式</td>
+<td>谱聚类</td>
+<td>用图的割划分</td>
+</tr>
+</tbody>
+</table>
+<p><strong>DBSCAN</strong> 的两个参数：</p>
+<ul>
+<li>$\epsilon$：邻域半径。</li>
+<li>$\text{MinPts}$：成为核心点所需的最少邻居数。</li>
+<li>核心点：$\epsilon$ 邻域内点数 ≥ MinPts；可发现任意形状簇并识别噪声。</li>
+</ul>
+<p><strong>谱聚类</strong>：用相似度矩阵 $W$ 的拉普拉斯矩阵 $L = D - W$ 的前 $K$ 个特征向量嵌入，
+再 K-means。其中 $D$ 是度矩阵（对角元 $D_{ii} = \sum_j W_{ij}$）。</p>
+<h4>4.1.4 图像领域用法</h4>
+<ul>
+<li><strong>图像分割</strong>：像素聚类成区域（颜色/位置特征）。</li>
+<li><strong>视觉词袋（BoW）</strong>：对局部描述子聚类得到"视觉单词"。</li>
+<li><strong>图像检索与组织</strong>：按内容聚类相册。</li>
+<li><strong>超像素</strong>：SLIC 用 K-means 在颜色+空间上聚类。</li>
+</ul>
+<h4>4.1.5 与深度学习的联系</h4>
+<ul>
+<li><strong>深度聚类</strong>：用网络学嵌入再聚类（DEC、DeepCluster）。</li>
+<li><strong>自监督学习</strong>：聚类伪标签作为预训练目标（DeepCluster、SwAV）。</li>
+<li><strong>对比学习</strong>：正负样本对构造与聚类思想相通。</li>
+</ul>
+<hr />
+<h3>4.2 K-means 与高斯混合模型（K-means and Gaussian Mixture Models）</h3>
+<h4>4.2.1 K-means 目标函数</h4>
+<p>$$
+J = \sum_{k=1}^{K}\sum_{i:\, z_i = k} \lVert x_i - \mu_k \rVert^2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$K$：簇数（超参数）。</li>
+<li>$x_i$：第 $i$ 个样本。</li>
+<li>$z_i \in {1,\dots,K}$：样本 $i$ 的<strong>簇分配</strong>（隐变量）。</li>
+<li>$\mu_k$：第 $k$ 个簇的<strong>质心</strong>。</li>
+<li>$\lVert x_i - \mu_k \rVert^2$：样本到质心的<strong>平方距离</strong>。</li>
+<li>$J$：<strong>簇内平方和（WCSS）</strong>，越小越紧凑。</li>
+</ul>
+<h4>4.2.2 交替优化（EM 的特例）</h4>
+<p class="label"><strong>分配步：</strong></p>
+<p>$$
+z_i = \arg\min_{k} \lVert x_i - \mu_k \rVert^2
+$$</p>
+<p class="label"><strong>更新步：</strong></p>
+<p>$$
+\mu_k = \frac{1}{|C_k|}\sum_{i \in C_k} x_i
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$C_k = {i : z_i = k}$：分配给簇 $k$ 的样本集合。</li>
+<li>$|C_k|$：该簇样本数。</li>
+<li>含义：先固定质心分配样本，再固定分配更新质心，交替直到收敛。</li>
+</ul>
+<p><strong>收敛性</strong>：每步都使 $J$ 不增，故必收敛到<strong>局部最优</strong>（非全局）。</p>
+<h4>4.2.3 K-means 的局限与改进</h4>
+<ul>
+<li><strong>需预设 $K$</strong>：用肘部法、轮廓系数、Gap Statistic 选 $K$。</li>
+<li><strong>对初值敏感</strong>：用 K-means++ 初始化。</li>
+<li><strong>只适合球形簇</strong>：各向异性/非凸簇需 GMM 或谱聚类。</li>
+<li><strong>对异常值敏感</strong>：改用 K-medoids（用真实样本做中心）。</li>
+</ul>
+<p><strong>K-means++ 初始化</strong>：第一个中心随机选，之后每个中心以正比于
+"到已有中心最近距离的平方"的概率选取，使初始中心分散。</p>
+<h4>4.2.4 高斯混合模型（GMM）</h4>
+<p>GMM 假设数据由 $K$ 个高斯分布<strong>混合</strong>生成：</p>
+<p>$$
+p(x) = \sum_{k=1}^{K} \pi_k \, \mathcal{N}(x \mid \mu_k, \Sigma_k)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\pi_k$：第 $k$ 个分量的<strong>混合系数</strong>（权重），满足 $\sum_k \pi_k = 1$，$\pi_k \ge 0$。</li>
+<li>$\mu_k$：第 $k$ 个高斯的<strong>均值向量</strong>。</li>
+<li>$\Sigma_k$：第 $k$ 个高斯的<strong>协方差矩阵</strong>（刻画形状与方向）。</li>
+<li>$\mathcal{N}(x \mid \mu_k, \Sigma_k)$：多元高斯密度：</li>
+</ul>
+<p>$$
+\mathcal{N}(x \mid \mu, \Sigma) = \frac{1}{(2\pi)^{D/2}|\Sigma|^{1/2}} \exp!\left(-\frac{1}{2}(x-\mu)^\top \Sigma^{-1}(x-\mu)\right)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$D$：维度。</li>
+<li>$|\Sigma|$：协方差矩阵的行列式（体积）。</li>
+<li>$\Sigma^{-1}$：精度矩阵。</li>
+<li>$(x-\mu)^\top \Sigma^{-1}(x-\mu)$：<strong>马氏距离平方</strong>。</li>
+</ul>
+<h4>4.2.5 GMM 的 EM 求解</h4>
+<p class="label"><strong>E 步（责任度）：</strong></p>
+<p>$$
+\gamma_{ik} = \frac{\pi_k \mathcal{N}(x_i \mid \mu_k, \Sigma_k)}{\sum_{j=1}^{K} \pi_j \mathcal{N}(x_i \mid \mu_j, \Sigma_j)}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\gamma_{ik}$：样本 $i$ 属于分量 $k$ 的<strong>后验概率</strong>（软分配）。</li>
+<li>分母：所有分量的加权密度和（归一化）。</li>
+<li>与 K-means 的硬分配 $z_i$ 对比：GMM 是<strong>软分配</strong>。</li>
+</ul>
+<p class="label"><strong>M 步（参数更新）：</strong></p>
+<p>$$
+\mu_k = \frac{\sum_i \gamma_{ik} x_i}{\sum_i \gamma_{ik}}, \quad
+\Sigma_k = \frac{\sum_i \gamma_{ik}(x_i-\mu_k)(x_i-\mu_k)^\top}{\sum_i \gamma_{ik}}, \quad
+\pi_k = \frac{\sum_i \gamma_{ik}}{N}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$N_k^{\text{eff}} = \sum_i \gamma_{ik}$：分量 $k$ 的<strong>有效样本数</strong>。</li>
+<li>含义：用责任度加权计算均值、协方差、权重。</li>
+</ul>
+<p><strong>K-means 是 GMM 的特例</strong>：当所有 $\Sigma_k = \sigma^2 I$ 且 $\sigma \to 0$ 时，
+软分配退化为硬分配，GMM 退化为 K-means。</p>
+<h4>4.2.6 图像领域用法</h4>
+<ul>
+<li><strong>颜色量化</strong>：K-means 把图像颜色压缩到 $K$ 种（GIF 调色板）。</li>
+<li><strong>图像分割</strong>：GMM 对颜色/纹理建模，做像素聚类。</li>
+<li><strong>背景建模</strong>：GMM 对每个像素的颜色随时间建模，检测运动目标（MOG）。</li>
+<li><strong>视觉词袋</strong>：K-means 生成视觉词典。</li>
+</ul>
+<h4>4.2.7 与深度学习的联系</h4>
+<ul>
+<li><strong>VQ-VAE</strong>：用离散码本（等价于 K-means 的质心）做深度量化。</li>
+<li><strong>MoE（混合专家）</strong>：GMM 的"软分配"思想用于门控网络。</li>
+<li><strong>EM 是深度生成模型（VAE）变分推断的雏形</strong>。</li>
+</ul>
+<hr />
+<h3>4.3 主成分分析（Principal Component Analysis, PCA）</h3>
+<h4>4.3.1 核心思想</h4>
+<p>PCA 找一组<strong>正交方向</strong>，使数据投影后方差最大，
+用少数方向表示高维数据，实现<strong>降维</strong>。</p>
+<h4>4.3.2 数学推导</h4>
+<p class="label"><strong>数据中心化：</strong></p>
+<p>$$
+\tilde{x}<em i="1">i = x_i - \bar{x}, \qquad \bar{x} = \frac{1}{N}\sum</em> x_i
+$$}^{N</p>
+<p>其中：</p>
+<ul>
+<li>$x_i$：第 $i$ 个样本（$D$ 维）。</li>
+<li>$\bar{x}$：样本均值向量。</li>
+<li>$\tilde{x}_i$：中心化后的样本。</li>
+</ul>
+<p class="label"><strong>协方差矩阵：</strong></p>
+<p>$$
+\Sigma = \frac{1}{N}\sum_{i=1}^{N} \tilde{x}_i \tilde{x}_i^\top = \frac{1}{N}\tilde{X}^\top \tilde{X}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\Sigma \in \mathbb{R}^{D\times D}$：<strong>协方差矩阵</strong>，对角元是各维方差，非对角元是维间协方差。</li>
+<li>$\tilde{X} \in \mathbb{R}^{N\times D}$：中心化数据矩阵（每行一个样本）。</li>
+<li>含义：刻画各维的波动与相关性。</li>
+</ul>
+<p class="label"><strong>特征分解：</strong></p>
+<p>$$
+\Sigma u_j = \lambda_j u_j, \qquad \lambda_1 \ge \lambda_2 \ge \dots \ge \lambda_D \ge 0
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$u_j$：第 $j$ 个<strong>特征向量</strong>（主成分方向），单位向量且互相正交。</li>
+<li>$\lambda_j$：第 $j$ 个<strong>特征值</strong>，等于数据在该方向上的<strong>方差</strong>。</li>
+<li>含义：特征值越大，该方向越"重要"。</li>
+</ul>
+<p><strong>投影降维</strong>：取前 $K$ 个特征向量组成 $U_K = [u_1,\dots,u_K]$：</p>
+<p>$$
+y_i = U_K^\top \tilde{x}_i \in \mathbb{R}^{K}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$U_K \in \mathbb{R}^{D\times K}$：投影矩阵。</li>
+<li>$y_i$：降维后的<strong>主成分得分</strong>（$K$ 维）。</li>
+<li>含义：把 $D$ 维数据压到 $K$ 维，保留最大方差。</li>
+</ul>
+<p class="label"><strong>重构：</strong></p>
+<p>$$
+\hat{x}_i = U_K y_i + \bar{x}
+$$</p>
+<p>其中 $\hat{x}_i$ 是重构样本；重构误差 = 被丢弃方向上的方差之和。</p>
+<h4>4.3.3 方差解释率</h4>
+<p>$$
+\text{EVR}(K) = \frac{\sum_{j=1}^{K}\lambda_j}{\sum_{j=1}^{D}\lambda_j}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\text{EVR}(K)$：前 $K$ 个主成分解释的<strong>方差比例</strong>。</li>
+<li>常取 $\text{EVR} \ge 0.95$ 确定 $K$。</li>
+</ul>
+<h4>4.3.4 与 SVD 的关系</h4>
+<p>对中心化矩阵做 SVD：$\tilde{X} = U S V^\top$，则：</p>
+<ul>
+<li>主成分方向 = $V$ 的列（右奇异向量）。</li>
+<li>特征值 $\lambda_j = s_j^2 / N$（$s_j$ 是奇异值）。</li>
+<li>得分 = $U S$。</li>
+</ul>
+<p><strong>SVD 更数值稳定</strong>，实践中常用 SVD 实现 PCA。</p>
+<h4>4.3.5 图像领域用法</h4>
+<ul>
+<li><strong>特征脸（Eigenfaces）</strong>：人脸图像 PCA 降维，前几个主成分是"脸的基本模式"。</li>
+<li><strong>图像压缩</strong>：保留前 $K$ 个主成分重构图像。</li>
+<li><strong>去噪</strong>：丢弃小方差方向（多为噪声）。</li>
+<li><strong>描述子降维</strong>：SIFT 128 维 → PCA 降到 20~64 维，加速匹配。</li>
+<li><strong>白化</strong>：PCA 后各维除以 $\sqrt{\lambda_j}$，使各维等方差。</li>
+</ul>
+<h4>4.3.6 与深度学习的联系</h4>
+<ul>
+<li><strong>PCA = 线性自编码器</strong>：单层线性 AE 的最优解就是 PCA 子空间。</li>
+<li><strong>白化</strong>是深度网络输入预处理的常用手段。</li>
+<li><strong>注意力/低秩分解</strong>：PCA 的低秩思想用于网络压缩（SVD 分解权重）。</li>
+<li><strong>对比：PCA 是线性无监督降维，自编码器是非线性版本</strong>。</li>
+</ul>
+<hr />
+<h3>4.4 流形学习（Manifold Learning）</h3>
+<h4>4.4.1 核心假设</h4>
+<p><strong>流形假设</strong>：高维数据实际上分布在一个<strong>低维流形</strong>上（局部像欧氏空间）。
+流形学习的目标是<strong>恢复这个低维结构</strong>，做<strong>非线性降维</strong>。</p>
+<p>形式化：存在映射</p>
+<p>$$
+\phi: \mathcal{M} \subset \mathbb{R}^{d} \to \mathbb{R}^{D}, \quad D \gg d
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathcal{M}$：低维流形（内在维度 $d$）。</li>
+<li>$D$：观测空间维度。</li>
+<li>$\phi$：嵌入映射（把低维坐标映到高维观测）。</li>
+<li>目标：找逆映射 $\phi^{-1}$，即从高维数据恢复低维坐标。</li>
+</ul>
+<h4>4.4.2 代表方法</h4>
+<p class="label"><strong>（1）LLE（局部线性嵌入）</strong></p>
+<p>假设每个点可由其近邻<strong>线性重构</strong>，且重构权重在低维保持：</p>
+<p>$$
+\min_{W} \sum_{i} \left\lVert x_i - \sum_{j \in \mathcal{N}(i)} W_{ij} x_j \right\rVert^2, \quad \sum_j W_{ij} = 1
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$W_{ij}$：样本 $j$ 对重构 $i$ 的<strong>权重</strong>。</li>
+<li>$\mathcal{N}(i)$：$i$ 的近邻集合。</li>
+<li>约束 $\sum_j W_{ij}=1$：权重归一化（平移不变）。</li>
+</ul>
+<p>再固定 $W$，求低维坐标 $y_i$：</p>
+<p>$$
+\min_{Y} \sum_{i} \left\lVert y_i - \sum_{j} W_{ij} y_j \right\rVert^2, \quad Y^\top Y = I
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$Y \in \mathbb{R}^{N\times d}$：低维嵌入坐标。</li>
+<li>$Y^\top Y = I$：约束防止退化解（尺度/旋转不定）。</li>
+<li>解为矩阵 $(I-W)^\top(I-W)$ 的最小 $d$ 个特征向量。</li>
+</ul>
+<p class="label"><strong>（2）Isomap</strong></p>
+<p>用<strong>测地距离</strong>（图上最短路径）替代欧氏距离，再做 MDS：</p>
+<p>$$
+d_{\text{geo}}(i,j) = \min_{\text{path}} \sum \lVert x_a - x_b \rVert
+$$</p>
+<p>其中 $d_{\text{geo}}$ 是流形上的<strong>测地距离</strong>，通过近邻图的最短路径近似。</p>
+<p class="label"><strong>（3）t-SNE</strong></p>
+<p>把高维相似度转成概率，低维也转成概率，最小化两者 KL 散度：</p>
+<p>$$
+\text{KL}(P \Vert Q) = \sum_{i \neq j} p_{ij} \log \frac{p_{ij}}{q_{ij}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$p_{ij}$：高维空间中 $i,j$ 的<strong>相似度概率</strong>（高斯核）。</li>
+<li>$q_{ij}$：低维空间中的相似度概率（<strong>t 分布</strong>核，重尾，缓解拥挤）。</li>
+<li>$\text{KL}$：KL 散度，衡量两个分布的差异。</li>
+<li>含义：让低维的邻接关系尽量匹配高维。</li>
+</ul>
+<p><strong>（4）UMAP</strong>：基于拓扑数据分析，比 t-SNE 更快且更好保留全局结构。</p>
+<h4>4.4.3 图像领域用法</h4>
+<ul>
+<li><strong>可视化</strong>：把 CNN 特征降到 2D 看类别可分性（t-SNE 最常用）。</li>
+<li><strong>人脸/姿态流形</strong>：人脸图像随姿态、光照变化形成低维流形。</li>
+<li><strong>检索</strong>：流形上的近邻检索。</li>
+<li><strong>降维预处理</strong>：Isomap/LLE 用于手写数字、人脸识别。</li>
+</ul>
+<h4>4.4.4 与深度学习的联系</h4>
+<ul>
+<li><strong>流形假设是深度学习的理论基石之一</strong>：深度网络学的是"把流形展平"的映射。</li>
+<li><strong>自编码器 / VAE</strong> 是<strong>参数化、可泛化</strong>的流形学习（能处理新样本）。</li>
+<li><strong>t-SNE/UMAP 用于分析深度特征空间</strong>，是理解网络的常用工具。</li>
+<li><strong>对比学习</strong>的目标就是让同类在嵌入流形上聚集。</li>
+</ul>
+<hr />
+<h3>4.5 半监督学习（Semi-supervised Learning）</h3>
+<h4>4.5.1 问题设定</h4>
+<p>有<strong>少量有标签</strong>数据 ${(x_i, y_i)}<em j="L+1">{i=1}^{L}$ 和<strong>大量无标签</strong>数据 ${x_j}</em>$，
+利用无标签数据提升性能。核心假设：}^{L+U</p>
+<ul>
+<li><strong>平滑假设</strong>：相近样本有相近标签。</li>
+<li><strong>聚类假设</strong>：同一簇内样本同类。</li>
+<li><strong>流形假设</strong>：数据在低维流形上，沿流形标签平滑。</li>
+</ul>
+<h4>4.5.2 主要方法</h4>
+<p class="label"><strong>（1）自训练（Self-training）</strong></p>
+<ol>
+<li>用有标签数据训练模型。</li>
+<li>预测无标签数据，取<strong>高置信度</strong>样本加入训练集。</li>
+<li>重复。</li>
+</ol>
+<p>置信度阈值 $\tau$：只把 $\max_c P(c\mid x) \ge \tau$ 的样本加入。</p>
+<p class="label"><strong>（2）协同训练（Co-training）</strong></p>
+<p>用两个<strong>不同视图</strong>（特征子集）各训一个分类器，互相给对方标注高置信样本。</p>
+<p class="label"><strong>（3）图半监督（Label Propagation）</strong></p>
+<p>在相似度图上传播标签。目标函数：</p>
+<p>$$
+E(f) = \sum_{i,j} W_{ij} \lVert f_i - f_j \rVert^2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$W_{ij}$：样本 $i,j$ 的<strong>相似度</strong>（如高斯核）。</li>
+<li>$f_i$：样本 $i$ 的<strong>预测分数</strong>（软标签）。</li>
+<li>含义：相似样本的预测应接近；有标签样本固定为真值。</li>
+<li>解：$f = (I - \alpha S)^{-1} y$，其中 $S = D^{-1/2}WD^{-1/2}$ 是归一化相似度矩阵，$\alpha$ 是传播强度。</li>
+</ul>
+<p><strong>（4）半监督 SVM（S3VM）</strong>：让超平面穿过低密度区域。</p>
+<p><strong>（5）一致性正则（深度半监督）</strong>：对同一输入加不同扰动，要求输出一致
+（Π-model、Mean Teacher、FixMatch）。</p>
+<h4>4.5.3 图像领域用法</h4>
+<ul>
+<li><strong>医学图像分割</strong>：标注昂贵，用少量标注 + 大量未标注。</li>
+<li><strong>遥感分类</strong>：标注成本高。</li>
+<li><strong>网页图像分类</strong>：少量标注 + 海量未标注。</li>
+<li><strong>伪标签（Pseudo-labeling）</strong>：竞赛与工业界常用。</li>
+</ul>
+<h4>4.5.4 与深度学习的联系</h4>
+<ul>
+<li><strong>半监督是深度学习的核心训练范式之一</strong>：FixMatch、Mean Teacher、Noisy Student。</li>
+<li><strong>自监督学习</strong>（SimCLR、MAE、MoCo）可看作"无标签预训练 + 少量标签微调"，
+  是半监督的极端形式。</li>
+<li><strong>伪标签</strong>是知识蒸馏与半监督的桥梁。</li>
+</ul>
+<hr />
+<h2>5. 其他版本中的扩展算法（ICDM 2008 版差异项）</h2>
+<blockquote>
+<p>本节补齐 ICDM 2008 版名单中用户版本未列出的算法：<strong>C4.5、CART、PageRank、
+AdaBoost、EM、Apriori</strong>，以及入门教材版常列的<strong>神经网络 / 深度学习</strong>。
+这些算法在图像领域未必是主力，但在数据挖掘、推荐系统、集成学习、
+概率推断等领域地位极高，因此本节同时给出<strong>非图像用途</strong>。</p>
+</blockquote>
+<h3>5.1 C4.5</h3>
+<h4>5.1.1 定位</h4>
+<p>C4.5 是 <strong>ID3 的改进版</strong>（Quinlan, 1993），是决策树算法史上最著名的版本之一，
+也是 ICDM 2008 榜单的<strong>第一名</strong>。它解决了 ID3 的两个致命缺陷：</p>
+<ul>
+<li>ID3 只能处理<strong>离散特征</strong>，C4.5 可处理<strong>连续特征</strong>（二分阈值）。</li>
+<li>ID3 用信息增益会<strong>偏向取值多的特征</strong>，C4.5 改用<strong>信息增益率</strong>。</li>
+</ul>
+<h4>5.1.2 信息增益率</h4>
+<p>$$
+\text{GainRatio}(S, A) = \frac{\text{Gain}(S, A)}{\text{SplitInfo}(S, A)}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$S$：当前节点的样本集合。</li>
+<li>$A$：候选划分特征。</li>
+<li>$\text{Gain}(S,A) = H(S) - \sum_{v} \frac{|S_v|}{|S|}H(S_v)$：<strong>信息增益</strong>，即用 $A$ 划分后熵的下降量。</li>
+<li>$H(S) = -\sum_c p_c \log_2 p_c$：$S$ 的<strong>信息熵</strong>，$p_c$ 是类别 $c$ 的占比。</li>
+<li>$S_v$：$S$ 中特征 $A$ 取值为 $v$ 的子集；$|S_v|/|S|$ 是子集权重。</li>
+<li>$\text{SplitInfo}(S,A) = -\sum_{v} \frac{|S_v|}{|S|}\log_2\frac{|S_v|}{|S|}$：<strong>分裂信息</strong>，衡量 $A$ 把数据切得多碎。</li>
+<li>含义：分母惩罚"取值过多"的特征（如身份证号），使增益率不被这类特征主导。</li>
+</ul>
+<h4>5.1.3 连续特征处理</h4>
+<p>对连续特征 $A$，把取值排序后取相邻中点作为候选阈值 $t$：</p>
+<p>$$
+t = \frac{a_i + a_{i+1}}{2}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$a_i, a_{i+1}$：排序后相邻的两个取值。</li>
+<li>$t$：候选<strong>二分阈值</strong>，把 $A \le t$ 与 $A &gt; t$ 分成两支。</li>
+<li>对所有候选 $t$ 计算增益率，取最优者。</li>
+</ul>
+<h4>5.1.4 缺失值处理</h4>
+<ul>
+<li><strong>划分时</strong>：把缺失样本按权重比例分到各分支。</li>
+<li><strong>预测时</strong>：把缺失样本同时送入所有分支，按权重加权投票。</li>
+</ul>
+<h4>5.1.5 剪枝：悲观剪枝</h4>
+<p>C4.5 用<strong>悲观错误剪枝（PEP）</strong>：把训练集上的错误率加上一个惩罚项
+（基于二项分布的标准差），若剪枝后惩罚错误率不升则剪掉子树。</p>
+<p>$$
+e_{\text{pes}} = e + z\sqrt{\frac{e(1-e)}{N}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$e$：节点上的<strong>训练错误率</strong>。</li>
+<li>$N$：该节点覆盖的样本数。</li>
+<li>$z$：置信度对应的正态分位数（如 95% 对应 1.645）。</li>
+<li>$e_{\text{pes}}$：<strong>悲观错误率</strong>，样本越少惩罚越大，避免小样本子树过拟合。</li>
+</ul>
+<h4>5.1.6 非图像用途</h4>
+<ul>
+<li><strong>信用评分</strong>：银行用 C4.5 建可解释的违约预测树。</li>
+<li><strong>医疗诊断</strong>：规则可读，医生能理解判断路径。</li>
+<li><strong>客户流失预测</strong>：电信、银行经典应用。</li>
+<li><strong>遥感/生物分类</strong>：特征混合（连续+离散）时优势明显。</li>
+</ul>
+<h4>5.1.7 与深度学习的联系</h4>
+<ul>
+<li><strong>可解释性对照</strong>：C4.5 输出的是人能读的规则，深度网络是黑箱；
+  可解释 AI（XAI）常拿决策树做"代理模型"解释网络。</li>
+<li><strong>软决策树</strong>：把硬分裂换成可微的软分裂，即可端到端训练（Deep Neural Decision Trees）。</li>
+</ul>
+<hr />
+<h3>5.2 CART</h3>
+<h4>5.2.1 定位</h4>
+<p>CART（Classification and Regression Trees, Breiman et al., 1984）是<strong>随机森林与
+GBDT 的基学习器</strong>，也是 ICDM 2008 榜单成员。与 C4.5 的关键区别：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>C4.5</th>
+<th>CART</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>划分方式</td>
+<td>多叉（按取值）</td>
+<td><strong>二叉</strong>（是/否）</td>
+</tr>
+<tr>
+<td>不纯度</td>
+<td>信息增益率</td>
+<td><strong>基尼不纯度</strong></td>
+</tr>
+<tr>
+<td>任务</td>
+<td>仅分类</td>
+<td><strong>分类 + 回归</strong></td>
+</tr>
+<tr>
+<td>剪枝</td>
+<td>悲观剪枝</td>
+<td><strong>代价复杂度剪枝</strong></td>
+</tr>
+<tr>
+<td>输出</td>
+<td>规则集</td>
+<td>二叉树</td>
+</tr>
+</tbody>
+</table>
+<h4>5.2.2 基尼不纯度</h4>
+<p>$$
+\text{Gini}(S) = 1 - \sum_{c=1}^{C} p_c^2 = \sum_{c \neq c'} p_c p_{c'}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$S$：节点样本集合。</li>
+<li>$C$：类别数。</li>
+<li>$p_c$：$S$ 中类别 $c$ 的<strong>占比</strong>。</li>
+<li>$\sum_c p_c^2$：随机抽两个样本<strong>同类</strong>的概率。</li>
+<li>$1 - \sum_c p_c^2$：随机抽两个样本<strong>异类</strong>的概率，即不纯度。</li>
+<li>与熵对比：基尼<strong>无对数运算</strong>，计算更快，且曲线形状接近，实践中效果相当。</li>
+</ul>
+<h4>5.2.3 回归树的划分准则</h4>
+<p>回归任务用<strong>平方误差</strong>代替不纯度：</p>
+<p>$$
+\text{SSE}(S) = \sum_{i \in S} (y_i - \bar{y}<em S="S" _in="\in" i="i">S)^2, \qquad \bar{y}_S = \frac{1}{|S|}\sum</em> y_i
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$y_i$：样本 $i$ 的<strong>连续目标值</strong>。</li>
+<li>$\bar{y}_S$：节点 $S$ 内目标值的<strong>均值</strong>（叶子的预测值）。</li>
+<li>$\text{SSE}$：<strong>平方误差和</strong>，越小越纯。</li>
+<li>划分时选使左右子节点 SSE 之和最小的特征与阈值。</li>
+</ul>
+<h4>5.2.4 代价复杂度剪枝（CCP）</h4>
+<p>$$
+R_\alpha(T) = R(T) + \alpha |T|
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$T$：一棵子树。</li>
+<li>$R(T)$：子树 $T$ 在训练集上的<strong>误差</strong>（如误分类率或 SSE）。</li>
+<li>$|T|$：子树 $T$ 的<strong>叶子数</strong>（复杂度）。</li>
+<li>$\alpha \ge 0$：<strong>复杂度惩罚系数</strong>，越大越倾向剪枝。</li>
+<li>$R_\alpha(T)$：<strong>代价复杂度</strong>，权衡"误差"与"复杂度"。</li>
+<li>做法：从小到大取一系列 $\alpha$，得到嵌套的子树序列，再用交叉验证选最优。</li>
+</ul>
+<h4>5.2.5 非图像用途</h4>
+<ul>
+<li><strong>随机森林 / GBDT / XGBoost / LightGBM 的基学习器</strong>——表格数据的事实标准。</li>
+<li><strong>金融风控</strong>：信用评分卡、反欺诈。</li>
+<li><strong>医疗</strong>：疾病风险预测、疗效分析。</li>
+<li><strong>工业</strong>：设备故障预测、销量预测（回归树）。</li>
+<li><strong>特征工程</strong>：用 CART 的特征重要性做特征筛选。</li>
+</ul>
+<h4>5.2.6 与深度学习的联系</h4>
+<ul>
+<li><strong>表格数据上 GBDT 常胜过深度网络</strong>，是深度学习的强劲对手。</li>
+<li><strong>深度森林（gcForest）</strong>：用 CART 森林堆叠成多层，模拟深度结构。</li>
+<li><strong>NODE / 可微树</strong>：把 CART 的软分裂嵌入网络，实现端到端训练。</li>
+</ul>
+<hr />
+<h3>5.3 PageRank</h3>
+<h4>5.3.1 定位</h4>
+<p>PageRank（Page &amp; Brin, 1998）是 <strong>Google 搜索的奠基算法</strong>，也是 ICDM 2008 榜单成员。
+它把网页看成图的节点，超链接看成有向边，用<strong>迭代</strong>方式计算每个节点的重要性。</p>
+<h4>5.3.2 核心公式</h4>
+<p>$$
+\text{PR}(u) = \frac{1-d}{N} + d \sum_{v \in B_u} \frac{\text{PR}(v)}{L(v)}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\text{PR}(u)$：节点 $u$ 的<strong>重要性得分</strong>（PageRank 值）。</li>
+<li>$N$：图中节点总数。</li>
+<li>$d \in (0,1)$：<strong>阻尼系数</strong>（damping factor），通常取 0.85，表示用户继续点击链接的概率。</li>
+<li>$1-d$：<strong>随机跳转概率</strong>，用户随机打开任意网页的概率。</li>
+<li>$B_u$：<strong>指向 $u$ 的所有节点</strong>集合（入链来源）。</li>
+<li>$L(v)$：节点 $v$ 的<strong>出链数量</strong>。</li>
+<li>$\text{PR}(v)/L(v)$：$v$ 把自己的重要性<strong>均分</strong>给它的每个出链。</li>
+<li>含义：一个网页的重要性 = 随机跳转的基线 + 所有入链网页分来的重要性之和。</li>
+</ul>
+<h4>5.3.3 矩阵形式</h4>
+<p>$$
+\mathbf{r} = \frac{1-d}{N}\mathbf{1} + d\, M^\top \mathbf{r}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathbf{r} \in \mathbb{R}^N$：所有节点的 PageRank 向量。</li>
+<li>$\mathbf{1}$：全 1 向量。</li>
+<li>$M$：<strong>列随机转移矩阵</strong>，$M_{uv} = 1/L(v)$ 表示从 $v$ 跳到 $u$ 的概率（$v$ 有链到 $u$ 时）。</li>
+<li>$M^\top$：转置，使 $\mathbf{r}$ 按列更新。</li>
+<li>含义：这是一个<strong>不动点方程</strong>，用幂迭代 $\mathbf{r}^{(t+1)} = \frac{1-d}{N}\mathbf{1} + dM^\top\mathbf{r}^{(t)}$ 求解。</li>
+</ul>
+<h4>5.3.4 收敛性</h4>
+<ul>
+<li>阻尼系数 $d&lt;1$ 保证转移矩阵<strong>本原</strong>，幂迭代必收敛到唯一平稳分布。</li>
+<li>收敛速度由 $d$ 决定，$d$ 越大收敛越慢（通常迭代几十次即可）。</li>
+<li>等价于求矩阵 $\frac{1-d}{N}\mathbf{1}\mathbf{1}^\top + dM^\top$ 的<strong>主特征向量</strong>。</li>
+</ul>
+<h4>5.3.5 非图像用途</h4>
+<ul>
+<li><strong>网页搜索排序</strong>：Google 的原始排序信号。</li>
+<li><strong>社交网络影响力</strong>：找关键意见领袖（KOL）。</li>
+<li><strong>学术引用分析</strong>：论文重要性（类似 Eigenfactor）。</li>
+<li><strong>推荐系统</strong>：用户-物品二部图上的重要性传播。</li>
+<li><strong>生物网络</strong>：蛋白质互作网络中的关键蛋白识别。</li>
+<li><strong>交通网络</strong>：路网节点重要性、拥堵传播分析。</li>
+</ul>
+<h4>5.3.6 图像领域用法</h4>
+<ul>
+<li><strong>显著性检测</strong>：把图像块建图，用 PageRank 找"最受关注"的区域。</li>
+<li><strong>图像检索重排序</strong>：在相似度图上做流形排序（Manifold Ranking），
+  本质是 PageRank 的变体。</li>
+<li><strong>超像素图</strong>：超像素为节点、相似度为边，做图上的重要性传播。</li>
+<li><strong>点云/网格分析</strong>：网格顶点的重要性排序。</li>
+</ul>
+<h4>5.3.7 与深度学习的联系</h4>
+<ul>
+<li><strong>图神经网络（GNN）</strong>：GCN 的传播规则 $H^{(l+1)} = \sigma(\hat{A}H^{(l)}W^{(l)})$
+  与 PageRank 的迭代传播同源，都是"邻居信息聚合"。</li>
+<li><strong>注意力即传播</strong>：自注意力可看作<strong>带权、可学习</strong>的 PageRank 式传播。</li>
+<li><strong>随机游走</strong>：Node2Vec、DeepWalk 用随机游走学图嵌入，直接继承 PageRank 思想。</li>
+</ul>
+<hr />
+<h3>5.4 神经网络 / 深度学习（Neural Networks / Deep Learning）</h3>
+<h4>5.4.1 单神经元</h4>
+<p>$$
+a = \phi!\left(\sum_{j=1}^{D} w_j x_j + b\right) = \phi(w^\top x + b)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x_j$：输入第 $j$ 维。</li>
+<li>$w_j$：权重。</li>
+<li>$b$：偏置。</li>
+<li>$\phi$：<strong>激活函数</strong>（Sigmoid、ReLU、tanh）。</li>
+<li>$a$：神经元输出。</li>
+</ul>
+<h4>5.4.2 多层感知机（MLP）</h4>
+<p>$$
+h^{(l)} = \phi!\left(W^{(l)} h^{(l-1)} + b^{(l)}\right)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$h^{(l)}$：第 $l$ 层激活。</li>
+<li>$W^{(l)}$：第 $l$ 层权重矩阵。</li>
+<li>$b^{(l)}$：第 $l$ 层偏置。</li>
+<li>$h^{(0)} = x$：输入。</li>
+</ul>
+<p><strong>万能逼近定理</strong>：足够宽的单隐层网络可逼近任意连续函数。</p>
+<h4>5.4.3 反向传播</h4>
+<p>链式法则：</p>
+<p>$$
+\frac{\partial L}{\partial W^{(l)}} = \delta^{(l)} (h^{(l-1)})^\top, \qquad \delta^{(l)} = \left( (W^{(l+1)})^\top \delta^{(l+1)} \right) \odot \phi'!\left(z^{(l)}\right)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$L$：损失。</li>
+<li>$\delta^{(l)}$：第 $l$ 层的<strong>误差项</strong>（损失对该层预激活的梯度）。</li>
+<li>$z^{(l)} = W^{(l)}h^{(l-1)} + b^{(l)}$：预激活。</li>
+<li>$\odot$：逐元素乘。</li>
+<li>$\phi'$：激活函数导数。</li>
+</ul>
+<h4>5.4.4 与前面算法的关系</h4>
+<ul>
+<li><strong>逻辑回归 = 无隐层网络</strong>。</li>
+<li><strong>SVM = 单层 + Hinge 损失</strong>。</li>
+<li><strong>PCA = 线性自编码器</strong>。</li>
+<li><strong>K-means = 硬分配的自编码器</strong>。</li>
+<li>深度学习是这些经典算法的<strong>非线性、端到端、可扩展</strong>版本。</li>
+</ul>
+<blockquote>
+<p>详细内容见仓库 <code>cnn-transformer-notes.md</code>。</p>
+</blockquote>
+<hr />
+<h3>5.5 AdaBoost</h3>
+<h4>5.5.1 核心思想</h4>
+<p><strong>自适应提升</strong>：串行训练多个<strong>弱分类器</strong>，每个关注前一个分错的样本，
+最后加权投票成强分类器。</p>
+<h4>5.5.2 算法</h4>
+<p><strong>样本权重</strong> $D_t(i)$：第 $t$ 轮中样本 $i$ 的权重，初始均匀 $1/N$。</p>
+<p class="label"><strong>弱分类器误差：</strong></p>
+<p>$$
+\epsilon_t = \sum_{i=1}^{N} D_t(i)\, \mathbb{1}[h_t(x_i) \neq y_i]
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$h_t$：第 $t$ 个弱分类器。</li>
+<li>$\epsilon_t$：<strong>加权错误率</strong>。</li>
+<li>$D_t(i)$：样本 $i$ 在第 $t$ 轮的权重。</li>
+</ul>
+<p class="label"><strong>分类器权重：</strong></p>
+<p>$$
+\alpha_t = \frac{1}{2}\ln!\left(\frac{1 - \epsilon_t}{\epsilon_t}\right)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\alpha_t$：第 $t$ 个弱分类器的<strong>话语权</strong>。</li>
+<li>$\epsilon_t$ 越小 → $\alpha_t$ 越大（越准的越有发言权）。</li>
+<li>$\epsilon_t = 0.5$ 时 $\alpha_t = 0$（等于瞎猜，无贡献）。</li>
+</ul>
+<p class="label"><strong>权重更新：</strong></p>
+<p>$$
+D_{t+1}(i) = \frac{D_t(i) \exp!\left(-\alpha_t y_i h_t(x_i)\right)}{Z_t}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$y_i \in {-1,+1}$：真实标签。</li>
+<li>$h_t(x_i) \in {-1,+1}$：预测。</li>
+<li>$y_i h_t(x_i) = +1$ 表示分对，$-1$ 表示分错。</li>
+<li>分错时指数项 $&gt;1$，权重<strong>增大</strong>；分对时权重<strong>减小</strong>。</li>
+<li>$Z_t$：归一化因子，使 $\sum_i D_{t+1}(i) = 1$。</li>
+</ul>
+<p class="label"><strong>最终分类器：</strong></p>
+<p>$$
+H(x) = \text{sign}!\left(\sum_{t=1}^{T} \alpha_t h_t(x)\right)
+$$</p>
+<p>其中 $T$ 是弱分类器个数。</p>
+<h4>5.5.3 图像领域用法</h4>
+<ul>
+<li><strong>Viola-Jones 人脸检测</strong>：AdaBoost + Haar 特征 + 级联，实时人脸检测的里程碑。</li>
+<li><strong>目标检测</strong>：级联分类器逐级过滤背景。</li>
+<li><strong>特征选择</strong>：AdaBoost 天然做特征选择（只选有用的弱分类器）。</li>
+</ul>
+<h4>5.5.4 非图像用途</h4>
+<ul>
+<li><strong>信用评分与风控</strong>：多弱分类器集成提升违约预测精度。</li>
+<li><strong>生物信息学</strong>：基因表达数据分类、蛋白质功能预测。</li>
+<li><strong>文本分类与情感分析</strong>：与决策树桩组合。</li>
+<li><strong>医学诊断</strong>：多指标融合的辅助诊断。</li>
+<li><strong>竞赛基线</strong>：Kaggle 早期表格数据常用。</li>
+</ul>
+<h4>5.5.5 与深度学习的联系</h4>
+<ul>
+<li><strong>Boosting 思想</strong>：梯度提升（GBDT）是 AdaBoost 的推广。</li>
+<li><strong>级联思想</strong>：被深度检测器（Cascade R-CNN）继承。</li>
+<li><strong>与 Bagging 对比</strong>：Bagging 并行降方差，Boosting 串行降偏差。</li>
+</ul>
+<hr />
+<h3>5.6 EM 算法（Expectation-Maximization）</h3>
+<h4>5.6.1 问题</h4>
+<p>含<strong>隐变量</strong> $Z$ 时，最大似然难解：</p>
+<p>$$
+\log p(X \mid \theta) = \log \sum_{Z} p(X, Z \mid \theta)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$X$：观测数据。</li>
+<li>$Z$：<strong>隐变量</strong>（如 GMM 的簇归属）。</li>
+<li>$\theta$：参数。</li>
+<li>难点：对数内有求和，无法直接求导。</li>
+</ul>
+<h4>5.6.2 EM 两步</h4>
+<p><strong>E 步</strong>：计算隐变量后验（责任度）：</p>
+<p>$$
+Q(\theta \mid \theta^{(t)}) = \mathbb{E}_{Z \mid X, \theta^{(t)}}[\log p(X, Z \mid \theta)]
+$$</p>
+<p><strong>M 步</strong>：最大化：</p>
+<p>$$
+\theta^{(t+1)} = \arg\max_{\theta} Q(\theta \mid \theta^{(t)})
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\theta^{(t)}$：第 $t$ 轮参数。</li>
+<li>$Q$：<strong>期望对数似然</strong>（对隐变量求期望）。</li>
+<li>含义：E 步"猜"隐变量，M 步"更新"参数，交替上升。</li>
+</ul>
+<h4>5.6.3 收敛性</h4>
+<p>EM 保证 $\log p(X\mid\theta^{(t+1)}) \ge \log p(X\mid\theta^{(t)})$，
+即<strong>单调不减</strong>，收敛到局部最优。</p>
+<h4>5.6.4 图像领域用法</h4>
+<ul>
+<li><strong>GMM-EM 图像分割</strong>：对颜色/纹理建模，做像素聚类。</li>
+<li><strong>背景建模</strong>：GMM 对像素颜色随时间建模，检测运动目标。</li>
+<li><strong>缺失像素/遮挡填补</strong>：把缺失值当隐变量做 EM 推断。</li>
+</ul>
+<h4>5.6.5 非图像用途</h4>
+<ul>
+<li><strong>GMM 训练</strong>（见 4.2.5）。</li>
+<li><strong>隐马尔可夫模型（HMM）</strong> 的 Baum-Welch：语音识别、基因序列分析。</li>
+<li><strong>缺失数据填补</strong>：统计调查、临床试验中的缺失值。</li>
+<li><strong>混合模型聚类</strong>：客户分群、市场细分。</li>
+<li><strong>混合专家（MoE）</strong>：门控网络的参数估计。</li>
+</ul>
+<h4>5.6.6 与深度学习的联系</h4>
+<ul>
+<li><strong>VAE 的变分推断</strong>是 EM 的推广（用神经网络参数化 $q$）。</li>
+<li><strong>EM 是"硬/软分配"的统一框架</strong>，K-means 与 GMM 都是特例。</li>
+</ul>
+<hr />
+<h3>5.7 Apriori</h3>
+<h4>5.7.1 问题：关联规则挖掘</h4>
+<p>从交易数据中发现"买了 A 也会买 B"的规则 $A \Rightarrow B$。</p>
+<h4>5.7.2 关键指标</h4>
+<p class="label"><strong>支持度：</strong></p>
+<p>$$
+\text{supp}(A \Rightarrow B) = \frac{|{T : A \cup B \subseteq T}|}{|T_{\text{all}}|}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$T$：一笔交易（项集）。</li>
+<li>$A \cup B \subseteq T$：同时包含 $A$ 和 $B$ 的交易。</li>
+<li>$|T_{\text{all}}|$：总交易数。</li>
+<li>含义：规则覆盖的交易比例。</li>
+</ul>
+<p class="label"><strong>置信度：</strong></p>
+<p>$$
+\text{conf}(A \Rightarrow B) = \frac{\text{supp}(A \cup B)}{\text{supp}(A)}
+$$</p>
+<p>其中 $\text{supp}(A)$ 是只含 $A$ 的交易比例；含义：买了 $A$ 的人中买 $B$ 的比例。</p>
+<p class="label"><strong>提升度：</strong></p>
+<p>$$
+\text{lift}(A \Rightarrow B) = \frac{\text{conf}(A \Rightarrow B)}{\text{supp}(B)}
+$$</p>
+<p>其中 $\text{supp}(B)$ 是 $B$ 的基础频率；lift &gt; 1 表示正相关。</p>
+<h4>5.7.3 Apriori 原理</h4>
+<p><strong>先验性质</strong>：频繁项集的所有子集也频繁（反之，非频繁项集的超集非频繁）。
+据此逐层生成候选并剪枝。</p>
+<h4>5.7.4 图像领域用法</h4>
+<ul>
+<li><strong>图像共现模式</strong>：发现常一起出现的视觉元素（如"天空+草地"）。</li>
+<li><strong>场景理解</strong>：物体共现关系建模。</li>
+<li><strong>图像标注</strong>：标签关联规则。</li>
+<li>图像中直接使用较少，更多用于<strong>推荐/购物篮分析</strong>。</li>
+</ul>
+<h4>5.7.5 非图像用途</h4>
+<ul>
+<li><strong>购物篮分析</strong>：超市发现"啤酒 + 尿布"式关联规则。</li>
+<li><strong>推荐系统</strong>："看了 A 也看 B"的关联推荐。</li>
+<li><strong>交叉销售</strong>：电商捆绑销售策略。</li>
+<li><strong>医疗处方分析</strong>：药物共现与不良反应挖掘。</li>
+<li><strong>网络安全</strong>：入侵检测中的事件关联。</li>
+<li><strong>生物信息</strong>：基因/蛋白共表达模式。</li>
+</ul>
+<h4>5.7.6 与深度学习的联系</h4>
+<ul>
+<li><strong>共现统计</strong>被用于<strong>图神经网络</strong>的边构建。</li>
+<li><strong>注意力中的共现</strong>：自注意力可看作学习特征间的"关联强度"。</li>
+</ul>
+<hr />
+<h2>6. 图像领域应用总览</h2>
+<table>
+<thead>
+<tr>
+<th>算法</th>
+<th>图像中的典型任务</th>
+<th>输入特征</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>KNN</td>
+<td>检索、匹配、分类基线</td>
+<td>描述子、CNN 特征</td>
+<td>需加速结构</td>
+</tr>
+<tr>
+<td>朴素贝叶斯</td>
+<td>肤色检测、分割</td>
+<td>颜色、像素</td>
+<td>生成式</td>
+</tr>
+<tr>
+<td>逻辑回归</td>
+<td>二分类、多标签</td>
+<td>任意特征</td>
+<td>网络分类头</td>
+</tr>
+<tr>
+<td>SVM</td>
+<td>行人检测、分类</td>
+<td>HOG、SIFT</td>
+<td>核方法</td>
+</tr>
+<tr>
+<td>决策树/森林</td>
+<td>分割、关键点、检测</td>
+<td>像素、Texton</td>
+<td>随机蕨</td>
+</tr>
+<tr>
+<td>C4.5</td>
+<td>像素分类、遥感</td>
+<td>混合特征</td>
+<td>可解释规则</td>
+</tr>
+<tr>
+<td>CART</td>
+<td>分割、回归（深度/视差）</td>
+<td>像素、描述子</td>
+<td>随机森林基学习器</td>
+</tr>
+<tr>
+<td>聚类</td>
+<td>分割、词袋、超像素</td>
+<td>颜色+位置</td>
+<td>无监督</td>
+</tr>
+<tr>
+<td>K-means/GMM</td>
+<td>颜色量化、背景建模</td>
+<td>颜色</td>
+<td>GMM 背景建模</td>
+</tr>
+<tr>
+<td>PCA</td>
+<td>特征脸、压缩、降维</td>
+<td>图像、描述子</td>
+<td>线性</td>
+</tr>
+<tr>
+<td>流形学习</td>
+<td>可视化、检索</td>
+<td>CNN 特征</td>
+<td>非线性</td>
+</tr>
+<tr>
+<td>半监督</td>
+<td>医学分割、遥感</td>
+<td>图像</td>
+<td>标注稀缺</td>
+</tr>
+<tr>
+<td>AdaBoost</td>
+<td>人脸检测</td>
+<td>Haar</td>
+<td>级联</td>
+</tr>
+<tr>
+<td>EM</td>
+<td>GMM 分割</td>
+<td>颜色</td>
+<td>隐变量</td>
+</tr>
+<tr>
+<td>Apriori</td>
+<td>场景共现</td>
+<td>标签</td>
+<td>较少</td>
+</tr>
+<tr>
+<td>PageRank</td>
+<td>显著性、检索重排序</td>
+<td>图像块图</td>
+<td>流形排序</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>图像处理流水线中的位置：</strong></p>
+<pre class="mermaid">flowchart LR
+    IMG[&quot;图像&quot;] --&gt; PRE[&quot;预处理&lt;br/&gt;去噪 / 增强&quot;]
+    PRE --&gt; FEAT[&quot;特征提取&lt;br/&gt;SIFT / HOG / LBP&quot;]
+    FEAT --&gt; RED[&quot;降维&lt;br/&gt;PCA / 流形&quot;]
+    RED --&gt; CLS[&quot;分类 / 聚类&lt;br/&gt;SVM / KNN / K-means&quot;]
+    CLS --&gt; POST[&quot;后处理&lt;br/&gt;CRF / 形态学&quot;]
+    FEAT -.-&gt;|&quot;深度学习替代&quot;| DEEP[&quot;CNN / Transformer&lt;br/&gt;端到端&quot;]
+    DEEP --&gt; CLS2[&quot;分类 / 检测 / 分割&quot;]
+</pre>
+<hr />
+<h2>7. 与深度学习的联系（重点）</h2>
+<h3>7.1 经典算法是深度网络的"积木"</h3>
+<table>
+<thead>
+<tr>
+<th>经典算法</th>
+<th>深度对应</th>
+<th>关系</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>逻辑回归</td>
+<td>单层网络 / Softmax 头</td>
+<td>完全相同</td>
+</tr>
+<tr>
+<td>SVM</td>
+<td>Hinge 损失 / 大间隔 softmax</td>
+<td>损失函数沿用</td>
+</tr>
+<tr>
+<td>PCA</td>
+<td>线性自编码器</td>
+<td>最优解等价</td>
+</tr>
+<tr>
+<td>K-means</td>
+<td>VQ-VAE 码本 / 硬分配 AE</td>
+<td>量化思想</td>
+</tr>
+<tr>
+<td>GMM</td>
+<td>MoE 门控 / VAE 先验</td>
+<td>软分配</td>
+</tr>
+<tr>
+<td>EM</td>
+<td>VAE 变分推断</td>
+<td>推广</td>
+</tr>
+<tr>
+<td>决策树</td>
+<td>深度森林 / 注意力路由</td>
+<td>结构类比</td>
+</tr>
+<tr>
+<td>C4.5 / CART</td>
+<td>软决策树 / NODE / gcForest</td>
+<td>可微化</td>
+</tr>
+<tr>
+<td>AdaBoost</td>
+<td>梯度提升 / 级联检测</td>
+<td>思想继承</td>
+</tr>
+<tr>
+<td>KNN</td>
+<td>度量学习 / 原型网络</td>
+<td>嵌入空间近邻</td>
+</tr>
+<tr>
+<td>流形学习</td>
+<td>自编码器 / 对比学习</td>
+<td>参数化版本</td>
+</tr>
+<tr>
+<td>半监督</td>
+<td>FixMatch / 自监督</td>
+<td>训练范式</td>
+</tr>
+<tr>
+<td>PageRank</td>
+<td>GNN 消息传递 / 随机游走嵌入</td>
+<td>邻居聚合</td>
+</tr>
+</tbody>
+</table>
+<h3>7.2 三代特征表示（与仓库其他文档呼应）</h3>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>代表</th>
+<th>人的参与</th>
+<th>对应文档</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>手工设计</td>
+<td>SIFT、HOG、LBP</td>
+<td>高</td>
+<td><code>feature-descriptors-notes.md</code></td>
+</tr>
+<tr>
+<td>浅层学习</td>
+<td>PCA、K-means、SVM、GMM</td>
+<td>中</td>
+<td><strong>本文</strong></td>
+</tr>
+<tr>
+<td>深度表示学习</td>
+<td>CNN、Transformer</td>
+<td>低</td>
+<td><code>cnn-transformer-notes.md</code></td>
+</tr>
+</tbody>
+</table>
+<h3>7.3 为什么深度学习"取代"了经典方法</h3>
+<ul>
+<li><strong>特征学习</strong>：经典方法依赖手工特征，深度网络<strong>端到端学特征</strong>。</li>
+<li><strong>非线性</strong>：核方法靠固定核，深度靠<strong>多层非线性</strong>。</li>
+<li><strong>可扩展</strong>：深度网络能吃海量数据，经典方法在高维大数据上受限。</li>
+<li><strong>统一</strong>：分类、检测、分割统一到一个网络。</li>
+</ul>
+<h3>7.4 经典方法为何仍然重要</h3>
+<ul>
+<li><strong>小数据</strong>：样本少时，SVM、随机森林常优于深度网络。</li>
+<li><strong>可解释</strong>：决策树、逻辑回归系数可解释。</li>
+<li><strong>轻量</strong>：嵌入式/实时场景，KNN、PCA、AdaBoost 仍高效。</li>
+<li><strong>理论</strong>：理解深度网络需要经典理论（偏差-方差、流形、核）。</li>
+<li><strong>基线</strong>：任何深度模型都该与经典基线对比。</li>
+</ul>
+<h3>7.5 偏差-方差视角</h3>
+<p>$$
+\mathbb{E}[\text{误差}] = \underbrace{\text{偏差}^2}<em _text_过拟合="\text{过拟合">{\text{欠拟合}} + \underbrace{\text{方差}}</em>
+$$}} + \underbrace{\text{噪声}}_{\text{不可约}</p>
+<p>其中：</p>
+<ul>
+<li>偏差：模型假设与真实规律的差距（模型太简单）。</li>
+<li>方差：模型对训练集扰动的敏感度（模型太复杂）。</li>
+<li>噪声：数据本身的随机性，无法消除。</li>
+<li>含义：Bagging/随机森林<strong>降方差</strong>，Boosting<strong>降偏差</strong>，深度网络靠<strong>层次</strong>同时降两者。</li>
+</ul>
+<hr />
+<h2>8. 速查表</h2>
+<h3>8.1 算法速查</h3>
+<table>
+<thead>
+<tr>
+<th>算法</th>
+<th>类型</th>
+<th>关键公式</th>
+<th>超参数</th>
+<th>优点</th>
+<th>缺点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>KNN</td>
+<td>监督/非参数</td>
+<td>$d(x,x')$</td>
+<td>$k$、距离</td>
+<td>简单、无训练</td>
+<td>慢、维度灾难</td>
+</tr>
+<tr>
+<td>朴素贝叶斯</td>
+<td>监督/生成</td>
+<td>$P(c)\prod_j P(x_j|c)$</td>
+<td>分布类型</td>
+<td>快、小数据好</td>
+<td>独立假设强</td>
+</tr>
+<tr>
+<td>逻辑回归</td>
+<td>监督/判别</td>
+<td>$\sigma(w^\top x+b)$</td>
+<td>$\lambda$、$\eta$</td>
+<td>概率输出、可解释</td>
+<td>线性</td>
+</tr>
+<tr>
+<td>SVM</td>
+<td>监督/判别</td>
+<td>$\max$ 间隔 + 核</td>
+<td>$C$、$\gamma$</td>
+<td>高维有效、核灵活</td>
+<td>大数据慢、调参</td>
+</tr>
+<tr>
+<td>决策树</td>
+<td>监督</td>
+<td>不纯度下降</td>
+<td>深度、叶子数</td>
+<td>可解释、混合特征</td>
+<td>易过拟合</td>
+</tr>
+<tr>
+<td>C4.5</td>
+<td>监督</td>
+<td>信息增益率</td>
+<td>置信度</td>
+<td>连续+缺失值</td>
+<td>多叉树、慢</td>
+</tr>
+<tr>
+<td>CART</td>
+<td>监督</td>
+<td>基尼 / SSE</td>
+<td>$\alpha$</td>
+<td>分类+回归、二叉树</td>
+<td>贪心、不稳定</td>
+</tr>
+<tr>
+<td>随机森林</td>
+<td>监督/集成</td>
+<td>Bagging + 特征随机</td>
+<td>$T$、$m$</td>
+<td>稳健、特征重要性</td>
+<td>模型大</td>
+</tr>
+<tr>
+<td>聚类</td>
+<td>无监督</td>
+<td>簇内距离和</td>
+<td>$K$、$\epsilon$</td>
+<td>发现结构</td>
+<td>需选参</td>
+</tr>
+<tr>
+<td>K-means</td>
+<td>无监督</td>
+<td>$\sum\lVert x_i-\mu_k\rVert^2$</td>
+<td>$K$</td>
+<td>快、简单</td>
+<td>球形假设</td>
+</tr>
+<tr>
+<td>GMM</td>
+<td>无监督/生成</td>
+<td>$\sum\pi_k\mathcal{N}$</td>
+<td>$K$、协方差型</td>
+<td>软分配、灵活</td>
+<td>局部最优</td>
+</tr>
+<tr>
+<td>PCA</td>
+<td>无监督/线性</td>
+<td>$\Sigma u=\lambda u$</td>
+<td>$K$</td>
+<td>降维、去噪</td>
+<td>仅线性</td>
+</tr>
+<tr>
+<td>流形学习</td>
+<td>无监督/非线性</td>
+<td>保持邻域</td>
+<td>近邻数、$d$</td>
+<td>非线性结构</td>
+<td>慢、难泛化</td>
+</tr>
+<tr>
+<td>半监督</td>
+<td>半监督</td>
+<td>一致性/传播</td>
+<td>阈值</td>
+<td>省标注</td>
+<td>假设依赖</td>
+</tr>
+<tr>
+<td>AdaBoost</td>
+<td>集成</td>
+<td>$\alpha_t$ 加权投票</td>
+<td>$T$、弱学习器</td>
+<td>高精度</td>
+<td>对噪声敏感</td>
+</tr>
+<tr>
+<td>EM</td>
+<td>通用</td>
+<td>E 步 + M 步</td>
+<td>初值</td>
+<td>隐变量框架</td>
+<td>局部最优</td>
+</tr>
+<tr>
+<td>Apriori</td>
+<td>关联规则</td>
+<td>支持度/置信度</td>
+<td>支持度阈值</td>
+<td>可解释</td>
+<td>组合爆炸</td>
+</tr>
+<tr>
+<td>PageRank</td>
+<td>图/排序</td>
+<td>$\frac{1-d}{N}+d\sum\frac{PR(v)}{L(v)}$</td>
+<td>$d$</td>
+<td>无监督、全局</td>
+<td>需建图、静态</td>
+</tr>
+</tbody>
+</table>
+<h3>8.2 选择指南</h3>
+<pre class="mermaid">flowchart TD
+    START[&quot;有标签数据?&quot;] --&gt;|&quot;有&quot;| SUP[&quot;监督&quot;]
+    START --&gt;|&quot;无&quot;| UNSUP[&quot;无监督&quot;]
+    START --&gt;|&quot;少量&quot;| SEMI[&quot;半监督&quot;]
+    SUP --&gt; Q1[&quot;数据量?&quot;]
+    Q1 --&gt;|&quot;小&quot;| SM[&quot;SVM / 朴素贝叶斯 / KNN&quot;]
+    Q1 --&gt;|&quot;中&quot;| MD[&quot;随机森林 / 逻辑回归&quot;]
+    Q1 --&gt;|&quot;大&quot;| LG[&quot;深度学习&quot;]
+    UNSUP --&gt; Q2[&quot;目标?&quot;]
+    Q2 --&gt;|&quot;分簇&quot;| CL[&quot;K-means / GMM / DBSCAN&quot;]
+    Q2 --&gt;|&quot;降维&quot;| DR[&quot;PCA / 流形学习&quot;]
+    SEMI --&gt; SL[&quot;自训练 / FixMatch&quot;]
+</pre>
+<hr />
+<h2>9. 结论</h2>
+<ol>
+<li><strong>"十大"没有唯一版本</strong>：ICDM 2008 版偏数据挖掘
+   （C4.5、K-Means、SVM、Apriori、EM、PageRank、AdaBoost、kNN、Naive Bayes、CART），
+   入门教材版偏机器学习基础（含逻辑回归、PCA、流形、半监督）。本文两版通吃。</li>
+<li><strong>所有算法都是"损失 + 正则 + 优化"的特例</strong>，差别在 $L$、$\Omega$、$f_\theta$ 的选择。</li>
+<li><strong>图像领域</strong>：KNN/SVM/随机森林用于分类检测，K-means/GMM 用于分割与词袋，
+   PCA/流形用于降维与可视化，半监督用于标注稀缺场景。</li>
+<li><strong>非图像领域同样重要</strong>：C4.5/CART 是表格数据与风控医疗的主力，
+   PageRank 是搜索与图排序的基石，Apriori 是推荐与购物篮分析的核心，
+   EM 是含隐变量问题的通用框架。</li>
+<li><strong>与深度学习一脉相承</strong>：逻辑回归→网络分类头，PCA→自编码器，K-means→VQ-VAE，
+   EM→变分推断，AdaBoost→梯度提升，KNN→度量学习，
+   C4.5/CART→软决策树与深度森林，PageRank→GNN 消息传递。</li>
+<li><strong>经典方法不会消失</strong>：小数据、可解释、轻量、理论、基线——五个理由让它们长期有用。</li>
+</ol>
+<blockquote>
+<p><strong>与仓库其他文档的关系</strong>：
+<code>feature-descriptors-notes.md</code>（手工描述子）→ <strong>本文（浅层机器学习）</strong> →
+<code>cnn-transformer-notes.md</code>（深度表示学习），三者构成"特征表示三代演进"的完整链条。</p>
+</blockquote>
+
+<!-- KaTeX -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // KaTeX 渲染
+    if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(document.body, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });
+    }
+    // Mermaid 渲染
+    if (typeof mermaid !== 'undefined') {
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+        mermaid.run();
+    }
+});
+</script>
+</body>
+</html>

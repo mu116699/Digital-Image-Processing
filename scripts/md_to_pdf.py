@@ -99,8 +99,12 @@ h4 {
 /* ── 段落 ── */
 p { margin: 8px 0; text-align: justify; }
 
-/* 粗体段落标记（核心思想、关键设计等）独占一行时加大加粗 */
-p > strong:only-child {
+/* 粗体段落标记（核心思想、关键设计等）独占一行时加大加粗。
+   注意：不能用 :only-child —— 它只统计元素兄弟节点、不统计文本节点，
+   会把 <p><strong>标签</strong>：</p> 里的 <strong> 误判为唯一子元素，
+   导致 display:block 生效、结尾的冒号被挤到下一行。
+   因此改由 md_to_html() 给「整段只有粗体标签」的段落打上 class="label"。 */
+p.label > strong {
     display: block;
     font-size: 13pt;
     color: #0f3460;
@@ -245,6 +249,15 @@ def md_to_html(md_text):
         html,
         flags=re.DOTALL,
     )
+    # 整段只有粗体标签（可带结尾冒号）→ 加 class="label"，配合 CSS 放大为小标题。
+    # 用 (?:(?!</p>).)*? 保证不跨越段落边界，避免把「标签：正文」误判为标签。
+    # 结尾冒号必须一并放进 <strong> 内，否则 display:block 会把冒号挤到下一行。
+    html = re.sub(
+        r'<p><strong>((?:(?!</p>).)*?)</strong>([：:]?)</p>',
+        r'<p class="label"><strong>\1\2</strong></p>',
+        html,
+        flags=re.DOTALL,
+    )
     return html
 
 
@@ -259,6 +272,25 @@ def find_browser():
     for p in candidates:
         if os.path.exists(p):
             return p
+    return None
+
+
+def check_pdf_writable(path):
+    """检查 PDF 是否可写（未被阅读器占用）。
+
+    返回 None 表示可写；否则返回错误说明字符串。
+    浏览器在文件被占用时只会打印一行 stderr 就退出，
+    脚本若不预检就会误报“PDF 已保存”，因此这里提前拦截。
+    """
+    if not path.exists():
+        return None
+    try:
+        with open(path, "r+b"):
+            pass
+    except PermissionError:
+        return "文件正被其他程序占用（请关闭 PDF 阅读器后重试）"
+    except OSError as e:
+        return f"无法写入：{e}"
     return None
 
 
@@ -288,6 +320,13 @@ def main():
         sys.exit(1)
     print(f"[3/4] 生成 PDF（{Path(browser).name}，等待 Mermaid + KaTeX 渲染）...")
 
+    # 预检：PDF 被阅读器占用时浏览器无法写入，提前报错避免“假成功”
+    problem = check_pdf_writable(PDF_FILE)
+    if problem:
+        print(f"      错误：{PDF_FILE.name} {problem}")
+        sys.exit(1)
+    mtime_before = PDF_FILE.stat().st_mtime if PDF_FILE.exists() else None
+
     html_uri = HTML_FILE.as_uri()
     cmd = [
         browser,
@@ -313,12 +352,17 @@ def main():
     if not PDF_FILE.exists():
         print("      错误：PDF 文件未生成")
         sys.exit(1)
+    # 校验：浏览器写入失败时只会打印 stderr 就退出，文件时间戳不会变
+    if mtime_before is not None and PDF_FILE.stat().st_mtime == mtime_before:
+        print("      错误：PDF 未被更新（浏览器写入失败，文件可能仍被占用）")
+        sys.exit(1)
     size_mb = PDF_FILE.stat().st_size / (1024 * 1024)
     print(f"      PDF 已保存: {PDF_FILE.name} ({size_mb:.1f} MB)")
 
     # 4. 添加书签
     print("[4/4] 添加 PDF 书签目录 ...")
     bookmark_script = ROOT / "scripts" / "add_pdf_bookmarks.py"
+    bookmark_ok = True
     try:
         result = subprocess.run(
             [sys.executable, str(bookmark_script), str(MD_FILE), str(PDF_FILE)],
@@ -334,12 +378,18 @@ def main():
             for line in result.stdout.strip().splitlines():
                 print(f"      {line}")
     except subprocess.CalledProcessError as e:
+        bookmark_ok = False
         print(f"      书签添加失败（PDF 已生成，可手动添加）:")
         if e.stdout:
             for line in e.stdout.strip().splitlines()[:10]:
                 print(f"      {line}")
     except subprocess.TimeoutExpired:
+        bookmark_ok = False
         print("      书签添加超时（PDF 已生成）")
+
+    if not bookmark_ok:
+        print(f"\n⚠️  PDF 已生成但书签未写入: {PDF_FILE}")
+        sys.exit(1)
 
     print(f"\n✅ 完成！PDF: {PDF_FILE}")
 

@@ -1,6 +1,6 @@
 # Digital-Image-Processing
 
-数字图像处理学习笔记与知识速查仓库，涵盖颜色空间理论、色度子采样、图像描述子、CNN / Transformer 原理以及 JPEG / JPEG 2000 压缩原理等主题。每份笔记均提供 Markdown 源文件与对应的 PDF 版本。
+数字图像处理学习笔记与知识速查仓库，涵盖颜色空间理论、色度子采样、图像描述子、经典机器学习算法、CNN / Transformer 原理以及 JPEG / JPEG 2000 压缩原理等主题。每份笔记均提供 Markdown 源文件与对应的 PDF 版本。
 
 ## 文档目录
 
@@ -12,28 +12,33 @@
 | [CNN 与 Transformer 原理详解](cnn-transformer-notes.md) | 从卷积到注意力，系统讲解 CNN 与 Transformer 的数学原理、关键组件、反向传播、架构演进与高效注意力，并给出两者统一视角及其与特征描述子的关系；每个公式附逐项符号解释。 |
 | [JPEG 与 JPEG 2000 压缩原理详解](jpeg-jpeg2000-knowledge-reference.md) | 独立知识速查文件：JPEG 的 DCT、量化、ZigZag、霍夫曼/算术编码、文件结构与伪影，以及 JPEG 2000 的小波变换、EBCOT、渐进性与 ROI，并附对比选型。 |
 | [形态学图像处理](morphological-image-processing.md) | 系统梳理二值形态学与灰度形态学的全部运算：腐蚀、膨胀、开闭、击中击不中、边界提取、区域填充、细化、骨架化、形态学重建，以及灰度扩展（顶帽、底帽、梯度、平滑、粒度测定），每个运算附原理推导、用途变化与 OpenCV 关键代码。 |
+| [十大机器学习算法详解](machine-learning-ten-algorithms-notes.md) | 围绕"十大机器学习算法"这一经典提法，逐算法讲解原理并给出**每个公式的逐项符号解释**；厘清 ICDM 2008 版与入门教材版的名单差异并补齐扩展项（C4.5、CART、PageRank、神经网络、AdaBoost、EM、Apriori）；落到图像领域应用并补充非图像用途，建立与后续深度学习的对应关系。 |
 
 > 各文档的 PDF 版本与同名 Markdown 文件位于同一目录，便于离线阅读与打印。
 > 所有 PDF 均已写入**目录书签（outline）**，可在阅读器的书签面板中按层级跳转。
 
 ## 工具脚本
 
-`scripts/` 目录下提供 PDF 目录书签生成工具。
+`scripts/` 目录下提供 Markdown → PDF 转换与 PDF 目录书签生成工具。
 
 | 脚本 | 说明 |
 |---|---|
+| [`scripts/md_to_pdf.py`](scripts/md_to_pdf.py) | 一键把 Markdown 转为带书签的 PDF：Markdown → HTML（注入 KaTeX 公式与 Mermaid 图表）→ headless Edge/Chrome 打印 PDF → 调用书签脚本写入 outline。 |
 | [`scripts/add_pdf_bookmarks.py`](scripts/add_pdf_bookmarks.py) | 为单个 PDF 生成目录书签：从同名 Markdown 解析 1~4 级标题，再按 PDF 字号（h1=36 / h2=28 / h3=24 / h4=20）识别标题行，两者对齐后写入 PDF outline。 |
 | [`scripts/add_all_bookmarks.py`](scripts/add_all_bookmarks.py) | 批量处理：扫描仓库根目录下所有「同名 Markdown + PDF」文件对，逐个生成书签。 |
 
 ### 依赖
 
 ```bash
-pip install pypdf
+pip install pypdf markdown
 ```
 
 ### 用法
 
 ```bash
+# 一键生成 PDF（含公式、图表与书签）
+python scripts/md_to_pdf.py machine-learning-ten-algorithms-notes.md
+
 # 单个文件（--dry 只预览前 15 个书签，不写入）
 python scripts/add_pdf_bookmarks.py cnn-transformer-notes.md cnn-transformer-notes.pdf
 python scripts/add_pdf_bookmarks.py feature-descriptors-notes.md feature-descriptors-notes.pdf --dry
@@ -45,7 +50,9 @@ python scripts/add_all_bookmarks.py --dry
 
 ### 说明
 
-- 脚本**原地**更新 PDF（先写 `<pdf>.tmp` 再替换），重复运行不会叠加旧书签。
+- `md_to_pdf.py` 需本机安装 Edge 或 Chrome（headless 打印）；公式与图表依赖 CDN，首次渲染需联网。
+- `md_to_pdf.py` 会在写入前检查 PDF 是否被阅读器占用，并在写入后校验文件是否真正更新，失败时以非零退出码结束。
+- 书签脚本**原地**更新 PDF（先写 `<pdf>.tmp` 再替换），重复运行不会叠加旧书签。
 - 标题在 PDF 中折行时会自动合并续行；行内代码 / 行内公式导致的字号混排也能正确判定层级。
 - Windows 控制台默认 GBK，标题含生僻字时建议先执行
   `[Console]::OutputEncoding=[Text.Encoding]::UTF8`，否则打印可能乱码。

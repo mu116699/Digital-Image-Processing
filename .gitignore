@@ -1,0 +1,8 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 转换中间产物（HTML 若需入库请勿忽略）
+*.pdf.tmp
