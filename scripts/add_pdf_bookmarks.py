@@ -3,6 +3,8 @@
 
 思路：
 1. 从同名 Markdown 源文件解析 1~4 级标题，得到「干净的标题文本 + 层级」。
+   标题里的行内公式（如 `$\varepsilon_b$`）会展平为纯文本（`ε`）：
+   PDF 渲染后公式是真实字符、下标则不参与标题行，不展平会对不上。
 2. 从 PDF 中按**行**识别标题：先按 y 坐标把文本片段聚成行，
    再判定该行的标题层级（36=h1, 28=h2, 24=h3, 20=h4）。
    标题里可能混入不同字号的片段：
@@ -14,7 +16,12 @@
    两种情形举例：
    - h3「6.1 composite_curve」：max=24.0（基准）→ h3；
    - h4「1. $R_b$：理论动态范围」：max=24.2（非基准）→ 回退众数 20.0 → h4。
-3. 两者按顺序对齐，用归一化文本校验；标题在 PDF 中折行时自动合并续行。
+3. 两者按顺序对齐并校验；标题在 PDF 中折行时自动合并续行。
+   校验不比较字符串顺序，而比较**归一化后的字符多重集**：
+   headless Chrome/Edge 生成的 PDF 在「中英混排」行上，pypdf 取词顺序
+   未必等于视觉顺序（如「归纳偏置（Inductive Bias）」被取成
+   「InductiveBias)归纳偏置(」），若按字符串严格比对会大面积误判，
+   进而导致折行标题无法合并、后续书签页码整体错位。
 4. 用 pypdf 把标题树写入 PDF 的 outline。
 
 依赖：
@@ -41,6 +48,7 @@ import os
 import re
 import sys
 import unicodedata
+from collections import Counter
 
 from pypdf import PdfReader, PdfWriter
 
@@ -73,8 +81,54 @@ def norm(s: str) -> str:
     return "".join(s.split())
 
 
+def char_counts(s: str) -> Counter:
+    """归一化后各字符的计数（多重集）。
+
+    不比较字符顺序：pypdf 对中英混排行的取词顺序可能与视觉顺序不同，
+    严格逐字比对会把「内容相同、顺序不同」误判为不匹配。
+    """
+    return Counter(norm(s))
+
+
+def same_text(a: str, b: str) -> bool:
+    """字符多重集相同即视为同一标题（容忍取词乱序）。"""
+    return char_counts(a) == char_counts(b)
+
+
+def is_part_of(part: str, whole: str) -> bool:
+    """part 的字符多重集是否为 whole 的子集（用于判断折行续行）。"""
+    return not (char_counts(part) - char_counts(whole))
+
+
+# LaTeX 命令 → Unicode（标题的行内公式只需覆盖常见希腊字母）
+LATEX_SYMBOLS = {
+    "\\varepsilon": "ε", "\\epsilon": "ϵ", "\\mu": "μ", "\\nu": "ν",
+    "\\lambda": "λ", "\\sigma": "σ", "\\alpha": "α", "\\beta": "β",
+    "\\gamma": "γ", "\\theta": "θ", "\\pi": "π", "\\omega": "ω",
+}
+
+
+def strip_math(text: str) -> str:
+    """把标题里的行内公式 `$...$` 展平为纯文本。
+
+    PDF 渲染后公式会变成真实字符，而下标会单独成为小字号片段（不参与标题行）。
+    因此展平规则为：希腊字母换成 Unicode、去掉 $ 与反斜杠/花括号、去掉上下标标记。
+    例如「$\\varepsilon_b$」→「ε」，「$R_b$」→「R」，与 PDF 取出的标题文本一致。
+    """
+    def repl(m):
+        s = m.group(1)
+        for cmd, ch in LATEX_SYMBOLS.items():
+            s = s.replace(cmd, ch)
+        s = re.sub(r"[_^]\{[^}]*\}", "", s)  # 上下标（花括号形式）
+        s = re.sub(r"[_^]\w+", "", s)          # 上下标（单标记形式）
+        return re.sub(r"[\\${}]", "", s)
+
+    return re.sub(r"\$([^$]*)\$", repl, text)
+
+
 def clean_md_title(text: str) -> str:
-    """去掉 Markdown 行内标记，得到纯文本标题。"""
+    """去掉 Markdown 行内标记与公式源码，得到纯文本标题。"""
+    text = strip_math(text)  # 行内公式先展平（含 $ 与下标）
     text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)  # 链接
     text = text.replace("**", "").replace("__", "")
     text = text.replace("`", "")
@@ -169,7 +223,7 @@ def build_outline(md_headings, pdf_headings):
     """把 md 标题与 pdf 标题对齐，返回 [(level, title, page_index0), ...]。
 
     以 md 标题为准逐项消费 pdf 标题；若某个标题在 PDF 中折成多行，
-    则把后续行拼接进来，直到与 md 标题完全一致（拼接不成功则不合并）。
+    则把后续行拼接进来，直到字符多重集与 md 标题一致（拼不出则不合并）。
     """
     n_pdf = len(pdf_headings)
     items = []
@@ -181,18 +235,23 @@ def build_outline(md_headings, pdf_headings):
             break
         page, _pdf_level, pdf_text = pdf_headings[i]
 
-        # 折行标题：向后拼接续行，仅当能拼出与 md 完全一致的文本时才合并
+        # 折行标题：向后拼接续行，仅当能拼出与 md 一致的文本（字符多重集相等）
+        # 时才合并；拼接过程中要求当前累积文本仍是 md 标题的子集，避免误并。
         acc = pdf_text
-        if norm(acc) != norm(md_title):
+        if not same_text(acc, md_title):
             j = i
-            while j + 1 < n_pdf and norm(md_title).startswith(norm(acc)):
+            while j + 1 < n_pdf and is_part_of(acc, md_title):
+                cand = acc + pdf_headings[j + 1][2]
+                if not is_part_of(cand, md_title):
+                    # 下一行已不属于该标题（例如标题含 LaTeX 公式时），停止拼接
+                    break
                 j += 1
-                acc += pdf_headings[j][2]
-                if norm(acc) == norm(md_title):
+                acc = cand
+                if same_text(acc, md_title):
                     i = j
                     break
 
-        if norm(acc) != norm(md_title):
+        if not same_text(acc, md_title):
             mismatches += 1
             if mismatches <= 10:
                 print(f"  ! 第 {i} 项不匹配：\n      md : {md_title}\n      pdf: {norm(acc)}")
