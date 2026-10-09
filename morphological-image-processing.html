@@ -52,8 +52,12 @@ h4 {
 /* ── 段落 ── */
 p { margin: 8px 0; text-align: justify; }
 
-/* 粗体段落标记（核心思想、关键设计等）独占一行时加大加粗 */
-p > strong:only-child {
+/* 粗体段落标记（核心思想、关键设计等）独占一行时加大加粗。
+   注意：不能用 :only-child —— 它只统计元素兄弟节点、不统计文本节点，
+   会把 <p><strong>标签</strong>：</p> 里的 <strong> 误判为唯一子元素，
+   导致 display:block 生效、结尾的冒号被挤到下一行。
+   因此改由 md_to_html() 给「整段只有粗体标签」的段落打上 class="label"。 */
+p.label > strong {
     display: block;
     font-size: 13pt;
     color: #0f3460;
@@ -137,13 +141,13 @@ OpenCV 关键代码。所有公式附逐项符号解释。</p>
 </blockquote>
 <hr />
 <h2>目录</h2>
-<p><strong>第一部分 基础</strong></p>
+<p class="label"><strong>第一部分 基础</strong></p>
 <ul>
 <li><a href="#1-形态学图像处理概述">1. 形态学图像处理概述</a></li>
 <li><a href="#2-数学基础集合论与二值图像">2. 数学基础：集合论与二值图像</a></li>
 <li><a href="#3-结构元素structuring-element">3. 结构元素（Structuring Element）</a></li>
 </ul>
-<p><strong>第二部分 二值形态学基本运算</strong></p>
+<p class="label"><strong>第二部分 二值形态学基本运算</strong></p>
 <ul>
 <li><a href="#4-腐蚀erosion">4. 腐蚀（Erosion）</a></li>
 <li><a href="#5-膨胀dilation">5. 膨胀（Dilation）</a></li>
@@ -152,7 +156,7 @@ OpenCV 关键代码。所有公式附逐项符号解释。</p>
 <li><a href="#8-闭运算closing">8. 闭运算（Closing）</a></li>
 <li><a href="#9-开闭运算的性质与对比">9. 开闭运算的性质与对比</a></li>
 </ul>
-<p><strong>第三部分 二值形态学复合运算</strong></p>
+<p class="label"><strong>第三部分 二值形态学复合运算</strong></p>
 <ul>
 <li><a href="#10-击中击不中变换hit-or-miss">10. 击中击不中变换（Hit-or-Miss）</a></li>
 <li><a href="#11-边界提取boundary-extraction">11. 边界提取（Boundary Extraction）</a></li>
@@ -165,7 +169,7 @@ OpenCV 关键代码。所有公式附逐项符号解释。</p>
 <li><a href="#18-修剪pruning">18. 修剪（Pruning）</a></li>
 <li><a href="#19-形态学重建morphological-reconstruction">19. 形态学重建（Morphological Reconstruction）</a></li>
 </ul>
-<p><strong>第四部分 灰度形态学</strong></p>
+<p class="label"><strong>第四部分 灰度形态学</strong></p>
 <ul>
 <li><a href="#20-灰度形态学基础">20. 灰度形态学基础</a></li>
 <li><a href="#21-灰度腐蚀grayscale-erosion">21. 灰度腐蚀（Grayscale Erosion）</a></li>
@@ -179,7 +183,7 @@ OpenCV 关键代码。所有公式附逐项符号解释。</p>
 <li><a href="#29-灰度形态学重建">29. 灰度形态学重建</a></li>
 <li><a href="#30-测地距离与测地腐蚀膨胀">30. 测地距离与测地腐蚀/膨胀</a></li>
 </ul>
-<p><strong>第五部分 OpenCV 实践</strong></p>
+<p class="label"><strong>第五部分 OpenCV 实践</strong></p>
 <ul>
 <li><a href="#31-opencv-形态学-api-总览">31. OpenCV 形态学 API 总览</a></li>
 <li><a href="#32-结构元素的创建">32. 结构元素的创建</a></li>
@@ -188,7 +192,7 @@ OpenCV 关键代码。所有公式附逐项符号解释。</p>
 <li><a href="#35-灰度形态学代码">35. 灰度形态学代码</a></li>
 <li><a href="#36-完整实战示例">36. 完整实战示例</a></li>
 </ul>
-<p><strong>第六部分 总结</strong></p>
+<p class="label"><strong>第六部分 总结</strong></p>
 <ul>
 <li><a href="#37-运算关系总图">37. 运算关系总图</a></li>
 <li><a href="#38-速查表">38. 速查表</a></li>
@@ -214,7 +218,7 @@ $$</p>
 <li>$\Psi$：形态学算子（腐蚀、膨胀、开、闭等），由 $B$ 的几何形状决定其行为。</li>
 <li>整体含义：用结构元素 $B$ 对图像 $I$ 进行几何探测，输出一幅新的图像。</li>
 </ul>
-<p><strong>形态学处理的层次体系</strong>：</p>
+<p class="label"><strong>形态学处理的层次体系：</strong></p>
 <pre class="mermaid">flowchart TD
     MORPH[&quot;数学形态学&lt;br/&gt;Mathematical Morphology&quot;]
 
@@ -233,7 +237,7 @@ $$</p>
     GCOMP --&gt; GEXT[&quot;顶帽 / 底帽&lt;br/&gt;梯度 / 平滑&lt;br/&gt;粒度测定&quot;]
     GEXT --&gt; GRECON[&quot;灰度重建&quot;]
 </pre>
-<p><strong>形态学与其他图像处理方法的关系</strong>：</p>
+<p class="label"><strong>形态学与其他图像处理方法的关系：</strong></p>
 <table>
 <thead>
 <tr>
@@ -281,7 +285,7 @@ $$</p>
 <p>在二值形态学中，一幅二值图像被表示为像素坐标的集合。设图像域为
 $E \subseteq \mathbb{Z}^2$，则：</p>
 <p>$$
-A = { \mathbf{z} \in E \mid I(\mathbf{z}) = 1 }
+A = \{ \mathbf{z} \in E \mid I(\mathbf{z}) = 1 \}
 $$</p>
 <p>其中：</p>
 <ul>
@@ -306,42 +310,42 @@ $$</p>
 <tr>
 <td>并集</td>
 <td>$A \cup B$</td>
-<td>${z \mid z \in A \text{ 或 } z \in B}$</td>
+<td>$\{z \mid z \in A \text{ 或 } z \in B\}$</td>
 <td>属于 A 或 B 的所有元素</td>
 </tr>
 <tr>
 <td>交集</td>
 <td>$A \cap B$</td>
-<td>${z \mid z \in A \text{ 且 } z \in B}$</td>
+<td>$\{z \mid z \in A \text{ 且 } z \in B\}$</td>
 <td>同时属于 A 和 B 的元素</td>
 </tr>
 <tr>
 <td>补集</td>
 <td>$A^c$</td>
-<td>${z \in E \mid z \notin A}$</td>
+<td>$\{z \in E \mid z \notin A\}$</td>
 <td>不属于 A 的元素（背景）</td>
 </tr>
 <tr>
 <td>差集</td>
 <td>$A - B$</td>
-<td>${z \mid z \in A, z \notin B} = A \cap B^c$</td>
+<td>$\{z \mid z \in A, z \notin B\} = A \cap B^c$</td>
 <td>属于 A 但不属于 B</td>
 </tr>
 <tr>
 <td>反射</td>
 <td>$\check{B}$</td>
-<td>${z \mid -z \in B}$</td>
+<td>$\{z \mid -z \in B\}$</td>
 <td>B 关于原点的镜像</td>
 </tr>
 <tr>
 <td>平移</td>
 <td>$(A)_\mathbf{z}$</td>
-<td>${a + \mathbf{z} \mid a \in A}$</td>
+<td>$\{a + \mathbf{z} \mid a \in A\}$</td>
 <td>A 整体移动 $\mathbf{z}$</td>
 </tr>
 </tbody>
 </table>
-<p><strong>反射与平移的示意</strong>：</p>
+<p class="label"><strong>反射与平移的示意：</strong></p>
 <pre class="mermaid">flowchart LR
     subgraph SE[&quot;结构元素 B&quot;]
         B1[&quot;B = {(0,0), (1,0), (0,1)}&quot;]
@@ -378,7 +382,7 @@ $$</p>
 <li>结构元素必须指定一个<strong>原点（origin）</strong>，通常取其几何中心。</li>
 <li>结构元素的形状、大小、原点位置共同决定了运算的效果。</li>
 </ul>
-<p><strong>结构元素的作用</strong>：</p>
+<p class="label"><strong>结构元素的作用：</strong></p>
 <table>
 <thead>
 <tr>
@@ -459,7 +463,7 @@ $$</p>
 <p>腐蚀是形态学最基础的运算之一。其几何含义是：<strong>结构元素 $B$ 能完全放入 $A$ 中时，
 原点所在的位置集合。</strong></p>
 <p>$$
-A \ominus B = { z \mid (B)_z \subseteq A }
+A \ominus B = \{ z \mid (B)_z \subseteq A \}
 $$</p>
 <p>其中：</p>
 <ul>
@@ -544,7 +548,7 @@ eroded_3x = cv2.erode(binary, kernel, iterations=3)
 <p>膨胀是腐蚀的对偶运算。其几何含义是：<strong>结构元素 $B$ 的反射 $\check{B}$ 与 $A$ 有交集时，
 原点所在的位置集合。</strong></p>
 <p>$$
-A \oplus B = { z \mid (\check{B})_z \cap A \neq \emptyset }
+A \oplus B = \{ z \mid (\check{B})_z \cap A \neq \emptyset \}
 $$</p>
 <p>其中：</p>
 <ul>
@@ -563,7 +567,7 @@ $$</p>
 <p>其中 $\bigvee$ 表示逻辑或（取最大值），即 $B$ 覆盖范围内只要有任一前景像素，结果即为前景。</p>
 <blockquote>
 <p><strong>当 $B$ 关于原点对称时</strong>（即 $\check{B} = B$），反射可省略，膨胀简化为：
-$A \oplus B = { z \mid (B)_z \cap A \neq \emptyset }$</p>
+$A \oplus B = \{ z \mid (B)_z \cap A \neq \emptyset \}$</p>
 </blockquote>
 <h3>5.2 几何直觉</h3>
 <p>膨胀的效果是<strong>扩大</strong>前景区域：</p>
@@ -733,7 +737,7 @@ $$</p>
 <h3>7.2 等价定义</h3>
 <p>开运算有一个重要的等价表述——<strong>所有能放入 $A$ 中的 $B$ 的平移的并集</strong>：</p>
 <p>$$
-A \circ B = \bigcup { (B)_z \mid (B)_z \subseteq A }
+A \circ B = \bigcup \{ (B)_z \mid (B)_z \subseteq A \}
 $$</p>
 <p>其中：</p>
 <ul>
@@ -1339,7 +1343,7 @@ $$</p>
 </ul>
 <p>实际使用中，细化通常使用一组（8 个）结构元素轮流迭代：</p>
 <p>$$
-\text{Thin}(A, {B}) = \bigcirc_{i=1}^{8} \text{Thin}(A, B_i)
+\text{Thin}(A, \{B\}) = \bigcirc_{i=1}^{8} \text{Thin}(A, B_i)
 $$</p>
 <p>其中 $\bigcirc$ 表示轮流应用，直到收敛。</p>
 <h3>15.2 用途</h3>
@@ -1512,7 +1516,7 @@ $$</p>
 <h3>17.3 中轴变换（Medial Axis Transform, MAT）</h3>
 <p>中轴变换是另一种骨架定义：物体内部所有最大内切圆的圆心集合。</p>
 <p>$$
-\text{MAT}(A) = { z \mid \text{存在以 } z \text{ 为圆心的最大内切圆} }
+\text{MAT}(A) = \{ z \mid \text{存在以 } z \text{ 为圆心的最大内切圆} \}
 $$</p>
 <p>骨架与中轴在概念上等价，但计算方法不同。</p>
 <h3>17.4 用途</h3>
@@ -1647,7 +1651,7 @@ pruned = cv2.morphologyEx(skeleton, cv2.MORPH_OPEN, kernel, iterations=2)
 <h3>19.1 定义</h3>
 <p>形态学重建是一种强大的迭代运算，它用一个<strong>标记图像（marker）</strong> $F$ 来
 重建<strong>掩膜图像（mask）</strong> $G$ 中的连通区域。</p>
-<p><strong>测地膨胀（Geodesic Dilation）</strong>：</p>
+<p class="label"><strong>测地膨胀（Geodesic Dilation）：</strong></p>
 <p>$$
 D_G^{(1)}(F) = (F \oplus B) \cap G
 $$</p>
@@ -1655,7 +1659,7 @@ $$</p>
 <p>$$
 D_G^{(k)}(F) = D_G^{(1)}(D_G^{(k-1)}(F))
 $$</p>
-<p><strong>重建（Reconstruction by Dilation）</strong>：</p>
+<p class="label"><strong>重建（Reconstruction by Dilation）：</strong></p>
 <p>$$
 R_G^D(F) = \lim_{k \to \infty} D_G^{(k)}(F)
 $$</p>
@@ -1808,7 +1812,7 @@ cleaned = remove_border_objects(binary)
 <tr>
 <td>集合 $A$</td>
 <td>函数 $f(x,y)$</td>
-<td>$A \leftrightarrow {(x,y,f(x,y))}$</td>
+<td>$A \leftrightarrow \{(x,y,f(x,y))\}$</td>
 </tr>
 <tr>
 <td>并集 $\cup$</td>
@@ -1867,7 +1871,7 @@ cleaned = remove_border_objects(binary)
 <p>灰度形态学的严格数学基础是<strong>Umbra（阴影/下方区域）</strong> 概念：</p>
 <p>将灰度函数 $f(x,y)$ 视为三维空间中的曲面，其 Umbra 定义为曲面下方的所有点：</p>
 <p>$$
-U(f) = { (x, y, z) \mid z \leq f(x, y) }
+U(f) = \{ (x, y, z) \mid z \leq f(x, y) \}
 $$</p>
 <p>其中：</p>
 <ul>
@@ -1879,13 +1883,13 @@ $$</p>
 <p>$$
 f \circledast b = \text{Top}\big( U(f) \circledast U(b) \big)
 $$</p>
-<p>其中 $\text{Top}(U) = \max { z \mid (x, y, z) \in U }$。</p>
+<p>其中 $\text{Top}(U) = \max \{ z \mid (x, y, z) \in U \}$。</p>
 <hr />
 <h2>21. 灰度腐蚀（Grayscale Erosion）</h2>
 <h3>21.1 定义</h3>
 <p>灰度腐蚀是结构元素窗口内的<strong>最小值</strong>操作：</p>
 <p>$$
-(f \ominus b)(x, y) = \min_{(s, t) \in b} \big{ f(x + s, y + t) \big}
+(f \ominus b)(x, y) = \min_{(s, t) \in b} \big\{ f(x + s, y + t) \big\}
 $$</p>
 <p>其中：</p>
 <ul>
@@ -1943,7 +1947,7 @@ eroded_ellip = cv2.erode(img, ellip_kernel)
 <h3>22.1 定义</h3>
 <p>灰度膨胀是结构元素窗口内的<strong>最大值</strong>操作：</p>
 <p>$$
-(f \oplus b)(x, y) = \max_{(s, t) \in \check{b}} \big{ f(x - s, y - t) \big}
+(f \oplus b)(x, y) = \max_{(s, t) \in \check{b}} \big\{ f(x - s, y - t) \big\}
 $$</p>
 <p>其中：</p>
 <ul>
@@ -2005,7 +2009,7 @@ dilated = cv2.dilate(img, kernel, iterations=1)
 <p>$$
 f \circ b = (f \ominus b) \oplus b
 $$</p>
-<p><strong>效果</strong>：</p>
+<p class="label"><strong>效果：</strong></p>
 <ul>
 <li>去除小的亮噪声（比 SE 小的亮斑点）</li>
 <li>保持暗区域不变</li>
@@ -2015,7 +2019,7 @@ $$</p>
 <p>$$
 f \bullet b = (f \oplus b) \ominus b
 $$</p>
-<p><strong>效果</strong>：</p>
+<p class="label"><strong>效果：</strong></p>
 <ul>
 <li>去除小的暗噪声（比 SE 小的暗斑点）</li>
 <li>保持亮区域不变</li>
@@ -2527,11 +2531,11 @@ pattern_spectrum[1:] = (volumes_norm[:-1] - volumes_norm[1:]) / volumes_norm[0]
 <h2>29. 灰度形态学重建</h2>
 <h3>29.1 定义</h3>
 <p>灰度形态学重建是二值形态学重建的推广，用于灰度图像的标记-掩膜重建。</p>
-<p><strong>测地膨胀（Geodesic Dilation）</strong>：</p>
+<p class="label"><strong>测地膨胀（Geodesic Dilation）：</strong></p>
 <p>$$
 D_g^{(1)}(f) = \min(f \oplus b, g)
 $$</p>
-<p><strong>重建（Reconstruction by Dilation）</strong>：</p>
+<p class="label"><strong>重建（Reconstruction by Dilation）：</strong></p>
 <p>$$
 R_g^D(f) = \lim_{k \to \infty} D_g^{(k)}(f)
 $$</p>
@@ -2619,7 +2623,7 @@ reconstructed_close = grayscale_reconstruction_close(img)
 <h3>30.1 测地距离</h3>
 <p><strong>测地距离（Geodesic Distance）</strong> 是两点之间在限定区域内行进的最短路径长度：</p>
 <p>$$
-d_G(p, q) = \inf { \text{length}(\gamma) \mid \gamma \text{ 是 } G \text{ 内连接 } p \text{ 和 } q \text{ 的路径} }
+d_G(p, q) = \inf \{ \text{length}(\gamma) \mid \gamma \text{ 是 } G \text{ 内连接 } p \text{ 和 } q \text{ 的路径} \}
 $$</p>
 <p>其中：</p>
 <ul>
@@ -2631,11 +2635,11 @@ $$</p>
 </ul>
 <h3>30.2 测地腐蚀与膨胀</h3>
 <p>测地腐蚀和膨胀是形态学重建的基本构建块：</p>
-<p><strong>测地膨胀</strong>：</p>
+<p class="label"><strong>测地膨胀：</strong></p>
 <p>$$
 \delta_G^{(1)}(f) = (f \oplus B) \wedge G
 $$</p>
-<p><strong>测地腐蚀</strong>：</p>
+<p class="label"><strong>测地腐蚀：</strong></p>
 <p>$$
 \varepsilon_G^{(1)}(f) = (f \ominus B) \vee G
 $$</p>
@@ -3747,27 +3751,27 @@ cv2.destroyAllWindows()
 <hr />
 <h2>40. 结论</h2>
 <p>数学形态学是一套以集合论为基础的非线性图像处理理论，其核心特点如下：</p>
-<p><strong>1. 统一的数学框架</strong></p>
+<p class="label"><strong>1. 统一的数学框架</strong></p>
 <p>所有形态学运算都建立在腐蚀和膨胀两个基本运算之上，通过不同的组合方式
 （先腐蚀后膨胀、先膨胀后腐蚀、差集、交集等）衍生出丰富的运算体系。
 二值形态学与灰度形态学通过 Umbra 概念统一在同一框架下。</p>
-<p><strong>2. 非线性与边缘保持</strong></p>
+<p class="label"><strong>2. 非线性与边缘保持</strong></p>
 <p>与线性滤波（卷积）不同，形态学运算基于极值操作（最大值/最小值），
 不会模糊边缘。这使得形态学方法在边缘检测、形状分析等需要保持边缘的
 场景中具有独特优势。</p>
-<p><strong>3. 形状导向的滤波</strong></p>
+<p class="label"><strong>3. 形状导向的滤波</strong></p>
 <p>形态学运算的效果由结构元素的形状和大小决定，这使得形态学成为一种
 "形状滤波器"——可以选择性地保留或去除特定形状和大小的结构，
 这是线性滤波无法实现的。</p>
-<p><strong>4. 从简单到复杂的层次体系</strong></p>
+<p class="label"><strong>4. 从简单到复杂的层次体系</strong></p>
 <p>形态学运算从基本的腐蚀/膨胀，到开/闭运算，再到击中击不中、细化、
 骨架化、形态学重建，形成了一个从简单到复杂的层次体系。高级运算
 （如重建）在保持物体形状完整性方面远优于基本运算。</p>
-<p><strong>5. 广泛的应用领域</strong></p>
+<p class="label"><strong>5. 广泛的应用领域</strong></p>
 <p>形态学方法在图像去噪、边缘检测、形状分析、纹理分析、目标检测、
 图像分割、医学影像、文档处理、材料科学等领域都有广泛应用，
 是图像处理工具箱中不可或缺的组成部分。</p>
-<p><strong>6. OpenCV 实践要点</strong></p>
+<p class="label"><strong>6. OpenCV 实践要点</strong></p>
 <ul>
 <li>OpenCV 的 <code>cv2.erode()</code>、<code>cv2.dilate()</code>、<code>cv2.morphologyEx()</code> 覆盖了
   大部分常用形态学运算。</li>
