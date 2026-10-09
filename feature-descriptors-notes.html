@@ -1,0 +1,3849 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>图像描述子（Feature Descriptors）综述：原理、分类与应用</title>
+    <style>
+@page {
+    margin: 20mm 15mm 20mm 15mm;
+    size: A4;
+}
+* { box-sizing: border-box; }
+body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    font-size: 11pt;
+    line-height: 1.7;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── 标题 ── */
+h1 {
+    font-size: 36pt;
+    color: #1a1a2e;
+    text-align: center;
+    border-bottom: 3px solid #16213e;
+    padding-bottom: 12px;
+    margin: 0 0 20px 0;
+}
+h2 {
+    font-size: 28pt;
+    color: #16213e;
+    border-bottom: 2px solid #0f3460;
+    padding-bottom: 8px;
+    margin: 30px 0 15px 0;
+    page-break-before: always;
+}
+h2:first-of-type { page-break-before: avoid; }
+h3 {
+    font-size: 24pt;
+    color: #0f3460;
+    margin: 25px 0 10px 0;
+    page-break-after: avoid;
+}
+h4 {
+    font-size: 20pt;
+    color: #1a1a2e;
+    margin: 20px 0 8px 0;
+    page-break-after: avoid;
+}
+
+/* ── 段落 ── */
+p { margin: 8px 0; text-align: justify; }
+
+/* 粗体段落标记（核心思想、关键设计等）独占一行时加大加粗。
+   注意：不能用 :only-child —— 它只统计元素兄弟节点、不统计文本节点，
+   会把 <p><strong>标签</strong>：</p> 里的 <strong> 误判为唯一子元素，
+   导致 display:block 生效、结尾的冒号被挤到下一行。
+   因此改由 md_to_html() 给「整段只有粗体标签」的段落打上 class="label"。 */
+p.label > strong {
+    display: block;
+    font-size: 13pt;
+    color: #0f3460;
+    margin-top: 12px;
+    margin-bottom: 4px;
+}
+
+/* ── 列表 ── */
+ul, ol { margin: 8px 0; padding-left: 2em; }
+li { margin: 4px 0; }
+
+/* ── 代码 ── */
+code {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 10pt;
+    background-color: #f0f0f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+pre {
+    background-color: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    page-break-inside: avoid;
+    margin: 12px 0;
+}
+pre code {
+    background-color: transparent;
+    padding: 0;
+    font-size: 9.5pt;
+    line-height: 1.5;
+}
+
+/* ── Mermaid 图 ── */
+pre.mermaid, .mermaid {
+    text-align: center;
+    background-color: white;
+    border: none;
+    padding: 10px 0;
+}
+.mermaid svg { max-width: 100%; height: auto; }
+
+/* ── 表格 ── */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 15px 0;
+    font-size: 10pt;
+    page-break-inside: avoid;
+}
+th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+th { background-color: #e8e8e8; font-weight: bold; }
+tr:nth-child(even) { background-color: #fafafa; }
+
+/* ── 引用 ── */
+blockquote {
+    border-left: 4px solid #0f3460;
+    background-color: #f5f5fa;
+    padding: 10px 15px;
+    margin: 15px 0;
+    color: #555;
+}
+
+/* ── 链接 / 分隔线 ── */
+a { color: #0f3460; text-decoration: none; }
+hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+
+/* ── 打印优化 ── */
+h2, h3, h4 { page-break-after: avoid; }
+table, pre, blockquote { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+<h1>图像描述子（Feature Descriptors）综述：原理、分类与应用</h1>
+<blockquote>
+<p class="label"><strong>关于参考书的一点说明</strong></p>
+<p>本文目标是按 <em>Computer Vision Metrics: Survey, Taxonomy, and Analysis</em>（Scott Krig, Apress）
+这类 survey 的通用脉络来组织描述子内容，即以
+<strong>全局 → 局部 → 纹理 → 学习型 → 颜色</strong> 为主线，并区分
+<strong>手工设计（hand-crafted）与学习型（learned）</strong> 两大分支。</p>
+<p>该书未能获取原文，因此本文<strong>不引用其具体页码、章节号和原文表述</strong>，
+只采用这一领域公认的分类框架与数学定义。所有公式与算法描述均来自公开的
+原始论文与标准定义（SIFT、SURF、ORB、BRIEF、BRISK、FREAK、HOG、LBP、
+GLOH、Shape Context、MSER、Census、VLAD、Fisher Vector、SuperPoint 等）。</p>
+</blockquote>
+<hr />
+<h2>目录</h2>
+<ol>
+<li>描述子的基本概念</li>
+<li>描述子的分类体系（Taxonomy）</li>
+<li>数学原理基础</li>
+<li>关键点检测子（Detectors）</li>
+<li>局部描述子（Local Descriptors）逐类详解</li>
+<li>全局描述子（Global Descriptors）</li>
+<li>纹理描述子（Texture Descriptors）</li>
+<li>颜色描述子（Color Descriptors）</li>
+<li>形状与轮廓描述子（Shape / Contour Descriptors）</li>
+<li>光谱与子空间描述子（Spectral / Basis / Subspace）</li>
+<li>学习型与深度描述子（Learning-based）</li>
+<li>立体匹配与光流描述子</li>
+<li>视频与时序描述子</li>
+<li>匹配、索引与检索</li>
+<li>评价指标与基准数据集</li>
+<li>应用方向</li>
+<li>选型与设计权衡</li>
+<li>速查表</li>
+<li>结论</li>
+</ol>
+<hr />
+<h2>1. 描述子的基本概念</h2>
+<h3>1.1 什么叫描述子</h3>
+<p><strong>描述子（descriptor）</strong> 是把图像中某一局部或全局区域的内容压缩成一个
+固定维度数值向量的函数。它的作用是让“图像块”变成一个可比较、可匹配、
+可检索的数学对象。</p>
+<p>形式化地说，描述子是一个映射：</p>
+<p>$$
+f: \mathcal{P}(I) \rightarrow \mathbb{R}^{d} \quad \text{或} \quad \{0,1\}^{d}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$I$ 是图像（灰度或彩色）</li>
+<li>$\mathcal{P}(I)$ 是图像上的一个区域或一个点邻域</li>
+<li>$d$ 是描述子的维度</li>
+<li>浮点描述子取值于 $\mathbb{R}^{d}$，二进制描述子取值于 $\{0,1\}^{d}$</li>
+</ul>
+<p><strong>含义</strong>：描述子把"一块图像区域"映射成一个固定长度的数值向量，从而把图像比较问题转化为向量比较问题。</p>
+<p>描述子本身通常是<strong>向量</strong>；它表达的是"这块图像长什么样"，而不是"这块图像在哪"。</p>
+<p class="label"><strong>描述子的作用示意：</strong></p>
+<pre class="mermaid">flowchart LR
+    IMG[&quot;图像 I&quot;] --&gt; REG[&quot;区域 P(I)&lt;br/&gt;点邻域 / 仿射区域&quot;]
+    REG --&gt; DESC[&quot;描述子 f&lt;br/&gt;编码为向量&quot;]
+    DESC --&gt; FLOAT[&quot;浮点向量 R^d&lt;br/&gt;SIFT / SURF / HOG&quot;]
+    DESC --&gt; BIN[&quot;二进制串 {0,1}^d&lt;br/&gt;BRIEF / ORB / BRISK&quot;]
+    FLOAT --&gt; M1[&quot;匹配：L2 / 余弦&quot;]
+    BIN --&gt; M2[&quot;匹配：Hamming&quot;]
+</pre>
+<h3>1.2 检测子、关键点与描述子的关系</h3>
+<p>一个完整的局部特征系统通常由三部分组成：</p>
+<table>
+<thead>
+<tr>
+<th>环节</th>
+<th>作用</th>
+<th>输出</th>
+<th>典型方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>检测（detection）</td>
+<td>找出图像中"值得描述"的位置</td>
+<td>关键点坐标 $(x,y)$、尺度 $\sigma$、方向 $\theta$</td>
+<td>Harris、FAST、DoG、MSER</td>
+</tr>
+<tr>
+<td>描述（description）</td>
+<td>把关键点邻域编码成向量</td>
+<td>$d$ 维向量</td>
+<td>SIFT、SURF、ORB、BRIEF</td>
+</tr>
+<tr>
+<td>匹配（matching）</td>
+<td>比较两个描述子的相似度</td>
+<td>对应关系</td>
+<td>L2、Hamming、NNDR、RANSAC</td>
+</tr>
+</tbody>
+</table>
+<p><strong>检测子（detector）</strong> 与 <strong>描述子（descriptor）</strong> 是两个可以独立替换的模块。
+例如 ORB = oFAST（检测）+ rBRIEF（描述），两者来自不同源头。</p>
+<p class="label"><strong>局部特征系统的完整流水线：</strong></p>
+<pre class="mermaid">flowchart LR
+    IMG[&quot;图像&quot;] --&gt; DET[&quot;检测子&lt;br/&gt;Harris / FAST / DoG / MSER&quot;]
+    DET --&gt; KP[&quot;关键点&lt;br/&gt;(x, y, σ, θ)&quot;]
+    KP --&gt; DESC[&quot;描述子&lt;br/&gt;SIFT / SURF / ORB / BRIEF&quot;]
+    DESC --&gt; VEC[&quot;d 维向量&quot;]
+    VEC --&gt; MATCH[&quot;匹配&lt;br/&gt;L2 / Hamming / NNDR&quot;]
+    MATCH --&gt; GEO[&quot;几何验证&lt;br/&gt;RANSAC&quot;]
+    GEO --&gt; OUT[&quot;对应关系&quot;]
+</pre>
+<p class="label"><strong>各环节用到的处理及其作用：</strong></p>
+<table>
+<thead>
+<tr>
+<th>环节</th>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>检测</td>
+<td>尺度空间 / 结构张量 / 圆周测试</td>
+<td>找到稳定、可重复、可定位的位置</td>
+</tr>
+<tr>
+<td>描述</td>
+<td>梯度统计 / 强度比较 / 滤波响应</td>
+<td>把邻域内容编码成可比较的向量</td>
+</tr>
+<tr>
+<td>归一化</td>
+<td>主方向旋转 / 尺度缩放 / L2 归一化</td>
+<td>赋予旋转、尺度、光照不变性</td>
+</tr>
+<tr>
+<td>匹配</td>
+<td>距离度量 + 比率检验</td>
+<td>找出候选对应点</td>
+</tr>
+<tr>
+<td>验证</td>
+<td>RANSAC 拟合几何模型</td>
+<td>剔除外点，保证几何一致</td>
+</tr>
+</tbody>
+</table>
+<h3>1.3 描述子的数学本质</h3>
+<p>从数学角度看，描述子的构造基本都遵循同一个模式：</p>
+<p>$$
+\text{descriptor} = \mathcal{N}\Big( \mathcal{Q}\big( \mathcal{F}(I, \Omega) \big) \Big)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\Omega$：局部区域（点邻域、仿射归一化区域、区域检测结果）</li>
+<li>$\mathcal{F}$：特征提取算子（梯度、滤波响应、强度比较、矩、频谱）</li>
+<li>$\mathcal{Q}$：量化/编码（直方图分箱、二值化、投影、聚类分配）</li>
+<li>$\mathcal{N}$：归一化（L1/L2 归一化、均值-方差归一化、幂律归一化）</li>
+</ul>
+<p><strong>含义</strong>：任何描述子都可以拆成"选区域 → 提特征 → 量化编码 → 归一化"四步，不同描述子的差别只是这四步的具体选择不同。</p>
+<p>不同的描述子，差别主要在于这四步的具体选择。</p>
+<p class="label"><strong>四步处理的作用：</strong></p>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>典型处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>选区域 $\Omega$</td>
+<td>点邻域、仿射归一化、区域检测</td>
+<td>确定"描述哪一块"，并消除位置/形状差异</td>
+</tr>
+<tr>
+<td>提特征 $\mathcal{F}$</td>
+<td>梯度、滤波、强度比较、矩、频谱</td>
+<td>提取对内容敏感、对干扰不敏感的信号</td>
+</tr>
+<tr>
+<td>量化 $\mathcal{Q}$</td>
+<td>直方图分箱、二值化、投影、聚类</td>
+<td>把连续信号压成固定维度、可比较的编码</td>
+</tr>
+<tr>
+<td>归一化 $\mathcal{N}$</td>
+<td>L1/L2、均值-方差、幂律</td>
+<td>消除光照/对比度/尺度差异，提升鲁棒性</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>四步流水线示意：</strong></p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像 I&quot;] --&gt; OM[&quot;选区域 Ω&quot;]
+    OM --&gt; F[&quot;提特征 F&lt;br/&gt;梯度 / 滤波 / 比较&quot;]
+    F --&gt; Q[&quot;量化 Q&lt;br/&gt;分箱 / 二值 / 投影&quot;]
+    Q --&gt; N[&quot;归一化 N&lt;br/&gt;L2 / 均值方差 / 幂律&quot;]
+    N --&gt; D[&quot;描述子向量&quot;]
+</pre>
+<h3>1.4 好描述子应具备的性质</h3>
+<table>
+<thead>
+<tr>
+<th>性质</th>
+<th>含义</th>
+<th>数学体现</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>可重复性（repeatability）</td>
+<td>同一物理点在变换后仍被检测到</td>
+<td>检测子在同一点上重复命中</td>
+</tr>
+<tr>
+<td>可区分性（distinctiveness）</td>
+<td>不同区域产生不同描述子</td>
+<td>描述子空间内类间距离大</td>
+</tr>
+<tr>
+<td>紧致性（compactness）</td>
+<td>占用空间小、匹配快</td>
+<td>维度 $d$ 小</td>
+</tr>
+<tr>
+<td>不变性（invariance）</td>
+<td>对某种变换不敏感</td>
+<td>$f(T(I)) = f(I)$</td>
+</tr>
+<tr>
+<td>等变性（equivariance）</td>
+<td>随变换而一致变化</td>
+<td>$f(T(I)) = T'(f(I))$</td>
+</tr>
+<tr>
+<td>鲁棒性（robustness）</td>
+<td>对噪声、压缩、光照稳定</td>
+<td>扰动下 $\lVert \Delta f \rVert$ 小</td>
+</tr>
+<tr>
+<td>效率（efficiency）</td>
+<td>计算与匹配开销低</td>
+<td>可用积分图、位运算、LSH</td>
+</tr>
+</tbody>
+</table>
+<p>其中不变性是最核心的设计目标，常见有：</p>
+<ul>
+<li><strong>平移不变</strong>：通过对局部区域相对坐标编码</li>
+<li><strong>旋转不变</strong>：通过主方向分配 + 旋转归一化</li>
+<li><strong>尺度不变</strong>：通过尺度空间极值检测 + 尺度归一化窗口</li>
+<li><strong>仿射不变</strong>：通过二阶矩矩阵做仿射归一化</li>
+<li><strong>光照不变</strong>：通过梯度、强度差、归一化、截断</li>
+<li><strong>视角/3D 不变</strong>：最难，通常只能做到有限视角内鲁棒</li>
+</ul>
+<hr />
+<h2>2. 描述子的分类体系（Taxonomy）</h2>
+<p class="label"><strong>描述子分类总览：</strong></p>
+<pre class="mermaid">flowchart TD
+    D[&quot;描述子&quot;] --&gt; G[&quot;全局描述子&quot;]
+    D --&gt; L[&quot;局部描述子&quot;]
+    G --&gt; GC[&quot;颜色：直方图 / 矩 / CCV&quot;]
+    G --&gt; GT[&quot;纹理：GLCM / Tamura / Gabor&quot;]
+    G --&gt; GS[&quot;形状：Hu / Zernike / Fourier&quot;]
+    G --&gt; GA[&quot;聚合：BoW / VLAD / Fisher&quot;]
+    L --&gt; LG[&quot;梯度直方图：SIFT / SURF / HOG&quot;]
+    L --&gt; LB[&quot;二进制：BRIEF / ORB / BRISK&quot;]
+    L --&gt; LM[&quot;矩：Zernike / Legendre&quot;]
+    L --&gt; LR[&quot;区域/仿射：MSER / Harris-Affine&quot;]
+    L --&gt; LL[&quot;学习型：HardNet / SuperPoint&quot;]
+</pre>
+<h3>2.1 按空间范围分</h3>
+<p class="label"><strong>全局描述子（global descriptors）</strong></p>
+<ul>
+<li>对整幅图像产生一个向量</li>
+<li>典型：颜色直方图、GIST、GLCM、Hu 矩、BoW、Fisher Vector、CNN 全局池化</li>
+<li>优点：紧凑、适合整图检索与分类</li>
+<li>缺点：无空间定位能力，遮挡敏感</li>
+</ul>
+<p class="label"><strong>局部描述子（local descriptors）</strong></p>
+<ul>
+<li>对关键点邻域产生一个向量</li>
+<li>典型：SIFT、SURF、ORB、BRIEF、BRISK、FREAK、LBP</li>
+<li>优点：可匹配、可定位、对遮挡相对鲁棒</li>
+<li>缺点：数量多，需要匹配与几何验证</li>
+</ul>
+<h3>2.2 按设计方式分</h3>
+<p class="label"><strong>手工设计（hand-crafted）</strong></p>
+<ul>
+<li>由人根据图像结构先验设计</li>
+<li>代表：SIFT、SURF、HOG、LBP、Gabor、Shape Context、MSER</li>
+</ul>
+<p class="label"><strong>学习型（learned / learned embeddings）</strong></p>
+<ul>
+<li>参数由数据训练得到</li>
+<li>代表：PCA-SIFT、LDA 描述子、Random Ferns、L2-Net、HardNet、SuperPoint、DELF</li>
+</ul>
+<h3>2.3 按数学构造来源分（本文主线）</h3>
+<table>
+<thead>
+<tr>
+<th>构造家族</th>
+<th>数学工具</th>
+<th>代表方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>梯度/方向直方图</td>
+<td>一阶微分 + 加权投票</td>
+<td>SIFT、SURF、GLOH、HOG、DAISY</td>
+</tr>
+<tr>
+<td>强度比较/二进制</td>
+<td>比较算子 + 位运算</td>
+<td>BRIEF、ORB、BRISK、FREAK、LATCH</td>
+</tr>
+<tr>
+<td>矩与正交基</td>
+<td>矩展开、正交多项式</td>
+<td>Hu、Zernike、Legendre、Tchebichef</td>
+</tr>
+<tr>
+<td>纹理/滤波响应</td>
+<td>卷积滤波组</td>
+<td>LBP、Gabor、MR8、GLCM、Tamura、小波</td>
+</tr>
+<tr>
+<td>光谱/子空间</td>
+<td>FFT、DCT、PCA、LDA、ICA</td>
+<td>Fourier 描述子、DCT、Eigenfaces、Fisherfaces</td>
+</tr>
+<tr>
+<td>形状/轮廓</td>
+<td>边界参数化、极坐标分箱</td>
+<td>Shape Context、链码、CSS、Fourier 形状</td>
+</tr>
+<tr>
+<td>区域/分割</td>
+<td>连通域、稳定性</td>
+<td>MSER、EBR、IBR</td>
+</tr>
+<tr>
+<td>学习/嵌入</td>
+<td>度量学习、深度网络</td>
+<td>Fisher Vector、VLAD、NetVLAD、SuperPoint</td>
+</tr>
+</tbody>
+</table>
+<h3>2.4 按不变性能力分</h3>
+<table>
+<thead>
+<tr>
+<th>能力等级</th>
+<th>含义</th>
+<th>代表</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>仅平移</td>
+<td>只对位置不敏感</td>
+<td>直方图类、LBP（原型）</td>
+</tr>
+<tr>
+<td>平移+旋转</td>
+<td>加方向归一化</td>
+<td>SIFT、SURF、ORB（rBRIEF）、BRISK</td>
+</tr>
+<tr>
+<td>平移+旋转+尺度</td>
+<td>加尺度空间</td>
+<td>SIFT、SURF、KAZE、AKAZE</td>
+</tr>
+<tr>
+<td>平移+旋转+尺度+仿射</td>
+<td>加仿射归一化</td>
+<td>Harris-Affine、Hessian-Affine、MSER+</td>
+</tr>
+<tr>
+<td>宽基线/视角</td>
+<td>学习型或专用设计</td>
+<td>SuperPoint、D2-Net、视角不变特征</td>
+</tr>
+</tbody>
+</table>
+<h3>2.5 按数据类型与匹配方式分</h3>
+<p class="label"><strong>浮点型描述子</strong></p>
+<ul>
+<li>存储在 $\mathbb{R}^d$</li>
+<li>匹配用欧氏距离 $L_2$ 或余弦相似度</li>
+<li>代表：SIFT(128)、SURF(64/128)、GLOH(128)、HOG</li>
+</ul>
+<p class="label"><strong>二进制描述子</strong></p>
+<ul>
+<li>存储在 $\{0,1\}^d$</li>
+<li>匹配用汉明距离（XOR + popcount）</li>
+<li>代表：BRIEF(128–512)、ORB(256)、BRISK(512)、FREAK(512)、LATCH(256)</li>
+</ul>
+<p>二进制描述子的核心优势：匹配极快。</p>
+<p>$$
+D_{Hamming}(\mathbf{a},\mathbf{b}) = \sum_{i=1}^{d} [a_i \neq b_i] = \mathrm{popcount}(\mathbf{a} \oplus \mathbf{b})
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathbf{a}, \mathbf{b}$：两个 $d$ 位二进制描述子。</li>
+<li>$a_i, b_i$：第 $i$ 位的取值（0 或 1）。</li>
+<li>$[a_i \neq b_i]$：指示函数，两位不同时为 1，否则为 0。</li>
+<li>$\oplus$：按位异或（XOR）。</li>
+<li>$\mathrm{popcount}(\cdot)$：统计结果中 1 的个数。</li>
+<li><strong>含义</strong>：汉明距离就是两个二进制串不同的位数，可用一次 XOR + 位计数完成，因此匹配极快。</li>
+</ul>
+<p class="label"><strong>浮点 vs 二进制描述子的处理差异：</strong></p>
+<table>
+<thead>
+<tr>
+<th>方面</th>
+<th>浮点描述子</th>
+<th>二进制描述子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>特征提取</td>
+<td>梯度/滤波响应（连续值）</td>
+<td>强度比较（0/1）</td>
+</tr>
+<tr>
+<td>量化</td>
+<td>直方图分箱、投影</td>
+<td>阈值比较、位打包</td>
+</tr>
+<tr>
+<td>归一化</td>
+<td>L2/L1、幂律</td>
+<td>通常无需（比较已消除幅值）</td>
+</tr>
+<tr>
+<td>匹配</td>
+<td>L2 / 余弦（浮点运算）</td>
+<td>Hamming（位运算）</td>
+</tr>
+<tr>
+<td>优势</td>
+<td>区分性强、精度高</td>
+<td>存储小、匹配快</td>
+</tr>
+</tbody>
+</table>
+<h3>2.6 按应用任务分</h3>
+<ul>
+<li>匹配/配准类：SIFT、SURF、ORB、SuperPoint</li>
+<li>检测/分类类：HOG、LBP、Haar-like、DPM</li>
+<li>检索类：BoW、VLAD、Fisher Vector、R-MAC、DELF</li>
+<li>识别类：LBPH、Eigenfaces、Fisherfaces、深度嵌入</li>
+<li>立体/稠密类：Census、NCC、DAISY</li>
+</ul>
+<hr />
+<h2>3. 数学原理基础</h2>
+<h3>3.1 尺度空间理论（Scale Space）</h3>
+<p>尺度不变性的数学基础是<strong>尺度空间</strong>。图像在不同尺度下的表示由高斯卷积给出：</p>
+<p>$$
+L(x,y,\sigma) = G(x,y,\sigma) * I(x,y)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$L(x,y,\sigma)$：尺度 $\sigma$ 下的图像表示（尺度空间）。</li>
+<li>$I(x,y)$：原始图像。</li>
+<li>$G(x,y,\sigma)$：高斯核。</li>
+<li>$*$：卷积运算。</li>
+<li><strong>含义</strong>：用不同宽度的高斯核模糊图像，得到一族由粗到细的表示，$\sigma$ 越大越模糊。</li>
+</ul>
+<p>$$
+G(x,y,\sigma) = \frac{1}{2\pi\sigma^2} e^{-\frac{x^2+y^2}{2\sigma^2}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\sigma$：高斯核标准差，即尺度参数。</li>
+<li>$x, y$：相对核中心的坐标。</li>
+<li>$\frac{1}{2\pi\sigma^2}$：归一化系数，保证核积分为 1。</li>
+<li><strong>含义</strong>：$\sigma$ 控制模糊程度，是尺度空间的\"尺子\"。</li>
+</ul>
+<p>尺度空间满足扩散方程（这一性质称为半群性质）：</p>
+<p>$$
+\frac{\partial L}{\partial \sigma} = \sigma \nabla^2 L
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\frac{\partial L}{\partial \sigma}$：表示随尺度变化的速率。</li>
+<li>$\nabla^2$：拉普拉斯算子。</li>
+<li><strong>含义</strong>：高斯模糊等价于热扩散过程，保证尺度空间是\"因果\"且无新结构产生的。</li>
+</ul>
+<p><strong>高斯拉普拉斯（LoG）</strong> 用于斑点检测：</p>
+<p>$$
+\nabla^2 G = \frac{\partial^2 G}{\partial x^2} + \frac{\partial^2 G}{\partial y^2}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\nabla^2 G$：高斯核的二阶导之和（拉普拉斯）。</li>
+<li><strong>含义</strong>：LoG 对斑点（blob）响应最强，斑点尺寸与 $\sigma$ 匹配时响应最大。</li>
+</ul>
+<p>尺度归一化 LoG 的极值给出特征尺度：</p>
+<p>$$
+\sigma^2 \nabla^2 L(x,y,\sigma)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\sigma^2$：尺度归一化因子，抵消 LoG 随 $\sigma$ 增大而衰减的幅值。</li>
+<li><strong>含义</strong>：在 $(x,y,\sigma)$ 三维空间中找该响应的极值，即得到特征点的位置与特征尺度。</li>
+</ul>
+<p><strong>高斯差分（DoG）</strong> 是对 LoG 的高效近似：</p>
+<p>$$
+D(x,y,\sigma) = \big( G(x,y,k\sigma) - G(x,y,\sigma) \big) * I(x,y)
+$$</p>
+<p>$$
+\approx (k-1)\sigma^2 \nabla^2 L
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$k$：相邻尺度的比例因子（如 $k=2^{1/s}$）。</li>
+<li>$G(x,y,k\sigma) - G(x,y,\sigma)$：两个相邻尺度高斯核之差。</li>
+<li>$(k-1)\sigma^2$：近似系数，说明 DoG 正比于尺度归一化 LoG。</li>
+<li><strong>含义</strong>：DoG 只需两次高斯模糊相减，计算远快于 LoG，却近似其效果。</li>
+</ul>
+<p>这就是 SIFT 能在多尺度上检测极值的关键。</p>
+<p><strong>非线性尺度空间（KAZE/AKAZE）</strong> 用非线性扩散替代高斯：</p>
+<p>$$
+\frac{\partial L}{\partial t} = \mathrm{div}\big( c(x,y,t)\,\nabla L \big)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$t$：演化时间（对应尺度）。</li>
+<li>$\mathrm{div}$：散度算子。</li>
+<li>$c(x,y,t)$：扩散系数，由局部梯度自适应控制。</li>
+<li>$\nabla L$：图像梯度。</li>
+<li><strong>含义</strong>：在平坦区强扩散、在边缘处弱扩散，从而在保边的同时建立尺度。</li>
+</ul>
+<p>其中 $c$ 由梯度自适应控制（Perona–Malik 型 diffusivity），从而在保边的同时建立尺度。</p>
+<p class="label"><strong>尺度空间处理流程与作用：</strong></p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像 I&quot;] --&gt; G1[&quot;高斯模糊 σ&quot;] --&gt; G2[&quot;高斯模糊 kσ&quot;] --&gt; DOG[&quot;相减得 DoG&quot;]
+    DOG --&gt; EXT[&quot;3D 邻域极值检测&lt;br/&gt;(x, y, σ)&quot;]
+    EXT --&gt; KP[&quot;尺度不变关键点&quot;]
+</pre>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>高斯卷积</td>
+<td>建立多尺度表示，模拟\"远近观察\"</td>
+</tr>
+<tr>
+<td>尺度归一化</td>
+<td>让不同尺度的响应可比</td>
+</tr>
+<tr>
+<td>DoG 相减</td>
+<td>高效近似 LoG，定位斑点与特征尺度</td>
+</tr>
+<tr>
+<td>3D 极值检测</td>
+<td>同时确定位置与尺度，获得尺度不变性</td>
+</tr>
+</tbody>
+</table>
+<h3>3.2 梯度与局部结构</h3>
+<p>一阶梯度：</p>
+<p>$$
+I_x = \frac{\partial I}{\partial x},\quad I_y = \frac{\partial I}{\partial y}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$I_x, I_y$：图像在水平、垂直方向的一阶偏导（梯度分量）。</li>
+<li><strong>含义</strong>：梯度描述灰度变化最快的方向与强度，是绝大多数描述子的基础信号。</li>
+</ul>
+<p>梯度幅值与方向：</p>
+<p>$$
+m = \sqrt{I_x^2 + I_y^2},\quad \theta = \mathrm{atan2}(I_y, I_x)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$m$：梯度幅值，表示边缘强度。</li>
+<li>$\theta$：梯度方向，表示边缘朝向。</li>
+<li>$\mathrm{atan2}$：四象限反正切，给出 $(-\pi,\pi]$ 的方向。</li>
+<li><strong>含义</strong>：幅值用于加权投票，方向用于直方图分箱，二者共同构成方向直方图。</li>
+</ul>
+<p class="label"><strong>自相关矩阵（结构张量）：</strong></p>
+<p>$$
+M = \sum_{(x,y)\in W} w(x,y)
+\begin{bmatrix}
+I_x^2 &amp; I_x I_y \\
+I_x I_y &amp; I_y^2
+\end{bmatrix}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$W$：局部窗口。</li>
+<li>$w(x,y)$：窗口权重（常为高斯）。</li>
+<li>$I_x^2, I_xI_y, I_y^2$：梯度的二阶统计量。</li>
+<li><strong>含义</strong>：$M$ 汇总窗口内梯度的分布方向，其特征值刻画局部结构类型。</li>
+</ul>
+<p>特征值 $\lambda_1,\lambda_2$ 决定局部结构类型：</p>
+<table>
+<thead>
+<tr>
+<th>特征值关系</th>
+<th>结构类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>$\lambda_1,\lambda_2$ 都小</td>
+<td>平坦区域</td>
+</tr>
+<tr>
+<td>一大一小</td>
+<td>边缘</td>
+</tr>
+<tr>
+<td>都大</td>
+<td>角点</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>Harris 响应：</strong></p>
+<p>$$
+R = \det(M) - k\,(\mathrm{tr}\,M)^2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\det(M) = \lambda_1\lambda_2$：行列式。</li>
+<li>$\mathrm{tr}\,M = \lambda_1 + \lambda_2$：迹。</li>
+<li>$k$：经验常数（常取 0.04–0.06）。</li>
+<li><strong>含义</strong>：两个特征值都大时 $R$ 大，因此 $R$ 的局部极大即角点。</li>
+</ul>
+<p class="label"><strong>Shi–Tomasi 响应：</strong></p>
+<p>$$
+R = \min(\lambda_1, \lambda_2)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\min(\lambda_1,\lambda_2)$：取较小特征值。</li>
+<li><strong>含义</strong>：直接要求两个方向都强，比 Harris 更稳定，常用于跟踪。</li>
+</ul>
+<p><strong>Hessian 矩阵</strong>（用于斑点/DoH）：</p>
+<p>$$
+H = \begin{bmatrix} I_{xx} &amp; I_{xy} \\ I_{xy} &amp; I_{yy} \end{bmatrix},\quad
+\det(H) = I_{xx}I_{yy} - I_{xy}^2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$I_{xx}, I_{yy}$：二阶偏导。</li>
+<li>$I_{xy}$：混合偏导。</li>
+<li>$\det(H)$：Hessian 行列式，即 DoH 响应。</li>
+<li><strong>含义</strong>：$\det(H)$ 在斑点处最大，用于斑点检测（SURF 的基础）。</li>
+</ul>
+<p class="label"><strong>梯度类处理的作用：</strong></p>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>一阶梯度</td>
+<td>提取边缘/纹理信号，对光照偏移不敏感</td>
+</tr>
+<tr>
+<td>幅值+方向</td>
+<td>为方向直方图提供权重与分箱</td>
+</tr>
+<tr>
+<td>结构张量</td>
+<td>区分平坦/边缘/角点</td>
+</tr>
+<tr>
+<td>Harris/Shi–Tomasi</td>
+<td>给出角点响应，用于检测</td>
+</tr>
+<tr>
+<td>Hessian</td>
+<td>给出斑点响应，用于 DoH 检测</td>
+</tr>
+</tbody>
+</table>
+<h3>3.3 直方图编码与量化</h3>
+<p>方向直方图是最常见的编码方式。给定方向集合 $\{\theta_i\}$ 与权重 $\{w_i\}$：</p>
+<p>$$
+h_b = \sum_i w_i \cdot \mathbb{1}\big[ \theta_i \in \text{bin}_b \big]
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$h_b$：第 $b$ 个方向箱的直方图值。</li>
+<li>$\theta_i$：第 $i$ 个样本的梯度方向。</li>
+<li>$w_i$：第 $i$ 个样本的权重（通常为梯度幅值 × 高斯窗）。</li>
+<li>$\mathbb{1}[\cdot]$：指示函数，方向落入该箱时为 1。</li>
+<li><strong>含义</strong>：把邻域内所有梯度按方向投票累加，得到对方向分布的统计描述。</li>
+</ul>
+<p>SIFT 使用<strong>三线性插值</strong>把样本分配到相邻的子区域和相邻的方向箱，避免分箱边界效应：</p>
+<p>$$
+w = w_{sub} \cdot w_{ori}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$w_{sub}$：样本在相邻子区域上的线性权重。</li>
+<li>$w_{ori}$：样本在相邻方向箱上的线性权重。</li>
+<li><strong>含义</strong>：一个样本按距离同时贡献给相邻格点，消除\"硬分箱\"造成的突变，提升稳定性。</li>
+</ul>
+<p>归一化的作用：</p>
+<ul>
+<li>L2 归一化：抑制对比度变化</li>
+<li>截断（clip 0.2）后再次归一化：抑制主导梯度</li>
+<li>L1 + 开方（RootSIFT）：改善分布稳定性</li>
+</ul>
+<p><strong>RootSIFT</strong> 的做法：</p>
+<p>$$
+\mathbf{v}_{root} = \sqrt{\frac{\mathbf{v}_{L1}}{\lVert \mathbf{v} \rVert_1}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathbf{v}$：原始 SIFT 描述子。</li>
+<li>$\lVert \mathbf{v} \rVert_1$：L1 范数（各元素绝对值之和）。</li>
+<li>$\mathbf{v}_{L1}$：L1 归一化后的向量。</li>
+<li>$\sqrt{\cdot}$：逐元素开方。</li>
+<li><strong>含义</strong>：L1 归一化 + 开方使分布更接近高斯，配合 Hellinger 距离可显著提升匹配性能。</li>
+</ul>
+<p class="label"><strong>直方图编码处理的作用：</strong></p>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>方向分箱</td>
+<td>把连续方向离散成固定维度</td>
+</tr>
+<tr>
+<td>幅值加权</td>
+<td>让强边缘主导统计，弱噪声被抑制</td>
+</tr>
+<tr>
+<td>高斯窗加权</td>
+<td>降低离中心较远样本的影响</td>
+</tr>
+<tr>
+<td>三线性插值</td>
+<td>消除分箱边界效应，提升稳定性</td>
+</tr>
+<tr>
+<td>L2 归一化</td>
+<td>抑制对比度/光照变化</td>
+</tr>
+<tr>
+<td>clip + 再归一化</td>
+<td>抑制单个主导梯度的影响</td>
+</tr>
+<tr>
+<td>L1 + 开方</td>
+<td>改善分布，提升匹配鲁棒性</td>
+</tr>
+</tbody>
+</table>
+<h3>3.4 二进制测试与汉明度量</h3>
+<p>二进制描述子由一组<strong>强度比较</strong>构成：</p>
+<p>$$
+\tau(I; \mathbf{p}, \mathbf{q}) =
+\begin{cases}
+1, &amp; I(\mathbf{p}) &lt; I(\mathbf{q}) \\
+0, &amp; \text{否则}
+\end{cases}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$I(\mathbf{p}), I(\mathbf{q})$：两个采样点处的灰度值。</li>
+<li>$\mathbf{p}, \mathbf{q}$：采样点坐标。</li>
+<li>$\tau$：比较结果，1 位二进制。</li>
+<li><strong>含义</strong>：只比较两点亮度大小，天然对光照的单调变化（如整体变亮）不敏感。</li>
+</ul>
+<p>一个 $d$ 位描述子：</p>
+<p>$$
+f_d(I) = \sum_{i=1}^{d} 2^{i-1} \tau(I; \mathbf{p}_i, \mathbf{q}_i)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$d$：描述子位数。</li>
+<li>$2^{i-1}$：第 $i$ 位的权重（二进制位权）。</li>
+<li>$\tau(I;\mathbf{p}_i,\mathbf{q}_i)$：第 $i$ 个测试的结果。</li>
+<li><strong>含义</strong>：把 $d$ 个比较结果打包成一个 $d$ 位整数，匹配时用汉明距离。</li>
+</ul>
+<p>采样模式 $\{(\mathbf{p}_i,\mathbf{q}_i)\}$ 决定了描述子的性能：</p>
+<ul>
+<li>BRIEF：随机采样，无旋转不变性</li>
+<li>ORB：学习式选择去相关样本对，并把采样模式按主方向旋转</li>
+<li>BRISK：同心圆采样，长短对分开使用</li>
+<li>FREAK：视网膜式采样，带级联</li>
+</ul>
+<p class="label"><strong>二进制描述子处理的作用：</strong></p>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>强度比较</td>
+<td>生成 0/1 位，对光照单调变化不敏感</td>
+</tr>
+<tr>
+<td>采样模式设计</td>
+<td>决定区分性与抗噪性</td>
+</tr>
+<tr>
+<td>主方向旋转</td>
+<td>赋予旋转不变性（ORB/BRISK）</td>
+</tr>
+<tr>
+<td>位打包</td>
+<td>压缩存储，支持快速 XOR 匹配</td>
+</tr>
+<tr>
+<td>级联比较</td>
+<td>提前筛除候选，加速匹配（FREAK）</td>
+</tr>
+</tbody>
+</table>
+<h3>3.5 矩与正交基</h3>
+<p class="label"><strong>几何矩：</strong></p>
+<p>$$
+m_{pq} = \sum_{x}\sum_{y} x^p y^q I(x,y)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$m_{pq}$：阶数为 $(p,q)$ 的几何矩。</li>
+<li>$x, y$：像素坐标。</li>
+<li>$I(x,y)$：像素灰度（或质量）。</li>
+<li>$p, q$：$x, y$ 的幂次。</li>
+<li><strong>含义</strong>：把图像当作二维分布，用坐标幂次的加权和描述其形状统计量。</li>
+</ul>
+<p class="label"><strong>中心矩：</strong></p>
+<p>$$
+\mu_{pq} = \sum_{x}\sum_{y} (x-\bar{x})^p (y-\bar{y})^q I(x,y)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\bar{x}, \bar{y}$：图像质心坐标。</li>
+<li><strong>含义</strong>：以质心为原点计算矩，从而消除平移影响，获得平移不变性。</li>
+</ul>
+<p class="label"><strong>归一化中心矩：</strong></p>
+<p>$$
+\eta_{pq} = \frac{\mu_{pq}}{\mu_{00}^{1+\frac{p+q}{2}}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mu_{00}$：零阶矩（图像总质量）。</li>
+<li>$1+\frac{p+q}{2}$：归一化指数。</li>
+<li><strong>含义</strong>：除以 $\mu_{00}$ 的幂，消除尺度影响，获得尺度不变性。</li>
+</ul>
+<p><strong>Hu 七不变矩</strong>由 $\eta_{pq}$ 组合而成，对平移、旋转、尺度不变：</p>
+<p>$$
+\begin{aligned}
+\phi_1 &amp;= \eta_{20} + \eta_{02} \\
+\phi_2 &amp;= (\eta_{20}-\eta_{02})^2 + 4\eta_{11}^2 \\
+\phi_3 &amp;= (\eta_{30}-3\eta_{12})^2 + (3\eta_{21}-\eta_{03})^2 \\
+&amp;\dots
+\end{aligned}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\phi_1$：总惯性（对旋转不敏感）。</li>
+<li>$\phi_2$：各向异性度量。</li>
+<li>$\phi_3$：三阶矩组合，描述不对称性。</li>
+<li><strong>含义</strong>：七个由归一化中心矩组合而成的量，对平移、旋转、尺度均不变，是经典形状描述子。</li>
+</ul>
+<p><strong>Zernike 矩</strong>：在单位圆盘上以正交多项式为基：</p>
+<p>$$
+Z_{nm} = \frac{n+1}{\pi}\int_0^{2\pi}\!\!\int_0^1 \overline{V_{nm}(\rho,\theta)}\, f(\rho,\theta)\,\rho\, d\rho\, d\theta
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$n$：阶数；$m$：重复度（$|m|\le n$）。</li>
+<li>$V_{nm}(\rho,\theta)$：Zernike 正交多项式基。</li>
+<li>$\overline{V_{nm}}$：共轭。</li>
+<li>$\rho, \theta$：极坐标；$\rho$ 为积分权重（面积元）。</li>
+<li>$\frac{n+1}{\pi}$：归一化系数。</li>
+<li><strong>含义</strong>：在单位圆盘上用正交基展开图像，矩之间不冗余，取模 $|Z_{nm}|$ 即得旋转不变描述子。</li>
+</ul>
+<p>正交性使得矩之间信息不冗余，且可以做到旋转不变（取模）。</p>
+<p class="label"><strong>矩类处理的作用：</strong></p>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>几何矩</td>
+<td>描述形状的全局统计量</td>
+</tr>
+<tr>
+<td>中心化</td>
+<td>消除平移影响</td>
+</tr>
+<tr>
+<td>归一化</td>
+<td>消除尺度影响</td>
+</tr>
+<tr>
+<td>组合（Hu）</td>
+<td>构造旋转不变的不变量</td>
+</tr>
+<tr>
+<td>正交基（Zernike）</td>
+<td>去除冗余，支持旋转不变与重建</td>
+</tr>
+</tbody>
+</table>
+<h3>3.6 滤波与纹理</h3>
+<p class="label"><strong>Gabor 滤波：</strong></p>
+<p>$$
+g(x,y;\lambda,\theta,\psi,\sigma,\gamma) =
+\exp\!\left(-\frac{x'^2+\gamma^2 y'^2}{2\sigma^2}\right)
+\exp\!\left(i\Big(2\pi\frac{x'}{\lambda}+\psi\Big)\right)
+$$</p>
+<p>其中</p>
+<p>$$
+x' = x\cos\theta + y\sin\theta,\quad y' = -x\sin\theta + y\cos\theta
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\lambda$：波长（频率的倒数）。</li>
+<li>$\theta$：滤波方向。</li>
+<li>$\psi$：相位偏移。</li>
+<li>$\sigma$：高斯包络标准差。</li>
+<li>$\gamma$：空间纵横比（椭圆度）。</li>
+<li>$x', y'$：旋转到滤波主方向后的坐标。</li>
+<li>第一项：高斯包络（局部化）；第二项：复正弦（频率选择）。</li>
+<li><strong>含义</strong>：Gabor 是"局部化 + 方向 + 频率"的联合滤波器，能提取特定方向与频率的纹理。</li>
+</ul>
+<p class="label"><strong>LBP（局部二值模式）：</strong></p>
+<p>$$
+\mathrm{LBP}_{P,R} = \sum_{p=0}^{P-1} s(g_p - g_c)\, 2^p,\quad
+s(x) = \begin{cases}1, &amp; x \ge 0\\ 0, &amp; x&lt;0\end{cases}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$P$：邻域采样点数。</li>
+<li>$R$：邻域半径。</li>
+<li>$g_c$：中心像素灰度。</li>
+<li>$g_p$：第 $p$ 个邻域像素灰度。</li>
+<li>$s(\cdot)$：符号函数，邻域比中心亮为 1。</li>
+<li>$2^p$：位权。</li>
+<li><strong>含义</strong>：把邻域与中心的亮度比较编码成一个 $P$ 位二进制数，描述局部纹理模式。</li>
+</ul>
+<p><strong>均匀模式</strong>：0/1 跳变不超过 2 次的模式，占自然图像绝大多数，因此
+$\mathrm{LBP}^{u2}$ 用 $P(P-1)+3$ 个箱代替 $2^P$ 个箱，大幅降维。</p>
+<p><strong>GLCM（灰度共生矩阵）</strong>：给定偏移 $\delta$，统计灰度对 $(i,j)$ 的出现次数：</p>
+<p>$$
+P_\delta(i,j) = \#\{(x,y) : I(x,y)=i,\ I(x+\delta_x, y+\delta_y)=j\}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\delta = (\delta_x, \delta_y)$：像素对偏移（距离与方向）。</li>
+<li>$i, j$：两个灰度级。</li>
+<li>$\#$：满足条件的像素对个数。</li>
+<li><strong>含义</strong>：统计"灰度 $i$ 旁边出现灰度 $j$"的频率，刻画纹理的空间共生规律。</li>
+</ul>
+<p>Haralick 特征从 $P_\delta$ 派生：</p>
+<p>$$
+\text{Contrast} = \sum_{i,j}(i-j)^2 P(i,j)
+$$</p>
+<p>$$
+\text{Energy} = \sum_{i,j} P(i,j)^2,\quad
+\text{Homogeneity} = \sum_{i,j}\frac{P(i,j)}{1+|i-j|}
+$$</p>
+<p>$$
+\text{Correlation} = \sum_{i,j}\frac{(i-\mu_i)(j-\mu_j)P(i,j)}{\sigma_i\sigma_j}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$P(i,j)$：归一化后的共生矩阵元素。</li>
+<li>$\mu_i, \mu_j$：行/列均值；$\sigma_i, \sigma_j$：行/列标准差。</li>
+<li>Contrast：灰度差越大值越大，反映纹理对比度。</li>
+<li>Energy：矩阵越集中值越大，反映纹理均匀性。</li>
+<li>Homogeneity：相邻灰度越接近值越大，反映局部平滑度。</li>
+<li>Correlation：反映灰度沿方向的线性相关程度。</li>
+<li><strong>含义</strong>：从共生矩阵派生出一组标量，把纹理压缩成可分类的特征向量。</li>
+</ul>
+<p class="label"><strong>滤波/纹理处理的作用：</strong></p>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gabor 滤波</td>
+<td>提取特定方向/频率的纹理能量</td>
+</tr>
+<tr>
+<td>LBP 比较</td>
+<td>编码局部微纹理，对光照单调变化鲁棒</td>
+</tr>
+<tr>
+<td>均匀模式降维</td>
+<td>大幅减少直方图维度</td>
+</tr>
+<tr>
+<td>GLCM 统计</td>
+<td>刻画灰度空间共生规律</td>
+</tr>
+<tr>
+<td>Haralick 特征</td>
+<td>把纹理压缩成可分类的标量</td>
+</tr>
+</tbody>
+</table>
+<h3>3.7 子空间与统计学习</h3>
+<p><strong>PCA（Eigenfaces）</strong>：对中心化数据求协方差矩阵特征向量：</p>
+<p>$$
+C = \frac{1}{N}\sum_{i=1}^{N}(\mathbf{x}_i-\bar{\mathbf{x}})(\mathbf{x}_i-\bar{\mathbf{x}})^T
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$N$：样本数。</li>
+<li>$\mathbf{x}_i$：第 $i$ 个样本向量。</li>
+<li>$\bar{\mathbf{x}}$：样本均值。</li>
+<li>$C$：协方差矩阵。</li>
+<li><strong>含义</strong>：$C$ 的特征向量给出数据方差最大的方向，取前 $k$ 个作为投影基，实现降维。</li>
+</ul>
+<p>保留前 $k$ 个最大特征值对应的特征向量作为投影基。</p>
+<p><strong>LDA（Fisherfaces）</strong>：最大化类间散度与类内散度之比：</p>
+<p>$$
+W = \arg\max_W \frac{|W^T S_B W|}{|W^T S_W W|}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$W$：投影矩阵。</li>
+<li>$S_B$：类间散度矩阵。</li>
+<li>$S_W$：类内散度矩阵。</li>
+<li>$|\cdot|$：行列式。</li>
+<li><strong>含义</strong>：寻找使类间距离大、类内距离小的投影方向，比 PCA 更具判别性。</li>
+</ul>
+<p><strong>GMM 与 Fisher Vector</strong>：用高斯混合建模局部描述子分布，再对参数求梯度：</p>
+<p>$$
+\mathcal{G}_\mu = \frac{1}{N\sqrt{\pi_k}}\sum_{i}\gamma_i(k)\frac{\mathbf{x}_i-\boldsymbol{\mu}_k}{\boldsymbol{\sigma}_k}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$N$：描述子总数。</li>
+<li>$\pi_k$：第 $k$ 个高斯分量的权重。</li>
+<li>$\gamma_i(k)$：描述子 $\mathbf{x}_i$ 属于第 $k$ 个分量的后验概率。</li>
+<li>$\boldsymbol{\mu}_k, \boldsymbol{\sigma}_k$：第 $k$ 个分量的均值与标准差。</li>
+<li><strong>含义</strong>：对 GMM 参数求梯度，把描述子集合编码成固定维度向量，保留二阶统计信息。</li>
+</ul>
+<p class="label"><strong>VLAD（Vector of Locally Aggregated Descriptors）：</strong></p>
+<p>$$
+\mathbf{v}_k = \sum_{i:\,\mathrm{NN}(\mathbf{x}_i)=c_k} (\mathbf{x}_i - c_k)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$c_k$：第 $k$ 个聚类中心。</li>
+<li>$\mathrm{NN}(\mathbf{x}_i)$：$\mathbf{x}_i$ 的最近聚类中心。</li>
+<li>$\mathbf{x}_i - c_k$：描述子相对中心的残差。</li>
+<li><strong>含义</strong>：把每个簇内所有描述子的残差求和，得到 $K\times d$ 维聚合向量。</li>
+</ul>
+<p>再做幂律归一化与 L2 归一化。</p>
+<p><strong>NetVLAD</strong>：把硬分配替换为软分配：</p>
+<p>$$
+\bar{a}_k(\mathbf{x}_i) = \frac{e^{\mathbf{w}_k^T \mathbf{x}_i + b_k}}{\sum_{k'} e^{\mathbf{w}_{k'}^T \mathbf{x}_i + b_{k'}}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathbf{w}_k, b_k$：第 $k$ 个簇的可学习权重与偏置。</li>
+<li>$\bar{a}_k(\mathbf{x}_i)$：软分配权重（类似 softmax）。</li>
+<li><strong>含义</strong>：用可微的软分配代替硬聚类，使 VLAD 可端到端训练。</li>
+</ul>
+<p class="label"><strong>子空间/聚合处理的作用：</strong></p>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PCA</td>
+<td>降维、去相关、保留最大方差</td>
+</tr>
+<tr>
+<td>LDA</td>
+<td>提升类间判别性</td>
+</tr>
+<tr>
+<td>GMM + 梯度</td>
+<td>保留分布的二阶统计信息</td>
+</tr>
+<tr>
+<td>VLAD 残差聚合</td>
+<td>紧凑编码局部描述子集合</td>
+</tr>
+<tr>
+<td>软分配（NetVLAD）</td>
+<td>使聚合可微、可学习</td>
+</tr>
+</tbody>
+</table>
+<h3>3.8 不变性的构造手段</h3>
+<table>
+<thead>
+<tr>
+<th>不变性</th>
+<th>构造手段</th>
+<th>数学操作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>平移</td>
+<td>使用相对坐标/局部邻域</td>
+<td>以关键点为中心建立坐标系</td>
+</tr>
+<tr>
+<td>旋转</td>
+<td>估计主方向并旋转采样</td>
+<td>梯度方向直方图峰值 $\theta^*$</td>
+</tr>
+<tr>
+<td>尺度</td>
+<td>尺度空间极值 + 尺度归一化窗口</td>
+<td>$\sigma^2\nabla^2 L$ 极值</td>
+</tr>
+<tr>
+<td>仿射</td>
+<td>二阶矩矩阵归一化</td>
+<td>$\Sigma^{-1/2}$ 变换到单位圆</td>
+</tr>
+<tr>
+<td>光照对比度</td>
+<td>归一化</td>
+<td>L2/L1 归一化、clip</td>
+</tr>
+<tr>
+<td>光照偏移</td>
+<td>差分</td>
+<td>梯度、强度比较</td>
+</tr>
+<tr>
+<td>视角</td>
+<td>多视角数据或学习</td>
+<td>度量学习、注意力匹配</td>
+</tr>
+</tbody>
+</table>
+<p><strong>主方向估计</strong>（SIFT）：</p>
+<p>$$
+\theta^* = \arg\max_\theta \sum_i w_i\, \mathbb{1}[\theta_i \in \text{bin}(\theta)]
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\theta^*$：估计出的主方向。</li>
+<li>$\theta_i$：第 $i$ 个样本的梯度方向。</li>
+<li>$w_i$：权重（梯度幅值 × 高斯窗）。</li>
+<li>$\text{bin}(\theta)$：方向 $\theta$ 对应的直方图箱。</li>
+<li><strong>含义</strong>：取方向直方图的峰值作为主方向，后续按此方向旋转采样，获得旋转不变性。</li>
+</ul>
+<p>其中权重为梯度幅值乘以高斯窗。</p>
+<h3>3.9 相似度度量与匹配</h3>
+<p class="label"><strong>欧氏距离：</strong></p>
+<p>$$
+d_2(\mathbf{a},\mathbf{b}) = \lVert \mathbf{a}-\mathbf{b} \rVert_2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathbf{a}, \mathbf{b}$：两个描述子向量。</li>
+<li>$\lVert\cdot\rVert_2$：L2 范数。</li>
+<li><strong>含义</strong>：向量空间中的直线距离，用于浮点描述子匹配。</li>
+</ul>
+<p class="label"><strong>余弦相似度：</strong></p>
+<p>$$
+\mathrm{cos}(\mathbf{a},\mathbf{b}) = \frac{\mathbf{a}\cdot\mathbf{b}}{\lVert\mathbf{a}\rVert\lVert\mathbf{b}\rVert}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathbf{a}\cdot\mathbf{b}$：点积。</li>
+<li>$\lVert\mathbf{a}\rVert, \lVert\mathbf{b}\rVert$：向量模长。</li>
+<li><strong>含义</strong>：只关心方向夹角，对向量长度（幅值）不敏感，适合归一化后的描述子。</li>
+</ul>
+<p class="label"><strong>最近邻距离比（NNDR / Lowe ratio test）：</strong></p>
+<p>$$
+\frac{d(\mathbf{a}, \mathbf{b}_{1})}{d(\mathbf{a}, \mathbf{b}_{2})} &lt; \rho
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathbf{b}_1$：最近邻描述子。</li>
+<li>$\mathbf{b}_2$：次近邻描述子。</li>
+<li>$\rho$：比率阈值（常取 0.6–0.8）。</li>
+<li><strong>含义</strong>：只有当最近邻明显优于次近邻时才接受匹配，有效剔除模糊/重复纹理的误匹配。</li>
+</ul>
+<p>其中 $\mathbf{b}_1$ 是最近邻、$\mathbf{b}_2$ 是次近邻，$\rho$ 常取 0.6–0.8。</p>
+<p><strong>几何验证</strong>：用 RANSAC 拟合单应/基础矩阵，剔除外点：</p>
+<p>$$
+H^* = \arg\max_H \sum_i \mathbb{1}\big[ \lVert \mathbf{x}'_i - H\mathbf{x}_i \rVert &lt; \epsilon \big]
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$H$：待拟合的单应矩阵。</li>
+<li>$\mathbf{x}_i, \mathbf{x}'_i$：一对匹配点。</li>
+<li>$\epsilon$：内点距离阈值。</li>
+<li>$\mathbb{1}[\cdot]$：内点指示函数。</li>
+<li><strong>含义</strong>：寻找使最多匹配点满足几何约束的 $H$，从而剔除外点、保留几何一致的匹配。</li>
+</ul>
+<p class="label"><strong>匹配处理的作用：</strong></p>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>欧氏/余弦距离</td>
+<td>度量描述子相似度</td>
+</tr>
+<tr>
+<td>NNDR 比率检验</td>
+<td>剔除模糊匹配</td>
+</tr>
+<tr>
+<td>交叉检验</td>
+<td>保证互为最近邻</td>
+</tr>
+<tr>
+<td>RANSAC</td>
+<td>剔除外点，保证几何一致</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>4. 关键点检测子（Keypoint Detectors）</h2>
+<h3>4.1 角点检测</h3>
+<table>
+<thead>
+<tr>
+<th>检测子</th>
+<th>原理</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Moravec</td>
+<td>各方向灰度差最小值的局部极大</td>
+<td>最早，无旋转不变性</td>
+</tr>
+<tr>
+<td>Harris–Stephens</td>
+<td>结构张量 + 响应函数</td>
+<td>旋转不变，光照鲁棒</td>
+</tr>
+<tr>
+<td>Shi–Tomasi</td>
+<td>$\min(\lambda_1,\lambda_2)$</td>
+<td>更稳定的跟踪角点</td>
+</tr>
+<tr>
+<td>Förstner</td>
+<td>协方差矩阵 + 圆度</td>
+<td>精度高，用于配准</td>
+</tr>
+<tr>
+<td>Kitchen–Rosenfeld</td>
+<td>梯度方向变化率</td>
+<td>计算简单</td>
+</tr>
+<tr>
+<td>FAST</td>
+<td>圆周 Bresenham 测试</td>
+<td>极快，无尺度不变</td>
+</tr>
+<tr>
+<td>AGAST</td>
+<td>FAST 的自适应泛化</td>
+<td>更快的 FAST 变体</td>
+</tr>
+<tr>
+<td>oFAST</td>
+<td>FAST + 强度质心方向</td>
+<td>ORB 的检测子</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Harris 推导</strong>：对邻域做一阶泰勒展开：</p>
+<p>$$
+I(x+\Delta x, y+\Delta y) \approx I(x,y) + I_x \Delta x + I_y \Delta y
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\Delta x, \Delta y$：窗口的小位移。</li>
+<li>$I_x, I_y$：图像梯度。</li>
+<li><strong>含义</strong>：用一阶近似描述窗口移动后的灰度变化，是推导角点响应的起点。</li>
+</ul>
+<p>平方误差和：</p>
+<p>$$
+E(\Delta x,\Delta y) = \sum_W \big( I_x \Delta x + I_y \Delta y \big)^2 = \mathbf{d}^T M \mathbf{d}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$E$：窗口移动后的灰度平方差。</li>
+<li>$\mathbf{d} = [\Delta x, \Delta y]^T$：位移向量。</li>
+<li>$M$：结构张量（自相关矩阵）。</li>
+<li><strong>含义</strong>：$E$ 可写成二次型，$M$ 的特征值决定各方向移动时 $E$ 的增长快慢，从而区分角点。</li>
+</ul>
+<p>对 $M$ 做特征值分析，则得到角点判据。</p>
+<p><strong>FAST 判据</strong>：圆形半径 3 的 16 像素圆周上，若有连续 $N$（通常 9 或 12）个像素
+都比中心亮/暗超过阈值 $t$，则判为角点：</p>
+<p>$$
+\exists\, \text{连续 } N \text{ 个 } p:\ |I(p)-I(c)| &gt; t
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$p$：圆周上的像素。</li>
+<li>$c$：中心像素。</li>
+<li>$I(\cdot)$：灰度值。</li>
+<li>$t$：亮度差阈值。</li>
+<li>$N$：连续满足条件的像素数（常取 9 或 12）。</li>
+<li><strong>含义</strong>：只需比较圆周像素与中心，无需梯度/卷积，因此极快。</li>
+</ul>
+<p><strong>强度质心方向</strong>（oFAST）：</p>
+<p>$$
+m_{pq} = \sum_{x,y} x^p y^q I(x,y),\quad
+\theta = \mathrm{atan2}(m_{01}, m_{10})
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$m_{pq}$：图像矩。</li>
+<li>$m_{10}, m_{01}$：一阶矩（质心坐标）。</li>
+<li>$\theta$：主方向。</li>
+<li><strong>含义</strong>：用亮度质心相对几何中心的方向作为主方向，计算极快，为 ORB 提供旋转不变性。</li>
+</ul>
+<h3>4.2 斑点与区域检测</h3>
+<table>
+<thead>
+<tr>
+<th>检测子</th>
+<th>原理</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LoG</td>
+<td>尺度归一化高斯拉普拉斯极值</td>
+<td>尺度不变</td>
+</tr>
+<tr>
+<td>DoG</td>
+<td>相邻高斯差</td>
+<td>SIFT 的核心</td>
+</tr>
+<tr>
+<td>DoH</td>
+<td>Hessian 行列式</td>
+<td>SURF 的基础</td>
+</tr>
+<tr>
+<td>SIFT 检测子</td>
+<td>DoG 极值 + 亚像素定位 + 边缘剔除</td>
+<td>尺度/旋转不变</td>
+</tr>
+<tr>
+<td>SURF 检测子</td>
+<td>积分图 + 盒滤波 Hessian</td>
+<td>速度快</td>
+</tr>
+<tr>
+<td>BRISK 检测子</td>
+<td>AGAST + 尺度空间</td>
+<td>快速多尺度</td>
+</tr>
+<tr>
+<td>CenSurE / STAR</td>
+<td>多尺度中心环绕滤波</td>
+<td>近似尺度不变</td>
+</tr>
+<tr>
+<td>MSER</td>
+<td>阈值扫描 + 连通域稳定性</td>
+<td>仿射不变强</td>
+</tr>
+<tr>
+<td>EBR / IBR</td>
+<td>边缘/强度极值区域</td>
+<td>早期区域检测</td>
+</tr>
+<tr>
+<td>KAZE / AKAZE</td>
+<td>非线性尺度空间</td>
+<td>保边、重复性好</td>
+</tr>
+<tr>
+<td>SUSAN</td>
+<td>最小核同值区</td>
+<td>角点+边缘统一框架</td>
+</tr>
+<tr>
+<td>Hessian-Laplace</td>
+<td>Hessian 定位 + LoG 尺度</td>
+<td>更稳定的尺度选择</td>
+</tr>
+<tr>
+<td>Harris-Laplace</td>
+<td>Harris 定位 + LoG 尺度</td>
+<td>经典仿射不变检测</td>
+</tr>
+<tr>
+<td>Harris-Affine</td>
+<td>迭代仿射归一化</td>
+<td>仿射不变</td>
+</tr>
+<tr>
+<td>Hessian-Affine</td>
+<td>Hessian 定位 + 仿射归一化</td>
+<td>仿射不变</td>
+</tr>
+</tbody>
+</table>
+<p><strong>MSER 稳定性判据</strong>：随阈值 $\theta$ 扫描，连通域面积变化率取局部极小：</p>
+<p>$$
+q(i) = \frac{|A(i+\Delta) - A(i-\Delta)|}{A(i)}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$A(i)$：阈值 $i$ 下连通域的面积。</li>
+<li>$\Delta$：阈值步长。</li>
+<li>$q(i)$：面积变化率。</li>
+<li><strong>含义</strong>：$q(i)$ 的局部极小对应面积随阈值变化最稳定的区域，即 MSER 区域，具有强仿射不变性。</li>
+</ul>
+<h3>4.3 边缘检测子</h3>
+<table>
+<thead>
+<tr>
+<th>检测子</th>
+<th>原理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Roberts</td>
+<td>2×2 差分算子</td>
+</tr>
+<tr>
+<td>Sobel</td>
+<td>3×3 平滑+差分</td>
+</tr>
+<tr>
+<td>Prewitt</td>
+<td>均匀加权差分</td>
+</tr>
+<tr>
+<td>Scharr</td>
+<td>更精确的旋转对称差分</td>
+</tr>
+<tr>
+<td>Laplacian</td>
+<td>二阶微分零交叉</td>
+</tr>
+<tr>
+<td>LoG / Marr–Hildreth</td>
+<td>平滑后二阶微分</td>
+</tr>
+<tr>
+<td>Canny</td>
+<td>高斯平滑 + 非极大抑制 + 双阈值滞后</td>
+</tr>
+<tr>
+<td>结构化边缘（SE）</td>
+<td>随机森林预测边缘</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Canny 的非极大抑制</strong>：沿梯度方向比较，只保留局部极大：</p>
+<p>$$
+\text{keep if } m(x,y) \ge m(x \pm \delta\cos\theta,\ y \pm \delta\sin\theta)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$m(x,y)$：$(x,y)$ 处的梯度幅值。</li>
+<li>$\theta$：该点梯度方向。</li>
+<li>$\delta$：沿梯度方向的采样步长。</li>
+<li><strong>含义</strong>：只有幅值不小于沿梯度方向两侧邻点的像素才保留，从而把粗边缘细化成单像素宽。</li>
+</ul>
+<p class="label"><strong>边缘检测处理的作用：</strong></p>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>高斯平滑</td>
+<td>抑制噪声，避免伪边缘</td>
+</tr>
+<tr>
+<td>一阶/二阶微分</td>
+<td>定位灰度突变（边缘）</td>
+</tr>
+<tr>
+<td>非极大抑制</td>
+<td>细化边缘到单像素宽</td>
+</tr>
+<tr>
+<td>双阈值滞后</td>
+<td>连接强边缘、抑制弱噪声边缘</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>5. 局部描述子（Local Descriptors）逐类详解</h2>
+<p class="label"><strong>局部描述子家族总览：</strong></p>
+<pre class="mermaid">flowchart TD
+    L[&quot;局部描述子&quot;] --&gt; G[&quot;梯度方向直方图&lt;br/&gt;SIFT / SURF / GLOH / HOG / DAISY&quot;]
+    L --&gt; B[&quot;二进制&lt;br/&gt;BRIEF / ORB / BRISK / FREAK&quot;]
+    L --&gt; R[&quot;区域/仿射&lt;br/&gt;MSER / Harris-Affine&quot;]
+    L --&gt; M[&quot;矩型&lt;br/&gt;Zernike / Legendre&quot;]
+    G --&gt; GF[&quot;处理：梯度 + 方向直方图 + 归一化&quot;]
+    B --&gt; BF[&quot;处理：强度比较 + 位打包&quot;]
+    R --&gt; RF[&quot;处理：区域检测 + 仿射归一化&quot;]
+    M --&gt; MF[&quot;处理：矩展开 + 正交基投影&quot;]
+</pre>
+<h3>5.1 梯度方向直方图类</h3>
+<h4>SIFT（Scale-Invariant Feature Transform, 128 维）</h4>
+<p class="label"><strong>流程：</strong></p>
+<ol>
+<li><strong>尺度空间极值</strong>：$D(x,y,\sigma)$ 在 3D 邻域（含相邻尺度）中比较</li>
+<li><strong>亚像素定位</strong>：泰勒展开求极值偏移</li>
+</ol>
+<p>$$
+\hat{\mathbf{x}} = -\left(\frac{\partial^2 D}{\partial \mathbf{x}^2}\right)^{-1} \frac{\partial D}{\partial \mathbf{x}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\hat{\mathbf{x}}$：极值点相对采样点的亚像素偏移。</li>
+<li>$\frac{\partial D}{\partial \mathbf{x}}$：DoG 的一阶导（梯度）。</li>
+<li>$\frac{\partial^2 D}{\partial \mathbf{x}^2}$：DoG 的 Hessian（二阶导）。</li>
+<li>
+<p><strong>含义</strong>：用泰勒展开把极值位置精确到亚像素，提升关键点定位精度。</p>
+</li>
+<li>
+<p><strong>边缘剔除</strong>：主曲率比判据</p>
+</li>
+</ul>
+<p>$$
+\frac{(\mathrm{tr}\,H)^2}{\det H} &lt; \frac{(r+1)^2}{r},\quad r \approx 10
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$H$：关键点处的 Hessian。</li>
+<li>$\mathrm{tr}\,H$：迹（主曲率之和）。</li>
+<li>$\det H$：行列式（主曲率之积）。</li>
+<li>$r$：主曲率比阈值（约 10）。</li>
+<li>
+<p><strong>含义</strong>：边缘点的主曲率比很大，该判据剔除不稳定的边缘响应，只保留角点/斑点。</p>
+</li>
+<li>
+<p><strong>方向分配</strong>：36 箱梯度方向直方图，峰值为主方向，达到峰值 80% 的方向作辅方向</p>
+</li>
+<li><strong>描述子</strong>：16×16 邻域内 4×4 子区域，每子区域 8 方向 → 128 维</li>
+<li><strong>归一化</strong>：L2 归一化 → clip 0.2 → 再 L2 归一化</li>
+</ul>
+<p><strong>SIFT 的数学核心</strong>是"梯度方向统计 + 局部空间分块 + 全局归一化"。</p>
+<p class="label"><strong>SIFT 特征提取处理流程与作用：</strong></p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; SS[&quot;尺度空间&lt;br/&gt;高斯金字塔&quot;] --&gt; DOG[&quot;DoG 极值检测&quot;]
+    DOG --&gt; SUB[&quot;亚像素定位&quot;] --&gt; EDGE[&quot;边缘剔除&quot;]
+    EDGE --&gt; ORI[&quot;主方向分配&quot;] --&gt; DESC[&quot;4×4×8 方向直方图&quot;]
+    DESC --&gt; NORM[&quot;L2 + clip + L2&quot;] --&gt; OUT[&quot;128 维描述子&quot;]
+</pre>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>尺度空间</td>
+<td>获得尺度不变性</td>
+</tr>
+<tr>
+<td>DoG 极值</td>
+<td>高效定位斑点/角点</td>
+</tr>
+<tr>
+<td>亚像素定位</td>
+<td>提升定位精度</td>
+</tr>
+<tr>
+<td>边缘剔除</td>
+<td>去除不稳定边缘响应</td>
+</tr>
+<tr>
+<td>主方向分配</td>
+<td>获得旋转不变性</td>
+</tr>
+<tr>
+<td>空间分块 + 方向直方图</td>
+<td>编码局部结构，提升区分性</td>
+</tr>
+<tr>
+<td>L2 + clip + L2</td>
+<td>抑制光照/对比度与主导梯度影响</td>
+</tr>
+</tbody>
+</table>
+<h4>SURF（Speeded-Up Robust Features, 64/128 维）</h4>
+<p>用盒滤波近似 Hessian：</p>
+<p>$$
+\det(H_{approx}) = D_{xx}D_{yy} - (0.9\,D_{xy})^2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$D_{xx}, D_{yy}$：盒滤波近似的二阶偏导。</li>
+<li>$D_{xy}$：混合偏导近似。</li>
+<li>$0.9$：经验修正系数，补偿盒滤波近似误差。</li>
+<li><strong>含义</strong>：用积分图 + 盒滤波快速计算 Hessian 行列式，大幅加速斑点检测。</li>
+</ul>
+<p><strong>方向分配</strong>：在半径 $6\sigma$ 的圆域内计算 Haar 小波响应 $d_x, d_y$，
+用 $60^\circ$ 滑动窗口求和，最大值方向为主方向。</p>
+<p><strong>描述子</strong>：4×4 子区域，每区域统计</p>
+<p>$$
+\big( \textstyle\sum d_x,\ \sum d_y,\ \sum |d_x|,\ \sum |d_y| \big) \rightarrow 64
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$d_x, d_y$：Haar 小波在水平/垂直方向的响应。</li>
+<li>$\sum d_x, \sum d_y$：响应之和（带符号，反映方向）。</li>
+<li>$\sum |d_x|, \sum |d_y|$：响应绝对值之和（反映强度）。</li>
+<li><strong>含义</strong>：每个子区域用 4 个统计量描述，4×4 子区域共 64 维，兼顾方向与强度。</li>
+</ul>
+<p>扩展版本加入 $\sum d_y$ 的符号 → 128 维。</p>
+<h4>GLOH（Gradient Location and Orientation Histogram, 128 维）</h4>
+<ul>
+<li>采用<strong>对数极坐标</strong>分箱：3 个半径 × 8 个角度 = 17 个空间箱</li>
+<li>每箱 16 个方向箱 → 272 维</li>
+<li>用 PCA 降到 128 维</li>
+<li>比 SIFT 更具区分性，但计算更贵</li>
+</ul>
+<h4>DAISY（200 维）</h4>
+<ul>
+<li>面向<strong>稠密</strong>匹配设计</li>
+<li>在每个采样点周围用高斯加权方向直方图</li>
+<li>用可分离卷积快速计算</li>
+<li>适合宽基线立体匹配</li>
+</ul>
+<h4>HOG（Histogram of Oriented Gradients）</h4>
+<p class="label"><strong>流程：</strong></p>
+<ol>
+<li>计算梯度幅值与方向</li>
+<li>把图像划分为 cell（如 8×8），每 cell 统计 9 个方向箱（0–180°）</li>
+<li>若干 cell 组成 block（如 2×2），对 block 内特征做 <strong>L2-Hys</strong> 归一化</li>
+<li>拼接所有 block 特征</li>
+</ol>
+<p class="label"><strong>L2-Hys 归一化：</strong></p>
+<p>$$
+\mathbf{v} \leftarrow \frac{\mathbf{v}}{\sqrt{\lVert\mathbf{v}\rVert_2^2 + \epsilon^2}},\quad
+v_i \leftarrow \min(v_i, 0.2),\quad
+\text{再归一化}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathbf{v}$：block 内拼接的梯度直方图向量。</li>
+<li>$\lVert\mathbf{v}\rVert_2$：L2 范数。</li>
+<li>$\epsilon$：防止除零的小常数。</li>
+<li>$0.2$：截断阈值。</li>
+<li><strong>含义</strong>：先 L2 归一化抑制对比度，再截断抑制主导梯度，最后再归一化，提升光照鲁棒性。</li>
+</ul>
+<p>HOG 是行人检测（HOG + SVM）与 DPM 的核心。</p>
+<p class="label"><strong>HOG 特征提取处理流程与作用：</strong></p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; GRAD[&quot;计算梯度幅值/方向&quot;] --&gt; CELL[&quot;cell 内 9 方向直方图&quot;]
+    CELL --&gt; BLOCK[&quot;block 拼接&quot;] --&gt; NORM[&quot;L2-Hys 归一化&quot;] --&gt; OUT[&quot;HOG 特征&quot;]
+</pre>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>梯度计算</td>
+<td>提取边缘/轮廓信号，对光照偏移不敏感</td>
+</tr>
+<tr>
+<td>cell 直方图</td>
+<td>局部方向统计，保留空间结构</td>
+</tr>
+<tr>
+<td>block 拼接</td>
+<td>引入邻域上下文，提升区分性</td>
+</tr>
+<tr>
+<td>L2-Hys 归一化</td>
+<td>抑制对比度与主导梯度，提升光照鲁棒性</td>
+</tr>
+</tbody>
+</table>
+<h4>相关变体</h4>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PCA-SIFT</td>
+<td>对梯度块做 PCA 降维到 20 维</td>
+</tr>
+<tr>
+<td>RootSIFT</td>
+<td>SIFT 描述子 L1 归一化后开方</td>
+</tr>
+<tr>
+<td>RIFT</td>
+<td>旋转不变特征变换，用环形分箱</td>
+</tr>
+<tr>
+<td>CSIFT</td>
+<td>颜色不变 SIFT</td>
+</tr>
+<tr>
+<td>OpponentSIFT</td>
+<td>在对立色通道上计算 SIFT</td>
+</tr>
+<tr>
+<td>DSP-SIFT</td>
+<td>尺度池化，提升匹配性能</td>
+</tr>
+<tr>
+<td>PHOG</td>
+<td>金字塔 HOG，用于形状/场景</td>
+</tr>
+<tr>
+<td>HOG3D</td>
+<td>时空梯度直方图</td>
+</tr>
+<tr>
+<td>PIFF</td>
+<td>像素级特征融合的类 HOG 全局特征</td>
+</tr>
+</tbody>
+</table>
+<h3>5.2 二进制描述子类</h3>
+<h4>BRIEF（Binary Robust Independent Elementary Features, 128–512 bit）</h4>
+<p>$$
+f(I) = \sum_{i} 2^{i-1}\,\tau(I;\mathbf{p}_i,\mathbf{q}_i)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$f(I)$：BRIEF 描述子（一个整数）。</li>
+<li>$\tau(I;\mathbf{p}_i,\mathbf{q}_i)$：第 $i$ 个强度比较结果（0/1）。</li>
+<li>$\mathbf{p}_i, \mathbf{q}_i$：第 $i$ 对采样点。</li>
+<li>$2^{i-1}$：位权。</li>
+<li>
+<p><strong>含义</strong>：把一组随机采样对的强度比较打包成二进制串，匹配用汉明距离，极快。</p>
+</li>
+<li>
+<p>采样对从高斯分布抽取</p>
+</li>
+<li><strong>无旋转不变性、无尺度不变性</strong>，对模糊较敏感</li>
+<li>匹配用汉明距离，极快</li>
+</ul>
+<h4>ORB（Oriented FAST and Rotated BRIEF, 256 bit）</h4>
+<ol>
+<li><strong>oFAST</strong> 检测 + 强度质心方向</li>
+<li><strong>Steered BRIEF</strong>：把采样模式按方向 $\theta$ 旋转</li>
+</ol>
+<p>$$
+R_\theta = \begin{bmatrix}\cos\theta &amp; -\sin\theta\\ \sin\theta &amp; \cos\theta\end{bmatrix}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$R_\theta$：旋转矩阵。</li>
+<li>$\theta$：关键点主方向（由强度质心估计）。</li>
+<li>
+<p><strong>含义</strong>：把 BRIEF 的采样坐标按主方向旋转，使描述子随图像旋转而一致变化，获得旋转不变性。</p>
+</li>
+<li>
+<p><strong>rBRIEF</strong>：用贪心搜索在训练集上选出去相关、方差大的 256 个测试对</p>
+</li>
+<li>加入金字塔实现尺度不变性</li>
+</ul>
+<p>ORB 是 ORB-SLAM 的基石，兼顾速度与质量。</p>
+<p class="label"><strong>二进制描述子特征提取处理流程与作用：</strong></p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; DET[&quot;oFAST 检测&quot;] --&gt; ORI[&quot;强度质心方向&quot;]
+    ORI --&gt; ROT[&quot;旋转采样模式&quot;] --&gt; CMP[&quot;强度比较&quot;] --&gt; PACK[&quot;位打包&quot;] --&gt; OUT[&quot;256 bit 描述子&quot;]
+</pre>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>oFAST 检测</td>
+<td>快速定位角点</td>
+</tr>
+<tr>
+<td>强度质心方向</td>
+<td>估计主方向，提供旋转不变性</td>
+</tr>
+<tr>
+<td>旋转采样模式</td>
+<td>使描述子随旋转一致变化</td>
+</tr>
+<tr>
+<td>强度比较</td>
+<td>生成 0/1 位，对光照单调变化不敏感</td>
+</tr>
+<tr>
+<td>位打包</td>
+<td>压缩存储，支持快速 XOR 匹配</td>
+</tr>
+</tbody>
+</table>
+<h4>BRISK（Binary Robust Invariant Scalable Keypoints, 512 bit）</h4>
+<ul>
+<li><strong>采样模式</strong>：同心圆（半径按指数增长），共 60 个采样点</li>
+<li><strong>短对</strong>（$&lt;\delta_{max}$）：用于估计方向</li>
+<li><strong>长对</strong>（$&gt;\delta_{min}$）：用于构造描述子</li>
+<li>512 bit，匹配快</li>
+</ul>
+<h4>FREAK（Fast Retina Keypoint, 512 bit）</h4>
+<ul>
+<li><strong>视网膜式采样</strong>：中心密集、外围稀疏，模拟人眼感受野</li>
+<li>通过<strong>级联比较</strong>逐步筛选，前面若干位就能筛掉大量候选</li>
+<li>用 45 个感受野之间的比较构成二进制串</li>
+</ul>
+<h4>其他二进制描述子</h4>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LATCH</td>
+<td>学习式三像素比较，抗噪更好</td>
+</tr>
+<tr>
+<td>LIOP</td>
+<td>局部强度序模式，利用像素排序</td>
+</tr>
+<tr>
+<td>BOLD</td>
+<td>自适应在线学习二值测试</td>
+</tr>
+<tr>
+<td>BinBoost</td>
+<td>Boosting 学习二进制哈希</td>
+</tr>
+<tr>
+<td>AKAZE-MLDB</td>
+<td>非线性尺度空间 + 改进 LDB</td>
+</tr>
+<tr>
+<td>KAZE 描述子</td>
+<td>非线性尺度 + 类 SURF 浮点描述子</td>
+</tr>
+<tr>
+<td>D-BRIEF</td>
+<td>面向稠密的 BRIEF 变体</td>
+</tr>
+</tbody>
+</table>
+<h3>5.3 区域与仿射描述子</h3>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MSER 区域</td>
+<td>稳定性极强的仿射不变区域</td>
+</tr>
+<tr>
+<td>Harris-Affine 区域</td>
+<td>迭代估计仿射形状</td>
+</tr>
+<tr>
+<td>Hessian-Affine 区域</td>
+<td>Hessian 版本</td>
+</tr>
+<tr>
+<td>EBR / IBR</td>
+<td>早期极值区域</td>
+</tr>
+<tr>
+<td>局部强度序</td>
+<td>序统计描述</td>
+</tr>
+</tbody>
+</table>
+<p>这些区域经过仿射归一化后，再送入 SIFT/SURF 描述子，即可获得仿射不变特征。</p>
+<h3>5.4 矩型局部描述子</h3>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>图像矩</td>
+<td>可构造平移/旋转/尺度不变</td>
+</tr>
+<tr>
+<td>Zernike 矩</td>
+<td>正交基，旋转不变，重建能力强</td>
+</tr>
+<tr>
+<td>伪 Zernike 矩</td>
+<td>放宽正交性，数值更稳</td>
+</tr>
+<tr>
+<td>Legendre 矩</td>
+<td>正交多项式，在矩形区域定义</td>
+</tr>
+<tr>
+<td>Tchebichef / Krawtchouk 矩</td>
+<td>离散正交矩，适合数字图像</td>
+</tr>
+<tr>
+<td>小波矩</td>
+<td>多分辨率 + 矩</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>6. 全局描述子（Global Descriptors）</h2>
+<h3>6.1 GIST / 空间包络</h3>
+<p>对人类场景感知的近似建模：</p>
+<ol>
+<li>对图像做多尺度、多方向的 Gabor 滤波</li>
+<li>把每张响应图划成 4×4 网格</li>
+<li>对每个网格取平均能量</li>
+</ol>
+<p>维度 = 尺度数 × 方向数 × 网格数（典型 512）。</p>
+<p>GIST 用于场景分类与快速图像检索。</p>
+<p class="label"><strong>GIST 特征提取处理流程与作用：</strong></p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; GAB[&quot;多尺度多方向 Gabor 滤波&quot;] --&gt; GRID[&quot;4×4 网格划分&quot;]
+    GRID --&gt; AVG[&quot;每格取平均能量&quot;] --&gt; OUT[&quot;GIST 向量（512）&quot;]
+</pre>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gabor 滤波组</td>
+<td>提取多方向/多尺度纹理能量</td>
+</tr>
+<tr>
+<td>网格划分</td>
+<td>保留粗略空间布局（空间包络）</td>
+</tr>
+<tr>
+<td>平均能量</td>
+<td>压缩成紧凑的全局向量</td>
+</tr>
+</tbody>
+</table>
+<h3>6.2 全局颜色统计</h3>
+<ul>
+<li>颜色直方图</li>
+<li>颜色矩（均值、方差、偏度）</li>
+<li>颜色聚合向量（CCV）</li>
+<li>颜色相关图（correlogram）</li>
+</ul>
+<h3>6.3 全局纹理统计</h3>
+<ul>
+<li>GLCM / Haralick</li>
+<li>Tamura 特征：粗糙度、对比度、方向性、线状性、规则性、粗略度</li>
+<li>小波能量</li>
+<li>MR8 滤波组响应直方图</li>
+</ul>
+<h3>6.4 全局形状描述</h3>
+<ul>
+<li>Hu 矩</li>
+<li>Zernike 矩</li>
+<li>Fourier 描述子</li>
+<li>骨架图</li>
+</ul>
+<h3>6.5 全局聚合描述子</h3>
+<ul>
+<li><strong>BoW（Bag of Words）</strong>：局部描述子聚类成词袋，统计词频</li>
+<li><strong>Fisher Vector</strong>：GMM 梯度聚合</li>
+<li><strong>VLAD</strong>：残差聚合</li>
+<li><strong>CNN 全局池化</strong>：VGG/ResNet 特征 + average/max/GeM/R-MAC 池化</li>
+</ul>
+<hr />
+<h2>7. 纹理描述子（Texture Descriptors）</h2>
+<p class="label"><strong>纹理描述子分类与处理：</strong></p>
+<pre class="mermaid">flowchart TD
+    T[&quot;纹理描述子&quot;] --&gt; S[&quot;统计型&lt;br/&gt;GLCM / LBP&quot;]
+    T --&gt; F[&quot;滤波型&lt;br/&gt;Gabor / MR8 / 小波&quot;]
+    T --&gt; M[&quot;模型型&lt;br/&gt;MRF / 分形&quot;]
+    T --&gt; TR[&quot;变换型&lt;br/&gt;傅里叶 / Gabor 谱&quot;]
+    T --&gt; ST[&quot;结构型&lt;br/&gt;Textons&quot;]
+    T --&gt; P[&quot;感知型&lt;br/&gt;Tamura&quot;]
+</pre>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>方法</th>
+<th>原理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>统计型</td>
+<td>GLCM、GLRLM、LBP、灰度梯度</td>
+<td>统计像素对/游程/局部模式</td>
+</tr>
+<tr>
+<td>滤波型</td>
+<td>Gabor、MR8、小波、可操纵滤波</td>
+<td>多方向多尺度响应能量</td>
+</tr>
+<tr>
+<td>模型型</td>
+<td>马尔可夫随机场、分形维数</td>
+<td>用概率模型描述纹理生成</td>
+</tr>
+<tr>
+<td>变换型</td>
+<td>傅里叶能量、Gabor 谱、小波</td>
+<td>频域能量分布</td>
+</tr>
+<tr>
+<td>结构型</td>
+<td>形态学、纹理单元、Textons</td>
+<td>重复基元的排列</td>
+</tr>
+<tr>
+<td>感知型</td>
+<td>Tamura</td>
+<td>按人类视觉描述词汇</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>LBP 的常用变体：</strong></p>
+<table>
+<thead>
+<tr>
+<th>变体</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>$\mathrm{LBP}^{u2}$</td>
+<td>均匀模式，降维</td>
+</tr>
+<tr>
+<td>$\mathrm{LBP}^{ri}$</td>
+<td>旋转不变</td>
+</tr>
+<tr>
+<td>$\mathrm{LBP}^{riu2}$</td>
+<td>旋转不变均匀模式</td>
+</tr>
+<tr>
+<td>CLBP</td>
+<td>加入幅值与中心像素信息</td>
+</tr>
+<tr>
+<td>LBP-HF</td>
+<td>傅里叶域的旋转不变 LBP</td>
+</tr>
+<tr>
+<td>CS-LBP</td>
+<td>中心对称比较，维度更低</td>
+</tr>
+<tr>
+<td>LBP-TOP</td>
+<td>时空三维 LBP，用于视频</td>
+</tr>
+<tr>
+<td>多尺度 LBP</td>
+<td>多半径组合</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Textons</strong>：先用滤波组响应聚类得到纹理基元，再用基元直方图表示纹理。</p>
+<hr />
+<h2>8. 颜色描述子（Color Descriptors）</h2>
+<h3>8.1 颜色直方图族</h3>
+<ul>
+<li>RGB / HSV / Lab 三通道直方图</li>
+<li>联合直方图 vs 边缘分布</li>
+<li>加空间信息的直方图（分块、环形）</li>
+</ul>
+<h3>8.2 颜色矩</h3>
+<p>一阶矩（均值）、二阶矩（标准差）、三阶矩（偏度）：</p>
+<p>$$
+\mu_k = \frac{1}{N}\sum_i p_{ik},\quad
+\sigma_k = \left(\frac{1}{N}\sum_i (p_{ik}-\mu_k)^2\right)^{1/2},\quad
+s_k = \left(\frac{1}{N}\sum_i (p_{ik}-\mu_k)^3\right)^{1/3}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$k$：颜色通道。</li>
+<li>$N$：像素数。</li>
+<li>$p_{ik}$：第 $i$ 个像素在第 $k$ 通道的取值。</li>
+<li>$\mu_k$：均值（一阶矩），反映平均亮度/颜色。</li>
+<li>$\sigma_k$：标准差（二阶矩），反映对比度/颜色变化。</li>
+<li>$s_k$：偏度（三阶矩），反映分布不对称性。</li>
+<li><strong>含义</strong>：用三个统计量概括每个通道的颜色分布，维度极低，适合快速检索。</li>
+</ul>
+<h3>8.3 颜色结构描述</h3>
+<ul>
+<li><strong>CCV（Color Coherence Vector）</strong>：区分相干/非相干像素</li>
+<li><strong>Color Correlogram</strong>：颜色对的空间相关性</li>
+<li><strong>Color Names</strong>：把颜色映射到 11 个语言色名</li>
+</ul>
+<h3>8.4 颜色 SIFT 家族</h3>
+<p>在颜色空间中重复 SIFT 流程：</p>
+<table>
+<thead>
+<tr>
+<th>描述子</th>
+<th>颜色空间</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RGB-SIFT</td>
+<td>各 RGB 通道分别做 SIFT</td>
+</tr>
+<tr>
+<td>OpponentSIFT</td>
+<td>对立色空间</td>
+</tr>
+<tr>
+<td>HSV-SIFT / HueSIFT</td>
+<td>HSV</td>
+</tr>
+<tr>
+<td>rgSIFT</td>
+<td>归一化 rg 色度</td>
+</tr>
+<tr>
+<td>C-SIFT</td>
+<td>色度不变量</td>
+</tr>
+<tr>
+<td>Transformed Color SIFT</td>
+<td>颜色变换不变</td>
+</tr>
+</tbody>
+</table>
+<h3>8.5 颜色描述子的匹配</h3>
+<ul>
+<li>直方图交集</li>
+<li>$\chi^2$ 距离</li>
+</ul>
+<p>$$
+d_{\chi^2}(\mathbf{h},\mathbf{g}) = \frac{1}{2}\sum_i \frac{(h_i-g_i)^2}{h_i+g_i}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathbf{h}, \mathbf{g}$：两个直方图。</li>
+<li>$h_i, g_i$：第 $i$ 个箱的值。</li>
+<li>
+<p><strong>含义</strong>：分母 $h_i+g_i$ 对每个箱做归一化，使大箱与小箱公平比较，适合直方图匹配。</p>
+</li>
+<li>
+<p>EMD（Earth Mover's Distance）</p>
+</li>
+</ul>
+<hr />
+<h2>9. 形状与轮廓描述子（Shape / Contour Descriptors）</h2>
+<h3>9.1 轮廓参数化</h3>
+<p><strong>链码（Freeman Chain Code）</strong>：用 8 方向编码边界。</p>
+<p class="label"><strong>轮廓点复数表示：</strong></p>
+<p>$$
+z(k) = x(k) + i\,y(k)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$z(k)$：第 $k$ 个轮廓点的复数表示。</li>
+<li>$x(k), y(k)$：轮廓点坐标。</li>
+<li>$i$：虚数单位。</li>
+<li><strong>含义</strong>：把二维轮廓点写成复数序列，便于用傅里叶变换分析。</li>
+</ul>
+<p><strong>Fourier 描述子</strong>：对 $z(k)$ 做 DFT：</p>
+<p>$$
+Z(u) = \sum_{k=0}^{N-1} z(k) e^{-i 2\pi uk / N}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$Z(u)$：第 $u$ 个频率分量。</li>
+<li>$N$：轮廓点数。</li>
+<li>$e^{-i2\pi uk/N}$：傅里叶基。</li>
+<li><strong>含义</strong>：把轮廓分解成不同频率的谐波，低频描述整体形状，高频描述细节。</li>
+</ul>
+<p>性质：</p>
+<ul>
+<li>平移只改变 $Z(0)$（去掉即可不变）</li>
+<li>旋转只改变相位</li>
+<li>尺度只改变幅值</li>
+<li>取 $|Z(u)|$ 得到旋转不变描述子</li>
+</ul>
+<h3>9.2 曲率与尺度空间</h3>
+<p class="label"><strong>曲率尺度空间（CSS）：</strong></p>
+<p>$$
+\kappa(u,\sigma) = \frac{\dot{x}\ddot{y}-\ddot{x}\dot{y}}{(\dot{x}^2+\dot{y}^2)^{3/2}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\kappa$：曲率。</li>
+<li>$u$：弧长参数。</li>
+<li>$\sigma$：平滑尺度。</li>
+<li>$\dot{x}, \dot{y}$：一阶导；$\ddot{x}, \ddot{y}$：二阶导。</li>
+<li><strong>含义</strong>：在不同平滑尺度下计算轮廓曲率，零交叉点对应形状的显著拐点，形成尺度树。</li>
+</ul>
+<p>随 $\sigma$ 增大，曲率零交叉点从细节到整体逐层出现，形成"尺度树"。</p>
+<p><strong>转向函数（Turning Function）</strong>：把边界累积转角作为弧长的函数，
+对旋转、平移不变，对尺度可归一化。</p>
+<h3>9.3 形状上下文（Shape Context）</h3>
+<p>对形状上一点 $p_i$，统计其余 $n-1$ 个点的相对位置分布：</p>
+<ul>
+<li>对数极坐标分箱：12 个角度 × 5 个半径 = 60 箱</li>
+<li>得到 60 维直方图</li>
+</ul>
+<p class="label"><strong>匹配代价：</strong></p>
+<p>$$
+C_{ij} = \frac{1}{2}\sum_{k=1}^{K}\frac{(h_i(k)-h_j(k))^2}{h_i(k)+h_j(k)}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$C_{ij}$：点 $i$ 与点 $j$ 的匹配代价。</li>
+<li>$h_i(k), h_j(k)$：两点形状上下文直方图的第 $k$ 个箱。</li>
+<li>$K$：箱数（60）。</li>
+<li><strong>含义</strong>：用 $\chi^2$ 距离度量两点形状上下文的差异，再用匈牙利算法求全局最优匹配。</li>
+</ul>
+<p>用匈牙利算法求最优匹配。</p>
+<h3>9.4 其他形状描述子</h3>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>原理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hu 矩</td>
+<td>七个不变矩组合</td>
+</tr>
+<tr>
+<td>Zernike 矩</td>
+<td>正交基，旋转不变</td>
+</tr>
+<tr>
+<td>距离变换 / 中轴</td>
+<td>骨架描述</td>
+</tr>
+<tr>
+<td>Chamfer 距离</td>
+<td>边缘点距离匹配</td>
+</tr>
+<tr>
+<td>多边形近似</td>
+<td>Douglas–Peucker</td>
+</tr>
+<tr>
+<td>B 样条</td>
+<td>平滑轮廓参数化</td>
+</tr>
+<tr>
+<td>骨架图</td>
+<td>拓扑结构描述</td>
+</tr>
+<tr>
+<td>形状上下文</td>
+<td>点分布直方图</td>
+</tr>
+<tr>
+<td>内距离（Inner Distance）</td>
+<td>基于内部测地距离</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>10. 光谱与子空间描述子（Spectral / Basis / Subspace）</h2>
+<h3>10.1 变换域</h3>
+<table>
+<thead>
+<tr>
+<th>变换</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DFT</td>
+<td>频域能量、平移不变</td>
+</tr>
+<tr>
+<td>DCT</td>
+<td>压缩、能量集中</td>
+</tr>
+<tr>
+<td>小波（Haar、Daubechies）</td>
+<td>多分辨率纹理/形状</td>
+</tr>
+<tr>
+<td>Gabor 族</td>
+<td>方向-频率分解</td>
+</tr>
+<tr>
+<td>可操纵滤波</td>
+<td>任意方向的可调响应</td>
+</tr>
+<tr>
+<td>梅林/傅里叶-梅林</td>
+<td>尺度和旋转不变配准</td>
+</tr>
+</tbody>
+</table>
+<h3>10.2 子空间方法</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>原理</th>
+<th>应用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PCA</td>
+<td>最大方差投影</td>
+<td>Eigenfaces、降维</td>
+</tr>
+<tr>
+<td>LDA</td>
+<td>最大类间/类内比</td>
+<td>Fisherfaces</td>
+</tr>
+<tr>
+<td>ICA</td>
+<td>统计独立分量</td>
+<td>盲源分离</td>
+</tr>
+<tr>
+<td>NMF</td>
+<td>非负分解</td>
+<td>部件化表示</td>
+</tr>
+<tr>
+<td>稀疏编码</td>
+<td>稀疏线性组合</td>
+<td>图像分类</td>
+</tr>
+<tr>
+<td>字典学习</td>
+<td>学习过完备基</td>
+<td>去噪、分类</td>
+</tr>
+<tr>
+<td>谱图（Spectral Graph）</td>
+<td>图拉普拉斯特征</td>
+<td>形状匹配</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>11. 学习型与深度描述子（Learning-based）</h2>
+<h3>11.1 经典学习型描述子</h3>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>学习方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PCA-SIFT</td>
+<td>对 SIFT 梯度块做 PCA</td>
+</tr>
+<tr>
+<td>LDA 描述子</td>
+<td>用判别分析投影</td>
+</tr>
+<tr>
+<td>Random Ferns</td>
+<td>随机蕨分类器</td>
+</tr>
+<tr>
+<td>Random Forests 描述</td>
+<td>决策森林输出</td>
+</tr>
+<tr>
+<td>Boosting 描述子</td>
+<td>AdaBoost 选择特征</td>
+</tr>
+<tr>
+<td>度量学习描述子</td>
+<td>三元组损失学习距离</td>
+</tr>
+<tr>
+<td>DeepCompare / DeepDesc</td>
+<td>浅层孪生网络 + 相似度损失</td>
+</tr>
+<tr>
+<td>MatchNet</td>
+<td>孪生网络 + 全连接度量</td>
+</tr>
+</tbody>
+</table>
+<h3>11.2 深度局部描述子</h3>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>核心思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L2-Net</td>
+<td>逐块归一化，改善匹配分布</td>
+</tr>
+<tr>
+<td>HardNet</td>
+<td>在 batch 内挖掘最难的负样本</td>
+</tr>
+<tr>
+<td>SOSNet</td>
+<td>引入二阶相似度正则</td>
+</tr>
+<tr>
+<td>SuperPoint</td>
+<td>自监督：MagicPoint + 单应变换自适应，输出检测+256 维描述子</td>
+</tr>
+<tr>
+<td>SuperGlue</td>
+<td>注意力图神经网络 + 最优传输匹配</td>
+</tr>
+<tr>
+<td>D2-Net</td>
+<td>联合检测与描述，单次前向</td>
+</tr>
+<tr>
+<td>R2D2</td>
+<td>可重复性与可靠性联合学习</td>
+</tr>
+<tr>
+<td>DELF</td>
+<td>语义特征 + 注意力池化</td>
+</tr>
+<tr>
+<td>DELG</td>
+<td>全局与局部联合，统一检索与匹配</td>
+</tr>
+<tr>
+<td>LF-Net</td>
+<td>全监督学习检测与描述</td>
+</tr>
+<tr>
+<td>SIFT + 学习式筛选</td>
+<td>学习式后处理/筛选</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>HardNet 的困难负样本挖掘：</strong></p>
+<p>$$
+\mathcal{L} = \frac{1}{N}\sum_i \max\big(0,\ 1 + d(\mathbf{a}_i,\mathbf{p}_i) - d(\mathbf{a}_i, \mathbf{n}^*_i)\big)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$N$：batch 内样本对数。</li>
+<li>$\mathbf{a}_i$：锚点描述子。</li>
+<li>$\mathbf{p}_i$：与锚点匹配的正样本。</li>
+<li>$\mathbf{n}^*_i$：batch 内最近的非匹配描述子（最难负样本）。</li>
+<li>$d(\cdot,\cdot)$：描述子距离。</li>
+<li>$1$：边界（margin）。</li>
+<li><strong>含义</strong>：要求正样本距离比最难负样本至少小一个 margin，从而拉开正负样本分布。</li>
+</ul>
+<p>其中 $\mathbf{n}^*$ 是批次内最近的非匹配描述子。</p>
+<p><strong>SuperPoint 的伪标签自监督</strong>：对图像施加随机单应变换，把关键点位置相应地变换，
+用形状一致的方式生成热力图监督信号。</p>
+<h3>11.3 深度全局与检索描述子</h3>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>全连接层特征（FC7 等）</td>
+<td>早期迁移学习特征</td>
+</tr>
+<tr>
+<td>全局平均池化（GAP）</td>
+<td>紧凑全局表示</td>
+</tr>
+<tr>
+<td>GeM 池化</td>
+<td>广义均值池化</td>
+</tr>
+</tbody>
+</table>
+<p>$$
+\text{GeM} = \left( \frac{1}{|\mathcal{X}|}\sum_{x\in\mathcal{X}} x^p \right)^{1/p}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathcal{X}$：特征图上的激活值集合。</li>
+<li>$|\mathcal{X}|$：元素个数。</li>
+<li>$p$：可学习/可调的幂次。</li>
+<li><strong>含义</strong>：$p=1$ 退化为平均池化，$p\to\infty$ 趋近最大池化，介于两者之间，可学习最优折中。</li>
+</ul>
+<p>| R-MAC | 多区域最大激活聚合 |
+| NetVLAD | 可微 VLAD 层 |
+| Fisher Vector + CNN | CNN 特征 + FV 编码 |
+| BEBLID | 提升式二进制描述子 |</p>
+<h3>11.4 学习型描述子的关键损失</h3>
+<ul>
+<li>对比损失（contrastive）</li>
+<li>三元组损失（triplet）</li>
+<li>铰链/边界挖掘（hard mining）</li>
+<li>排序损失（ranking）</li>
+<li>归一化相关 / 相似度匹配损失（NCC loss）</li>
+</ul>
+<hr />
+<h2>12. 立体匹配与光流描述子</h2>
+<h3>12.1 稠密立体匹配代价</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>原理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SAD</td>
+<td>绝对差之和</td>
+</tr>
+<tr>
+<td>SSD</td>
+<td>平方差之和</td>
+</tr>
+<tr>
+<td>NCC</td>
+<td>归一化互相关</td>
+</tr>
+<tr>
+<td>Census</td>
+<td>强度比较位串 + 汉明距离</td>
+</tr>
+<tr>
+<td>BT（Birchfield–Tomasi）</td>
+<td>抗采样、对幅值不敏感</td>
+</tr>
+<tr>
+<td>互信息（MI）</td>
+<td>统计依赖度，适跨模态</td>
+</tr>
+<tr>
+<td>AD-Census</td>
+<td>组合代价</td>
+</tr>
+<tr>
+<td>半全局匹配（SGM）</td>
+<td>代价聚合 + 一致性检查</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>Census 变换：</strong></p>
+<p>$$
+C(p) = \bigotimes_{\mathbf{q}\in \mathcal{N}(p)} \big[ I(\mathbf{q}) &gt; I(p) \big]
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$C(p)$：像素 $p$ 的 Census 位串。</li>
+<li>$\mathcal{N}(p)$：$p$ 的邻域。</li>
+<li>$\mathbf{q}$：邻域像素。</li>
+<li>$I(\cdot)$：灰度值。</li>
+<li>$\bigotimes$：位串拼接。</li>
+<li>$[\cdot]$：指示函数，邻域比中心亮为 1。</li>
+<li><strong>含义</strong>：把邻域与中心的亮度比较编码成位串，对光照幅值变化不敏感，匹配用汉明距离。</li>
+</ul>
+<p>匹配用汉明距离。</p>
+<h3>12.2 光流</h3>
+<p><strong>Lucas–Kanade</strong>（局部，亮度恒定假设）：</p>
+<p>$$
+I(x+u, y+v) \approx I(x,y) + I_x u + I_y v
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$u, v$：待求的光流（位移）。</li>
+<li>$I_x, I_y$：空间梯度。</li>
+<li><strong>含义</strong>：用一阶泰勒展开近似位移后的灰度，是光流约束方程的线性化。</li>
+</ul>
+<p>最小化：</p>
+<p>$$
+E(u,v) = \sum_W \big( I_x u + I_y v + I_t \big)^2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$E$：窗口内的亮度恒定误差。</li>
+<li>$I_t$：时间梯度。</li>
+<li>$W$：局部窗口。</li>
+<li><strong>含义</strong>：在窗口内最小化亮度恒定误差，求解局部光流。</li>
+</ul>
+<p>解：</p>
+<p>$$
+\begin{bmatrix}u\\v\end{bmatrix} =
+\left(\sum_W \begin{bmatrix}I_x^2 &amp; I_xI_y\\ I_xI_y &amp; I_y^2\end{bmatrix}\right)^{-1}
+\sum_W \begin{bmatrix}I_xI_t\\ I_yI_t\end{bmatrix}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>左侧：待求光流向量。</li>
+<li>括号内：结构张量之和（可逆性要求纹理丰富）。</li>
+<li>右侧：梯度与时间梯度的相关向量。</li>
+<li><strong>含义</strong>：最小二乘解，要求窗口内纹理丰富（结构张量可逆），否则出现孔径问题。</li>
+</ul>
+<p><strong>Horn–Schunck</strong>（全局，加平滑正则）：</p>
+<p>$$
+E = \iint \big( I_x u + I_y v + I_t \big)^2 + \alpha^2 \big( \lVert \nabla u \rVert^2 + \lVert \nabla v \rVert^2 \big)\, dx\,dy
+$$</p>
+<p>其中：</p>
+<ul>
+<li>第一项：亮度恒定误差（数据项）。</li>
+<li>第二项：光流场的平滑正则项。</li>
+<li>$\alpha$：正则权重，控制平滑强度。</li>
+<li>$\nabla u, \nabla v$：光流场的空间梯度。</li>
+<li><strong>含义</strong>：在整幅图上最小化\"亮度恒定 + 光流平滑\"，用全局平滑约束解决孔径问题。</li>
+</ul>
+<p class="label"><strong>光流/立体匹配处理的作用：</strong></p>
+<table>
+<thead>
+<tr>
+<th>处理</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>亮度恒定假设</td>
+<td>建立可解的约束方程</td>
+</tr>
+<tr>
+<td>局部窗口最小二乘</td>
+<td>求解局部光流（LK）</td>
+</tr>
+<tr>
+<td>全局平滑正则</td>
+<td>解决孔径问题（HS）</td>
+</tr>
+<tr>
+<td>Census 比较</td>
+<td>对光照幅值变化鲁棒</td>
+</tr>
+<tr>
+<td>代价聚合</td>
+<td>提升匹配稳定性（SGM）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>13. 视频与时序描述子</h2>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>原理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HOG3D</td>
+<td>时空梯度方向直方图</td>
+</tr>
+<tr>
+<td>HOF</td>
+<td>光流方向直方图</td>
+</tr>
+<tr>
+<td>MBH</td>
+<td>运动边界直方图</td>
+</tr>
+<tr>
+<td>iDT</td>
+<td>改进稠密轨迹 + 四种描述子融合</td>
+</tr>
+<tr>
+<td>Dense Trajectories</td>
+<td>稠密采样点轨迹 + 轨迹形状描述</td>
+</tr>
+<tr>
+<td>LBP-TOP</td>
+<td>三正交平面 LBP</td>
+</tr>
+<tr>
+<td>3D SIFT</td>
+<td>时空 SIFT</td>
+</tr>
+<tr>
+<td>C3D / I3D / Two-Stream</td>
+<td>深度时空特征（学习型）</td>
+</tr>
+<tr>
+<td>TimeSformer / VideoMAE</td>
+<td>基于 Transformer 的视频表示</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>14. 匹配、索引与检索</h2>
+<h3>14.1 匹配策略</h3>
+<ul>
+<li>暴力匹配（brute force）</li>
+<li>最近邻 + 距离比（NNDR）</li>
+<li>交叉检验（cross-check / mutual NN）</li>
+<li>比率检验 + 几何验证（RANSAC）</li>
+<li>互信息/相关（跨模态）</li>
+</ul>
+<h3>14.2 近似最近邻索引</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>原理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>KD-Tree</td>
+<td>递归空间划分</td>
+</tr>
+<tr>
+<td>FLANN</td>
+<td>自动选算法与参数</td>
+</tr>
+<tr>
+<td>LSH</td>
+<td>哈希碰撞近似近邻</td>
+</tr>
+<tr>
+<td>Hamming 索引</td>
+<td>二进制位串分块</td>
+</tr>
+<tr>
+<td>层次 K-means</td>
+<td>词袋倒排</td>
+</tr>
+<tr>
+<td>乘积量化（PQ）</td>
+<td>子空间分解 + 码本</td>
+</tr>
+<tr>
+<td>倒排文件（IVF）</td>
+<td>聚类桶 + 倒排</td>
+</tr>
+<tr>
+<td>HNSW</td>
+<td>分层可导航小世界图</td>
+</tr>
+</tbody>
+</table>
+<h3>14.3 检索流程</h3>
+<ol>
+<li>提取局部描述子</li>
+<li>量化到视觉词 / 聚合（BoW、VLAD、FV）</li>
+<li>归一化（幂律、L2、白化）</li>
+<li>倒排索引 + 候选排序</li>
+<li>几何重排序（RANSAC、空间验证）</li>
+</ol>
+<hr />
+<h2>15. 评价指标与基准数据集</h2>
+<h3>15.1 指标</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Repeatability</td>
+<td>变换后同一物理点被重复检测的比例</td>
+</tr>
+<tr>
+<td>Recall / Precision</td>
+<td>匹配查全/查准</td>
+</tr>
+<tr>
+<td>匹配得分（matching score）</td>
+<td>正确匹配比例</td>
+</tr>
+<tr>
+<td>mAP</td>
+<td>检索平均精度均值</td>
+</tr>
+<tr>
+<td>定位误差</td>
+<td>匹配点像素误差</td>
+</tr>
+<tr>
+<td>描述子距离分布</td>
+<td>正/负样本可分性</td>
+</tr>
+<tr>
+<td>计算耗时 / 内存</td>
+<td>效率代价</td>
+</tr>
+</tbody>
+</table>
+<h3>15.2 常用数据集与基准</h3>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Oxford VGG Affine</td>
+<td>仿射不变性评测</td>
+</tr>
+<tr>
+<td>HPatches</td>
+<td>局部描述子现代基准</td>
+</tr>
+<tr>
+<td>Brown / UBC</td>
+<td>宽基线匹配</td>
+</tr>
+<tr>
+<td>EVD</td>
+<td>视角变化评测</td>
+</tr>
+<tr>
+<td>MVS / PhotoTourism</td>
+<td>3D 重建匹配</td>
+</tr>
+<tr>
+<td>Oxford RobotCar</td>
+<td>长时视觉定位</td>
+</tr>
+<tr>
+<td>ImageNet / Places</td>
+<td>全局表示与检索</td>
+</tr>
+<tr>
+<td>Oxford5k / Paris6k / ROxford / RParis</td>
+<td>图像检索</td>
+</tr>
+<tr>
+<td>KITTI / EuRoC</td>
+<td>视觉里程计、SLAM</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>16. 应用方向</h2>
+<h3>16.1 几何与三维</h3>
+<table>
+<thead>
+<tr>
+<th>应用</th>
+<th>常用描述子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>图像拼接/全景</td>
+<td>SIFT、SURF、ORB</td>
+</tr>
+<tr>
+<td>运动恢复结构（SfM）</td>
+<td>SIFT（COLMAP 等）</td>
+</tr>
+<tr>
+<td>立体视觉与深度</td>
+<td>Census、AD-Census、DAISY、SGM</td>
+</tr>
+<tr>
+<td>多视图立体</td>
+<td>DAISY、PatchMatch + 描述子</td>
+</tr>
+<tr>
+<td>相机标定/配准</td>
+<td>Harris、SIFT、棋盘角点</td>
+</tr>
+<tr>
+<td>图像配准（医学/遥感）</td>
+<td>SIFT、MI、形状上下文</td>
+</tr>
+</tbody>
+</table>
+<h3>16.2 定位与机器人</h3>
+<table>
+<thead>
+<tr>
+<th>应用</th>
+<th>常用描述子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SLAM</td>
+<td>ORB（ORB-SLAM）、SuperPoint</td>
+</tr>
+<tr>
+<td>视觉里程计</td>
+<td>FAST + 光流、ORB</td>
+</tr>
+<tr>
+<td>回环检测</td>
+<td>BoW、NetVLAD、DELG</td>
+</tr>
+<tr>
+<td>重定位</td>
+<td>NetVLAD、全局描述子</td>
+</tr>
+<tr>
+<td>视觉导航</td>
+<td>全局描述子 + 局部匹配</td>
+</tr>
+</tbody>
+</table>
+<h3>16.3 检测与识别</h3>
+<table>
+<thead>
+<tr>
+<th>应用</th>
+<th>常用描述子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>行人检测</td>
+<td>HOG + SVM、DPM</td>
+</tr>
+<tr>
+<td>人脸检测</td>
+<td>Haar-like + AdaBoost、深度</td>
+</tr>
+<tr>
+<td>通用目标检测</td>
+<td>CNN 特征（发展自 HOG 思路）</td>
+</tr>
+<tr>
+<td>人脸识别</td>
+<td>LBPH、Eigenfaces、Fisherfaces、深度嵌入</td>
+</tr>
+<tr>
+<td>表情/年龄</td>
+<td>LBP、Gabor、深度</td>
+</tr>
+<tr>
+<td>字符/OCR</td>
+<td>HOG、LBP、投影特征、深度</td>
+</tr>
+<tr>
+<td>文档表格/版面</td>
+<td>线段、布局特征、深度布局模型</td>
+</tr>
+</tbody>
+</table>
+<h3>16.4 检索与分类</h3>
+<table>
+<thead>
+<tr>
+<th>应用</th>
+<th>常用描述子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>图像检索</td>
+<td>BoW、VLAD、Fisher Vector、DELF/DELG</td>
+</tr>
+<tr>
+<td>近重复检测</td>
+<td>全局描述子 + 哈希</td>
+</tr>
+<tr>
+<td>场景分类</td>
+<td>GIST、CNN 全局特征</td>
+</tr>
+<tr>
+<td>纹理分类</td>
+<td>LBP、Gabor、GLCM、Textons</td>
+</tr>
+<tr>
+<td>商品/商标检索</td>
+<td>局部描述子 + 聚合</td>
+</tr>
+<tr>
+<td>视频检索</td>
+<td>iDT、深度时空特征</td>
+</tr>
+</tbody>
+</table>
+<h3>16.5 跟踪与视频</h3>
+<table>
+<thead>
+<tr>
+<th>应用</th>
+<th>常用描述子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>目标跟踪</td>
+<td>LBP、HOG、相关滤波（KCF/MOSSE）、深度特征</td>
+</tr>
+<tr>
+<td>动作识别</td>
+<td>HOG3D、HOF、MBH、iDT、I3D</td>
+</tr>
+<tr>
+<td>行人重识别</td>
+<td>颜色直方图 + 深度嵌入</td>
+</tr>
+<tr>
+<td>手势/姿态</td>
+<td>形状上下文、骨架 + 深度</td>
+</tr>
+</tbody>
+</table>
+<h3>16.6 工业与其他</h3>
+<table>
+<thead>
+<tr>
+<th>应用</th>
+<th>常用描述子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>表面缺陷检测</td>
+<td>LBP、GLCM、Gabor</td>
+</tr>
+<tr>
+<td>布料/材料纹理</td>
+<td>LBP、Tamura、小波</td>
+</tr>
+<tr>
+<td>遥感变化检测</td>
+<td>SIFT、全局统计、深度</td>
+</tr>
+<tr>
+<td>医学图像分析</td>
+<td>LBP、Gabor、形状、深度</td>
+</tr>
+<tr>
+<td>生物特征（指纹/虹膜）</td>
+<td>方向场、Gabor、纹理编码</td>
+</tr>
+<tr>
+<td>增强现实（AR）</td>
+<td>ORB、SuperPoint、平面跟踪</td>
+</tr>
+<tr>
+<td>文档扫描矫正</td>
+<td>边缘 + 线段 + 单应</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>17. 选型与设计权衡</h2>
+<h3>17.1 选择维度</h3>
+<table>
+<thead>
+<tr>
+<th>需求</th>
+<th>推荐</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>最高匹配精度、可离线</td>
+<td>SIFT、RootSIFT、GLOH、SuperPoint</td>
+</tr>
+<tr>
+<td>实时性需求高</td>
+<td>ORB、BRISK、FREAK、AKAZE</td>
+</tr>
+<tr>
+<td>极小内存</td>
+<td>BRIEF/ORB（二进制）、LBP</td>
+</tr>
+<tr>
+<td>强仿射变化</td>
+<td>MSER + SIFT、Harris-Affine</td>
+</tr>
+<tr>
+<td>非刚性形变</td>
+<td>Shape Context、内距离</td>
+</tr>
+<tr>
+<td>纹理分类</td>
+<td>LBP、Gabor、GLCM、Textons</td>
+</tr>
+<tr>
+<td>目标检测（经典）</td>
+<td>HOG、Haar-like</td>
+</tr>
+<tr>
+<td>大规模检索</td>
+<td>VLAD、Fisher Vector、NetVLAD、深度全局</td>
+</tr>
+<tr>
+<td>宽基线/难场景</td>
+<td>SuperPoint + SuperGlue、D2-Net</td>
+</tr>
+<tr>
+<td>跨模态</td>
+<td>互信息、学习型嵌入</td>
+</tr>
+</tbody>
+</table>
+<h3>17.2 主要权衡</h3>
+<table>
+<thead>
+<tr>
+<th>权衡</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>维度 vs 速度</td>
+<td>128 维 SIFT 精度高但慢；256 bit ORB 快但精度略低</td>
+</tr>
+<tr>
+<td>不变性 vs 区分性</td>
+<td>越不变往往越不具区分性</td>
+</tr>
+<tr>
+<td>手工 vs 学习</td>
+<td>学习型精度高，但依赖数据与算力</td>
+</tr>
+<tr>
+<td>稀疏 vs 稠密</td>
+<td>稀疏可匹配，稠密可建图</td>
+</tr>
+<tr>
+<td>检测 vs 描述强制解耦</td>
+<td>耦合（如 D2-Net）可联合优化</td>
+</tr>
+<tr>
+<td>归一化强度</td>
+<td>过强丢失信息，过弱受光照影响</td>
+</tr>
+</tbody>
+</table>
+<h3>17.3 设计检查清单</h3>
+<ul>
+<li>需要哪些不变性？（旋转/尺度/仿射/光照/视角）</li>
+<li>匹配距离用 L2 还是 Hamming？</li>
+<li>需要多少关键点？稠密还是稀疏？</li>
+<li>是否可容忍检测失败？</li>
+<li>是否需要固定维度以便索引？</li>
+<li>是否需要 GPU 加速？</li>
+<li>是否有标注数据可做学习？</li>
+</ul>
+<hr />
+<h2>18. 速查表</h2>
+<h3>18.1 主要描述子一览</h3>
+<table>
+<thead>
+<tr>
+<th>描述子</th>
+<th>维度</th>
+<th>类型</th>
+<th>不变性</th>
+<th>主要应用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SIFT</td>
+<td>128</td>
+<td>浮点</td>
+<td>尺度、旋转</td>
+<td>匹配、SfM、拼接</td>
+</tr>
+<tr>
+<td>RootSIFT</td>
+<td>128</td>
+<td>浮点</td>
+<td>尺度、旋转</td>
+<td>匹配（提升版）</td>
+</tr>
+<tr>
+<td>PCA-SIFT</td>
+<td>20–36</td>
+<td>浮点</td>
+<td>尺度、旋转</td>
+<td>快速匹配</td>
+</tr>
+<tr>
+<td>SURF</td>
+<td>64/128</td>
+<td>浮点</td>
+<td>尺度、旋转</td>
+<td>实时匹配</td>
+</tr>
+<tr>
+<td>GLOH</td>
+<td>128</td>
+<td>浮点</td>
+<td>尺度、旋转</td>
+<td>高精度匹配</td>
+</tr>
+<tr>
+<td>DAISY</td>
+<td>200</td>
+<td>浮点</td>
+<td>尺度、旋转（弱）</td>
+<td>稠密立体</td>
+</tr>
+<tr>
+<td>HOG</td>
+<td>可变</td>
+<td>浮点</td>
+<td>光照（弱）</td>
+<td>行人检测</td>
+</tr>
+<tr>
+<td>PHOG</td>
+<td>可变</td>
+<td>浮点</td>
+<td>光照（弱）</td>
+<td>形状/场景</td>
+</tr>
+<tr>
+<td>BRIEF</td>
+<td>128–512</td>
+<td>二进制</td>
+<td>无</td>
+<td>快速匹配</td>
+</tr>
+<tr>
+<td>ORB</td>
+<td>256</td>
+<td>二进制</td>
+<td>尺度、旋转</td>
+<td>SLAM、实时</td>
+</tr>
+<tr>
+<td>BRISK</td>
+<td>512</td>
+<td>二进制</td>
+<td>尺度、旋转</td>
+<td>实时匹配</td>
+</tr>
+<tr>
+<td>FREAK</td>
+<td>512</td>
+<td>二进制</td>
+<td>尺度、旋转</td>
+<td>移动端</td>
+</tr>
+<tr>
+<td>AKAZE</td>
+<td>486</td>
+<td>二进制</td>
+<td>尺度、旋转</td>
+<td>鲁棒匹配</td>
+</tr>
+<tr>
+<td>LATCH</td>
+<td>256</td>
+<td>二进制</td>
+<td>无（可加）</td>
+<td>稠密匹配</td>
+</tr>
+<tr>
+<td>LBP</td>
+<td>59/256</td>
+<td>整数/直方图</td>
+<td>旋转（变体）</td>
+<td>纹理、人脸</td>
+</tr>
+<tr>
+<td>Gabor</td>
+<td>可变</td>
+<td>浮点</td>
+<td>方向/频率</td>
+<td>纹理</td>
+</tr>
+<tr>
+<td>GLCM/Haralick</td>
+<td>4–14</td>
+<td>浮点</td>
+<td>无</td>
+<td>纹理分类</td>
+</tr>
+<tr>
+<td>Tamura</td>
+<td>6</td>
+<td>浮点</td>
+<td>无</td>
+<td>纹理感知</td>
+</tr>
+<tr>
+<td>Shape Context</td>
+<td>60</td>
+<td>浮点</td>
+<td>平移、尺度</td>
+<td>形状匹配</td>
+</tr>
+<tr>
+<td>Fourier 描述子</td>
+<td>可变</td>
+<td>浮点</td>
+<td>平移、旋转、尺度</td>
+<td>轮廓匹配</td>
+</tr>
+<tr>
+<td>Hu 矩</td>
+<td>7</td>
+<td>浮点</td>
+<td>平移、旋转、尺度</td>
+<td>形状识别</td>
+</tr>
+<tr>
+<td>Zernike 矩</td>
+<td>可变</td>
+<td>浮点</td>
+<td>旋转</td>
+<td>形状识别</td>
+</tr>
+<tr>
+<td>MSER</td>
+<td>区域</td>
+<td>区域</td>
+<td>仿射</td>
+<td>区域匹配、文字</td>
+</tr>
+<tr>
+<td>GIST</td>
+<td>512</td>
+<td>浮点</td>
+<td>无</td>
+<td>场景分类</td>
+</tr>
+<tr>
+<td>BoW</td>
+<td>词袋</td>
+<td>稀疏</td>
+<td>继承局部</td>
+<td>检索</td>
+</tr>
+<tr>
+<td>VLAD</td>
+<td>$K\times d$</td>
+<td>浮点</td>
+<td>继承局部</td>
+<td>检索</td>
+</tr>
+<tr>
+<td>Fisher Vector</td>
+<td>$2Kd$</td>
+<td>浮点</td>
+<td>继承局部</td>
+<td>检索/分类</td>
+</tr>
+<tr>
+<td>NetVLAD</td>
+<td>$K\times d$</td>
+<td>浮点</td>
+<td>学习</td>
+<td>地点识别</td>
+</tr>
+<tr>
+<td>Census</td>
+<td>位串</td>
+<td>二进制</td>
+<td>幅值</td>
+<td>立体匹配</td>
+</tr>
+<tr>
+<td>SuperPoint</td>
+<td>256</td>
+<td>浮点</td>
+<td>学习</td>
+<td>SLAM、匹配</td>
+</tr>
+<tr>
+<td>SuperGlue</td>
+<td>匹配网络</td>
+<td>学习</td>
+<td>学习</td>
+<td>宽基线匹配</td>
+</tr>
+<tr>
+<td>DELF</td>
+<td>1024</td>
+<td>浮点</td>
+<td>学习</td>
+<td>检索</td>
+</tr>
+<tr>
+<td>DELG</td>
+<td>全局+局部</td>
+<td>学习</td>
+<td>学习</td>
+<td>统一检索</td>
+</tr>
+<tr>
+<td>GeM/R-MAC</td>
+<td>可变</td>
+<td>浮点</td>
+<td>学习</td>
+<td>检索</td>
+</tr>
+</tbody>
+</table>
+<h3>18.2 分类脉络速记</h3>
+<pre><code>描述子
+├─ 全局
+│   ├─ 颜色：直方图、矩、CCV、correlogram
+│   ├─ 纹理：GLCM、Tamura、LBP 直方图、Gabor 能量
+│   ├─ 形状：Hu、Zernike、Fourier
+│   ├─ 场景：GIST
+│   └─ 聚合：BoW、VLAD、Fisher、CNN 全局池化
+└─ 局部
+    ├─ 梯度直方图：SIFT、SURF、GLOH、HOG、DAISY
+    ├─ 二进制：BRIEF、ORB、BRISK、FREAK、LATCH
+    ├─ 区域/仿射：MSER、Harris-Affine、Hessian-Affine
+    ├─ 矩：Zernike、Legendre、Tchebichef
+    ├─ 形状：Shape Context、链码、CSS、转向函数
+    ├─ 纹理：LBP、Gabor、MR8、Textons
+    └─ 学习型：L2-Net、HardNet、SuperPoint、D2-Net、R2D2
+</code></pre>
+<h3>18.3 特征提取处理速查</h3>
+<p class="label"><strong>通用特征提取流水线：</strong></p>
+<pre class="mermaid">flowchart LR
+    I[&quot;图像&quot;] --&gt; PRE[&quot;预处理&lt;br/&gt;灰度化 / 平滑 / 归一化&quot;]
+    PRE --&gt; DET[&quot;检测&lt;br/&gt;角点 / 斑点 / 区域&quot;]
+    DET --&gt; NORM[&quot;几何归一化&lt;br/&gt;主方向 / 尺度 / 仿射&quot;]
+    NORM --&gt; FEAT[&quot;特征提取&lt;br/&gt;梯度 / 比较 / 滤波 / 矩&quot;]
+    FEAT --&gt; QUANT[&quot;量化编码&lt;br/&gt;直方图 / 二值 / 投影&quot;]
+    QUANT --&gt; NORM2[&quot;数值归一化&lt;br/&gt;L2 / L1 / 幂律&quot;]
+    NORM2 --&gt; OUT[&quot;描述子向量&quot;]
+</pre>
+<p class="label"><strong>各描述子的处理步骤与作用：</strong></p>
+<table>
+<thead>
+<tr>
+<th>描述子</th>
+<th>主要处理步骤</th>
+<th>各步作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SIFT</td>
+<td>尺度空间 → DoG 极值 → 亚像素定位 → 边缘剔除 → 主方向 → 4×4×8 方向直方图 → L2+clip+L2</td>
+<td>尺度/旋转不变；定位精确；编码局部结构；光照鲁棒</td>
+</tr>
+<tr>
+<td>SURF</td>
+<td>积分图 + 盒滤波 Hessian → Haar 响应 → 4×4 子区域统计</td>
+<td>快速检测；方向分配；64/128 维编码</td>
+</tr>
+<tr>
+<td>HOG</td>
+<td>梯度 → cell 直方图 → block 拼接 → L2-Hys</td>
+<td>边缘信号；局部方向统计；上下文；光照鲁棒</td>
+</tr>
+<tr>
+<td>BRIEF</td>
+<td>随机采样对 → 强度比较 → 位打包</td>
+<td>极快匹配；对光照单调变化不敏感</td>
+</tr>
+<tr>
+<td>ORB</td>
+<td>oFAST → 强度质心方向 → 旋转采样 → rBRIEF 选对</td>
+<td>快速检测；旋转不变；去相关提升区分性</td>
+</tr>
+<tr>
+<td>BRISK</td>
+<td>AGAST + 尺度空间 → 同心圆采样 → 长短对</td>
+<td>多尺度；方向估计；二进制编码</td>
+</tr>
+<tr>
+<td>FREAK</td>
+<td>视网膜采样 → 级联比较</td>
+<td>模拟人眼；提前筛除候选加速匹配</td>
+</tr>
+<tr>
+<td>LBP</td>
+<td>邻域比较 → 位编码 → 直方图</td>
+<td>微纹理编码；光照单调不变；均匀模式降维</td>
+</tr>
+<tr>
+<td>Gabor</td>
+<td>多方向多尺度滤波 → 能量统计</td>
+<td>方向/频率纹理提取</td>
+</tr>
+<tr>
+<td>GLCM</td>
+<td>灰度对统计 → Haralick 特征</td>
+<td>空间共生规律；可分类标量</td>
+</tr>
+<tr>
+<td>Hu 矩</td>
+<td>几何矩 → 中心矩 → 归一化 → 组合</td>
+<td>平移/旋转/尺度不变形状描述</td>
+</tr>
+<tr>
+<td>Zernike 矩</td>
+<td>正交基投影 → 取模</td>
+<td>无冗余；旋转不变；可重建</td>
+</tr>
+<tr>
+<td>Shape Context</td>
+<td>对数极坐标分箱 → χ² 匹配</td>
+<td>点分布描述；非刚性形状匹配</td>
+</tr>
+<tr>
+<td>Fourier 描述子</td>
+<td>轮廓复数化 → DFT → 取模</td>
+<td>平移/旋转/尺度不变轮廓描述</td>
+</tr>
+<tr>
+<td>GIST</td>
+<td>Gabor 滤波组 → 4×4 网格 → 平均能量</td>
+<td>场景空间包络；紧凑全局表示</td>
+</tr>
+<tr>
+<td>VLAD</td>
+<td>聚类 → 残差聚合 → 幂律+L2</td>
+<td>紧凑编码局部描述子集合</td>
+</tr>
+<tr>
+<td>Fisher Vector</td>
+<td>GMM → 参数梯度 → 归一化</td>
+<td>保留二阶统计；高区分性</td>
+</tr>
+<tr>
+<td>Census</td>
+<td>邻域比较 → 位串 → 汉明距离</td>
+<td>对光照幅值变化鲁棒；立体匹配</td>
+</tr>
+<tr>
+<td>HardNet</td>
+<td>深度网络 → 困难负样本挖掘</td>
+<td>拉开正负样本分布；提升匹配</td>
+</tr>
+<tr>
+<td>SuperPoint</td>
+<td>自监督热力图 → 检测+描述头</td>
+<td>联合检测与描述；可学习</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>处理步骤的通用作用总结：</strong></p>
+<table>
+<thead>
+<tr>
+<th>处理类别</th>
+<th>代表操作</th>
+<th>核心作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>预处理</td>
+<td>灰度化、平滑、归一化</td>
+<td>降噪、统一输入尺度</td>
+</tr>
+<tr>
+<td>检测</td>
+<td>角点/斑点/区域检测</td>
+<td>找到稳定、可重复的位置</td>
+</tr>
+<tr>
+<td>几何归一化</td>
+<td>主方向、尺度、仿射归一化</td>
+<td>赋予旋转/尺度/仿射不变性</td>
+</tr>
+<tr>
+<td>特征提取</td>
+<td>梯度、比较、滤波、矩</td>
+<td>提取对内容敏感的信号</td>
+</tr>
+<tr>
+<td>量化编码</td>
+<td>直方图、二值、投影、聚类</td>
+<td>压成固定维度、可比较的编码</td>
+</tr>
+<tr>
+<td>数值归一化</td>
+<td>L2/L1、幂律、clip</td>
+<td>抑制光照/对比度，提升鲁棒性</td>
+</tr>
+<tr>
+<td>匹配</td>
+<td>距离度量、比率检验、RANSAC</td>
+<td>找对应点并剔除外点</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>19. 结论</h2>
+<p>描述子的核心思想可以浓缩为三步：</p>
+<ol>
+<li><strong>选一个区域</strong>——用检测子找出稳定、可重复的位置或区域</li>
+<li><strong>编码一个向量</strong>——用梯度、比较、矩、滤波、频谱等算子把内容量化</li>
+<li><strong>做一次归一化</strong>——用归一化、主方向、尺度、仿射等手段获得不变性</li>
+</ol>
+<p>不同描述子的差别，本质上就是：</p>
+<ul>
+<li>用什么算子 $\mathcal{F}$</li>
+<li>用什么量化 $\mathcal{Q}$</li>
+<li>用什么归一化 $\mathcal{N}$</li>
+<li>想要哪种不变性</li>
+<li>是手工设计还是从数据中学习</li>
+</ul>
+<p>从历史脉络看，描述子经历了三个阶段：</p>
+<ul>
+<li><strong>手工几何阶段</strong>：Harris、SIFT、SURF、HOG、LBP、Shape Context</li>
+<li><strong>二进制与实时阶段</strong>：BRIEF、ORB、BRISK、FREAK、AKAZE</li>
+<li><strong>学习与深度阶段</strong>：Fisher/VLAD → HardNet、SuperPoint、SuperGlue、D2-Net、DELF/DELG</li>
+</ul>
+<p>但即使到了深度学习时代，经典描述子的设计思想（尺度空间、主方向归一化、
+方向直方图、二值比较、聚合编码）依然是理解现代特征表示的重要基础，
+也是许多工业场景中低延迟、低功耗方案的首选。</p>
+
+<!-- KaTeX -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // KaTeX 渲染
+    if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(document.body, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });
+    }
+    // Mermaid 渲染
+    if (typeof mermaid !== 'undefined') {
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+        mermaid.run();
+    }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>颜色空间理论清单：定义、数学原理、物理基础与使用范围</title>
+    <style>
+@page {
+    margin: 20mm 15mm 20mm 15mm;
+    size: A4;
+}
+* { box-sizing: border-box; }
+body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    font-size: 11pt;
+    line-height: 1.7;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── 标题 ── */
+h1 {
+    font-size: 36pt;
+    color: #1a1a2e;
+    text-align: center;
+    border-bottom: 3px solid #16213e;
+    padding-bottom: 12px;
+    margin: 0 0 20px 0;
+}
+h2 {
+    font-size: 28pt;
+    color: #16213e;
+    border-bottom: 2px solid #0f3460;
+    padding-bottom: 8px;
+    margin: 30px 0 15px 0;
+    page-break-before: always;
+}
+h2:first-of-type { page-break-before: avoid; }
+h3 {
+    font-size: 24pt;
+    color: #0f3460;
+    margin: 25px 0 10px 0;
+    page-break-after: avoid;
+}
+h4 {
+    font-size: 20pt;
+    color: #1a1a2e;
+    margin: 20px 0 8px 0;
+    page-break-after: avoid;
+}
+
+/* ── 段落 ── */
+p { margin: 8px 0; text-align: justify; }
+
+/* 粗体段落标记（核心思想、关键设计等）独占一行时加大加粗。
+   注意：不能用 :only-child —— 它只统计元素兄弟节点、不统计文本节点，
+   会把 <p><strong>标签</strong>：</p> 里的 <strong> 误判为唯一子元素，
+   导致 display:block 生效、结尾的冒号被挤到下一行。
+   因此改由 md_to_html() 给「整段只有粗体标签」的段落打上 class="label"。 */
+p.label > strong {
+    display: block;
+    font-size: 13pt;
+    color: #0f3460;
+    margin-top: 12px;
+    margin-bottom: 4px;
+}
+
+/* ── 列表 ── */
+ul, ol { margin: 8px 0; padding-left: 2em; }
+li { margin: 4px 0; }
+
+/* ── 代码 ── */
+code {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 10pt;
+    background-color: #f0f0f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+pre {
+    background-color: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    page-break-inside: avoid;
+    margin: 12px 0;
+}
+pre code {
+    background-color: transparent;
+    padding: 0;
+    font-size: 9.5pt;
+    line-height: 1.5;
+}
+
+/* ── Mermaid 图 ── */
+pre.mermaid, .mermaid {
+    text-align: center;
+    background-color: white;
+    border: none;
+    padding: 10px 0;
+}
+.mermaid svg { max-width: 100%; height: auto; }
+
+/* ── 表格 ── */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 15px 0;
+    font-size: 10pt;
+    page-break-inside: avoid;
+}
+th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+th { background-color: #e8e8e8; font-weight: bold; }
+tr:nth-child(even) { background-color: #fafafa; }
+
+/* ── 引用 ── */
+blockquote {
+    border-left: 4px solid #0f3460;
+    background-color: #f5f5fa;
+    padding: 10px 15px;
+    margin: 15px 0;
+    color: #555;
+}
+
+/* ── 链接 / 分隔线 ── */
+a { color: #0f3460; text-decoration: none; }
+hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+
+/* ── 打印优化 ── */
+h2, h3, h4 { page-break-after: avoid; }
+table, pre, blockquote { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+<h1>颜色空间理论清单：定义、数学原理、物理基础与使用范围</h1>
+<h2>1. 颜色空间是什么？</h2>
+<p>颜色空间本质上是“把颜色映射为一组数值”的规则。它不是颜色本身，而是一种编码方式。</p>
+<p>从数学角度看，颜色通常可以看作一个多维坐标：</p>
+<ul>
+<li>1 维：灰度</li>
+<li>3 维：RGB、XYZ、Lab、YCbCr 等</li>
+<li>4 维：CMYK 等</li>
+<li>更高维：专色、DeviceN、ICC-based 等</li>
+</ul>
+<p>从物理角度看，颜色来自光谱能量分布；从视觉角度看，颜色最终由人眼的三类锥细胞响应决定。</p>
+<hr />
+<h2>2. 物理基础：为什么颜色可以被数字化？</h2>
+<h3>2.1 光谱与颜色</h3>
+<p>任何可见光都可以用光谱功率分布表示：</p>
+<p>$$
+S(\lambda), \quad \lambda \in [380, 780] \text{ nm}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\lambda$ 是波长</li>
+<li>$S(\lambda)$ 表示该波长上的光强分布</li>
+</ul>
+<p>不同的光谱分布会被人眼感知成不同颜色。</p>
+<h3>2.2 人眼的三刺激假设</h3>
+<p>人眼对光的响应并不是“按波长一一对应”，而是由三类锥体细胞负责：</p>
+<ul>
+<li>L 型（长波，偏红）</li>
+<li>M 型（中波，偏绿）</li>
+<li>S 型（短波，偏蓝）</li>
+</ul>
+<p>因此，颜色在视觉上可以近似表示为一个三维刺激向量。</p>
+<h3>2.3 CIE 三刺激值</h3>
+<p>CIE 定义了三刺激值：</p>
+<p>$$
+X = \int S(\lambda)\bar{x}(\lambda)\,d\lambda
+$$</p>
+<p>$$
+Y = \int S(\lambda)\bar{y}(\lambda)\,d\lambda
+$$</p>
+<p>$$
+Z = \int S(\lambda)\bar{z}(\lambda)\,d\lambda
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\bar{x}(\lambda), \bar{y}(\lambda), \bar{z}(\lambda)$ 是颜色匹配函数</li>
+<li>$(X,Y,Z)$ 是颜色的三刺激值</li>
+<li>这为后续所有颜色空间提供了统一基础</li>
+</ul>
+<h3>2.4 物理意义</h3>
+<ul>
+<li>$X,Y,Z$ 不等于“波长”，而是“视觉刺激量”</li>
+<li>它们是标准化表述颜色的一种数学方式</li>
+<li>这也是为什么 XYZ 是许多颜色空间的基础</li>
+</ul>
+<hr />
+<h2>3. 颜色空间总览</h2>
+<table>
+<thead>
+<tr>
+<th>颜色空间</th>
+<th>类型</th>
+<th>核心特征</th>
+<th>典型用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RGB</td>
+<td>设备/显示</td>
+<td>三基色加法</td>
+<td>屏幕、图像处理</td>
+</tr>
+<tr>
+<td>sRGB</td>
+<td>标准化 RGB</td>
+<td>标准白点和 gamma 规则</td>
+<td>Web、显示器</td>
+</tr>
+<tr>
+<td>CMY</td>
+<td>减色法</td>
+<td>互补 RGB</td>
+<td>印刷前逻辑</td>
+</tr>
+<tr>
+<td>CMYK</td>
+<td>印刷色彩</td>
+<td>加入黑色 K</td>
+<td>打印、出版</td>
+</tr>
+<tr>
+<td>Gray</td>
+<td>单通道亮度</td>
+<td>只保留亮度</td>
+<td>OCR、二值化</td>
+</tr>
+<tr>
+<td>XYZ</td>
+<td>物理/标准</td>
+<td>设备无关三刺激值</td>
+<td>色彩管理</td>
+</tr>
+<tr>
+<td>Lab</td>
+<td>感知均匀</td>
+<td>与人眼感知更接近</td>
+<td>色差分析</td>
+</tr>
+<tr>
+<td>Luv / LCh</td>
+<td>感知型</td>
+<td>色度与亮度分离</td>
+<td>色彩设计</td>
+</tr>
+<tr>
+<td>YUV / YCbCr</td>
+<td>视频/压缩</td>
+<td>分离亮度和色度</td>
+<td>JPEG、视频</td>
+</tr>
+<tr>
+<td>HSI / HSV / HSL</td>
+<td>人类直觉型</td>
+<td>色相、饱和度、亮度</td>
+<td>交互、阈值</td>
+</tr>
+<tr>
+<td>Munsell</td>
+<td>经验型</td>
+<td>色相-明度-彩度</td>
+<td>色板、设计</td>
+</tr>
+<tr>
+<td>Indexed</td>
+<td>索引色</td>
+<td>颜色表映射</td>
+<td>GIF、低色图</td>
+</tr>
+<tr>
+<td>DeviceRGB / DeviceCMYK</td>
+<td>PDF 设备模型</td>
+<td>依赖设备</td>
+<td>PDF 视图/打印</td>
+</tr>
+<tr>
+<td>ICCBased</td>
+<td>标准色管理</td>
+<td>基于 ICC profile</td>
+<td>生产印刷</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>3.1 标准来源与定义依据</h2>
+<p>颜色空间有两类来源：</p>
+<ul>
+<li>由国际色彩学与标准组织正式定义的标准空间，如 CIE、ISO、IEC、ITU、ICC、W3C、PDF 标准</li>
+<li>由应用领域约定或经验模型形成的表示方法，如 HSI、HSV、HSL、Munsell、Indexed color</li>
+</ul>
+<h3>3.1.1 CIE / ISO 体系</h3>
+<ul>
+<li>XYZ、Lab、Luv、LCh 的基石来自 CIE（Commission Internationale de l’Éclairage，国际照明委员会）</li>
+<li>CIE 1931 2° 标准观察者和 CIE 1964 10° 标准观察者是现代色度学的基础</li>
+<li>CIE 15 是 CIE 关于色度学和光度学的核心标准</li>
+<li>这些定义通常通过 ISO 相关标准传播与引用</li>
+</ul>
+<h3>3.1.2 IEC / ITU / 视频与图像行业</h3>
+<ul>
+<li>sRGB 的正式标准来源是 IEC 61966-2-1</li>
+<li>YUV、YCbCr 的定义和采样规范通常来自 ITU-R BT.601、BT.709、BT.2020 等标准</li>
+<li>JPEG 的色彩表示与采样规则通常与 JFIF、JPEG 标准和 ITU/ISO 相关规范相联系</li>
+</ul>
+<h3>3.1.3 ICC 与打印领域</h3>
+<ul>
+<li>ICC profile 由 International Color Consortium（ICC）定义</li>
+<li>ICCBased 以及打印与色彩管理相关模型在 ISO 15076、ISO 12647 等标准中被引用</li>
+<li>CMYK 在印刷工业中本质上是设备相关模型，通常结合 ICC profile 和印刷规范使用</li>
+</ul>
+<h3>3.1.4 PDF 与文档标准</h3>
+<ul>
+<li>PDF 中 DeviceRGB、DeviceCMYK、CalRGB、CalCMYK、ICCBased 等形式定义于 ISO 32000 系列</li>
+<li>PDF 标准本身是文档描述标准，而不是纯色彩学标准，但它明确规定了颜色空间如何在文档中解释</li>
+</ul>
+<h3>3.1.5 经验与算法模型</h3>
+<ul>
+<li>HSI、HSV、HSL 本身不是统一国际标准的唯一定义，而是图像处理和计算机图形学中的重要数学模型</li>
+<li>Munsell 系统来自 A.H. Munsell 的经验色彩系统，后续被 ASTM、工业标准和色板体系吸收</li>
+<li>Indexed color 作为调色板映射法，来自图像文件格式设计约定，而非统一的颜色科学标准</li>
+</ul>
+<hr />
+<h2>4. RGB：最基础的加法模型</h2>
+<h3>4.1 定义</h3>
+<p>RGB 由三个通道表示：</p>
+<p>$$
+(R,G,B), \quad R,G,B \in [0,1] \text{ 或 } [0,255]
+$$</p>
+<h3>4.2 数学原理</h3>
+<p>RGB 采用加法模型：</p>
+<p>$$
+C = R\mathbf{r} + G\mathbf{g} + B\mathbf{b}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathbf{r}, \mathbf{g}, \mathbf{b}$ 是三种基色的刺激向量</li>
+<li>颜色由三种基色的不同组合得到</li>
+</ul>
+<h3>4.3 特点</h3>
+<ul>
+<li>适合显示器与数码图像</li>
+<li>直观、简单</li>
+<li>但依赖设备特性，不是绝对颜色</li>
+</ul>
+<h3>4.4 使用范围</h3>
+<ul>
+<li>显示器输出</li>
+<li>图像处理</li>
+<li>计算机视觉基础表示</li>
+<li>大多数算法所用的中间图像数据</li>
+</ul>
+<hr />
+<h2>5. sRGB：标准化 RGB</h2>
+<h3>5.1 定义</h3>
+<p>sRGB 是在 RGB 的基础上，给出统一的白点、色域和 gamma 规则的标准化表示。</p>
+<h3>5.2 数学关键：线性化</h3>
+<p>编码值 $C_{sRGB}$ 和线性值 $C_{linear}$ 之间的关系为：</p>
+<p>$$
+C_{linear} =
+\begin{cases}
+\frac{C_{sRGB}}{12.92}, &amp; C_{sRGB} \le 0.04045 \\
+\left(\frac{C_{sRGB}+0.055}{1.055}\right)^{2.4}, &amp; C_{sRGB} &gt; 0.04045
+\end{cases}
+$$</p>
+<p>反过来：</p>
+<p>$$
+C_{sRGB} =
+\begin{cases}
+12.92 C_{linear}, &amp; C_{linear} \le 0.0031308 \\
+1.055 C_{linear}^{1/2.4} - 0.055, &amp; C_{linear} &gt; 0.0031308
+\end{cases}
+$$</p>
+<h3>5.3 物理解释</h3>
+<ul>
+<li>真实光输出不是线性的</li>
+<li>人眼也不是对亮度强度线性响应的</li>
+<li>因此需要做 gamma 校正以更接近视觉响应</li>
+</ul>
+<h3>5.4 使用范围</h3>
+<ul>
+<li>网页图像</li>
+<li>标准显示器</li>
+<li>大多数图像软件默认颜色空间</li>
+<li>跨平台图像一致性的重要基础</li>
+</ul>
+<hr />
+<h2>6. CMY 与 CMYK：减色法、印刷模型</h2>
+<h3>6.1 CMY</h3>
+<p>若 RGB 归一化值为 $R,G,B \in [0,1]$，则：</p>
+<p>$$
+C = 1-R,
+\quad
+M = 1-G,
+\quad
+Y = 1-B
+$$</p>
+<h3>6.2 物理意义</h3>
+<p>CMY 代表“吸收某些波长”而不是“发出某些波长”：</p>
+<ul>
+<li>白纸反射光</li>
+<li>油墨吸收一部分波长</li>
+<li>视觉上剩余的光决定颜色</li>
+</ul>
+<h3>6.3 CMYK</h3>
+<p>真正的印刷中，加上黑色 $K$ 是必要的，因为:</p>
+<ul>
+<li>单独用 CMY 很难得到稳定黑色</li>
+<li>需要大量墨水，成本高</li>
+<li>黑色层容易偏色</li>
+</ul>
+<p>定义：</p>
+<p>$$
+K = \min(C,M,Y)
+$$</p>
+<p>然后去除黑色分量：</p>
+<p>$$
+C' = \frac{C-K}{1-K},\quad
+M' = \frac{M-K}{1-K},\quad
+Y' = \frac{Y-K}{1-K}
+$$</p>
+<p>得到：</p>
+<p>$$
+(C',M',Y',K)
+$$</p>
+<h3>6.4 使用范围</h3>
+<ul>
+<li>书籍、报纸、包装</li>
+<li>印刷厂输出</li>
+<li>PDF 的印刷色彩表达</li>
+</ul>
+<h3>6.5 数学本质</h3>
+<p>CMY/CMYK 是“基于吸收模型”的颜色描述，真正对应的是印刷材料与反射过程，而不是屏幕发光过程。</p>
+<hr />
+<h2>7. Gray：单通道亮度空间</h2>
+<h3>7.1 定义</h3>
+<p>灰度值是单通道：</p>
+<p>$$
+I \in [0,1] \text{ 或 } [0,255]
+$$</p>
+<h3>7.2 数学含义</h3>
+<p>灰度仅保留亮度，不保留颜色信息。</p>
+<p>常见线性转换：</p>
+<p>$$
+I = 0.299R + 0.587G + 0.114B
+$$</p>
+<p>这是一个经典的亮度近似公式。</p>
+<h3>7.3 使用范围</h3>
+<ul>
+<li>OCR</li>
+<li>二值化</li>
+<li>边缘检测</li>
+<li>轮廓提取</li>
+<li>低复杂度图像处理</li>
+</ul>
+<h3>7.4 优缺点</h3>
+<p>优点：</p>
+<ul>
+<li>简单、轻量</li>
+<li>更适合很多视觉任务</li>
+</ul>
+<p>缺点：</p>
+<ul>
+<li>丢失颜色语义</li>
+<li>不能表达彩色特征</li>
+</ul>
+<hr />
+<h2>8. XYZ：标准色彩基础空间</h2>
+<h3>8.1 定义</h3>
+<p>XYZ 是 CIE 提出的三刺激值空间：</p>
+<p>$$
+X = \int S(\lambda)\bar{x}(\lambda) d\lambda
+$$</p>
+<p>$$
+Y = \int S(\lambda)\bar{y}(\lambda) d\lambda
+$$</p>
+<p>$$
+Z = \int S(\lambda)\bar{z}(\lambda) d\lambda
+$$</p>
+<h3>8.2 物理含义</h3>
+<ul>
+<li>它是“视觉刺激量”的标准化描述</li>
+<li>一个光谱分布对应一个 $(X,Y,Z)$</li>
+<li>这是标准色彩管理的基础</li>
+</ul>
+<h3>8.3 使用范围</h3>
+<ul>
+<li>色彩管理系统</li>
+<li>标准色域转换</li>
+<li>Lab 计算的中间空间</li>
+<li>打印/显示器间颜色一致性</li>
+</ul>
+<h3>8.4 数学地位</h3>
+<p>XYZ 不是直观颜色空间，但它是最重要的统一中间坐标系。</p>
+<hr />
+<h2>9. Lab：感知均匀的颜色空间</h2>
+<h3>9.1 定义</h3>
+<p>CIELAB 定义为：</p>
+<p>$$
+L^* = 116f(Y/Y_n)-16
+$$</p>
+<p>$$
+a^* = 500(f(X/X_n)-f(Y/Y_n))
+$$</p>
+<p>$$
+b^* = 200(f(Y/Y_n)-f(Z/Z_n))
+$$</p>
+<p>其中：</p>
+<p>$$
+f(t)=
+\begin{cases}
+ t^{1/3}, &amp; t &gt; \delta^3 \\
+ \frac{\kappa t + 16}{116}, &amp; t \le \delta^3
+\end{cases}
+$$</p>
+<p>以 $\delta = 6/29$, $\kappa = 903.3$ 为标准常数。</p>
+<h3>9.2 物理/视觉意义</h3>
+<ul>
+<li>$L^*$ 表示亮度</li>
+<li>$a^*$ 表示红绿轴</li>
+<li>$b^*$ 表示黄蓝轴</li>
+</ul>
+<p>它比 RGB 更贴近人类感知，能够更自然地衡量颜色差异。</p>
+<h3>9.3 色差公式</h3>
+<p>常见颜色距离：</p>
+<p>$$
+\Delta E_{ab} = \sqrt{(\Delta L^*)^2 + (\Delta a^*)^2 + (\Delta b^*)^2}
+$$</p>
+<h3>9.4 使用范围</h3>
+<ul>
+<li>色差分析</li>
+<li>颜色校正</li>
+<li>图像压缩质量评价</li>
+<li>印刷颜色控制</li>
+</ul>
+<hr />
+<h2>10. Luv 与 LCh：感知型颜色描述</h2>
+<h3>10.1 Luv</h3>
+<p>Luv 是另一种 CIE 感知空间，强调 “亮度 + 色度” 的分离。</p>
+<h3>10.2 LCh</h3>
+<p>将 Lab 变为极坐标形式：</p>
+<p>$$
+C^* = \sqrt{a^{*2}+b^{*2}}
+$$</p>
+<p>$$
+H = \arctan2(b^*, a^*)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$C^*$ 表示彩度</li>
+<li>$H$ 表示色相</li>
+</ul>
+<h3>10.3 使用范围</h3>
+<ul>
+<li>色彩设计</li>
+<li>色相分析</li>
+<li>视觉研究</li>
+<li>图像和材料颜色比较</li>
+</ul>
+<hr />
+<h2>11. YUV 与 YCbCr：亮度-色度分离模型</h2>
+<h3>11.1 定义</h3>
+<p>YUV 中：</p>
+<ul>
+<li>$Y$：亮度</li>
+<li>$U,V$：色度</li>
+</ul>
+<p>YCbCr 是其常见数字版本：</p>
+<p>$$
+Y = 0.299R + 0.587G + 0.114B
+$$</p>
+<p>$$
+C_b = -0.1687R - 0.3313G + 0.5B + 128
+$$</p>
+<p>$$
+C_r = 0.5R - 0.4187G - 0.0813B + 128
+$$</p>
+<h3>11.2 数学动机</h3>
+<p>人眼对亮度比对色度更敏感，因此在压缩时可以降低色度分辨率。</p>
+<h3>11.3 采样方式</h3>
+<p>常见 JPEG 采样：</p>
+<ul>
+<li>4:4:4：全色度保留</li>
+<li>4:2:2：横向压缩一半</li>
+<li>4:2:0：横向和纵向双向压缩</li>
+</ul>
+<h3>11.4 使用范围</h3>
+<ul>
+<li>JPEG</li>
+<li>视频编码</li>
+<li>运动图像压缩</li>
+<li>亮度与色度分离处理</li>
+</ul>
+<hr />
+<h2>12. HSI / HSV / HSL：人类直觉型色彩表示</h2>
+<h3>12.1 HSI</h3>
+<p>HSI 由：</p>
+<ul>
+<li>$H$：色相</li>
+<li>$S$：饱和度</li>
+<li>$I$：亮度</li>
+</ul>
+<p>定义中：</p>
+<p>$$
+I = \frac{R+G+B}{3}
+$$</p>
+<p>$$
+S = 1 - \frac{3\min(R,G,B)}{R+G+B}
+$$</p>
+<p>色相 $H$ 由 RGB 的角度关系决定：</p>
+<p>$$
+\theta = \cos^{-1}\left(\frac{\frac{1}{2}[(R-G)+(R-B)]}{\sqrt{(R-G)^2+(R-B)(G-B)}}\right)
+$$</p>
+<p>并按判定式设置：</p>
+<p>$$
+H =
+\begin{cases}
+\theta, &amp; B \le G \\
+360^\circ - \theta, &amp; B &gt; G
+\end{cases}
+$$</p>
+<h3>12.2 HSV / HSL</h3>
+<ul>
+<li>HSV：Hue-Saturation-Value</li>
+<li>HSL：Hue-Saturation-Lightness</li>
+</ul>
+<p>两者都用“角度 + 半径 + 高度”的思路描述颜色，直观强、易用于调色。</p>
+<h3>12.3 使用范围</h3>
+<ul>
+<li>颜色选择器</li>
+<li>图像分割</li>
+<li>交互设计</li>
+<li>颜色阈值处理</li>
+</ul>
+<h3>12.4 优缺点</h3>
+<p>优点：</p>
+<ul>
+<li>非常符合人类直觉</li>
+<li>易于操作</li>
+</ul>
+<p>缺点：</p>
+<ul>
+<li>不是严格的色彩管理空间</li>
+<li>不适于精确数学计算和色差测量</li>
+</ul>
+<hr />
+<h2>13. Munsell：经验主义的感知颜色系统</h2>
+<h3>13.1 定义</h3>
+<p>Munsell 使用三变量：</p>
+<p>$$
+(H, V, C)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$H$：色相</li>
+<li>$V$：明度（Value）</li>
+<li>$C$：彩度（Chroma）</li>
+</ul>
+<h3>13.2 结构</h3>
+<ul>
+<li>色相按环形顺序排列：红、黄、绿、蓝、紫等</li>
+<li>明度在 0 到 10 之间</li>
+<li>彩度表示距离中性轴的程度</li>
+</ul>
+<h3>13.3 数学特点</h3>
+<p>Munsell 并不是像 RGB 那样的三基色线性系统，而更偏经验型色彩几何结构。其目标是：</p>
+<ul>
+<li>让颜色在视觉上的“距离感”更接近人眼体验</li>
+<li>让色彩命名和样板比较更容易</li>
+</ul>
+<h3>13.4 使用范围</h3>
+<ul>
+<li>涂料与油墨行业</li>
+<li>设计和样本库</li>
+<li>专业色板系统</li>
+<li>教育与视觉研究</li>
+</ul>
+<h3>13.5 与 Lab 的关系</h3>
+<p>Munsell 更偏颜色命名和经验感知；Lab 更偏数学精度和色差计算。两者在现代应用中常常互补。</p>
+<hr />
+<h2>14. Indexed Color：索引表模型</h2>
+<h3>14.1 定义</h3>
+<p>每个像素不直接存彩色值，而是存索引：</p>
+<p>$$
+\text{pixel} = i, \quad i \in [0, N]
+$$</p>
+<p>然后由调色板映射：</p>
+<p>$$
+\text{palette}[i] = (R,G,B)
+$$</p>
+<h3>14.2 使用范围</h3>
+<ul>
+<li>GIF</li>
+<li>小型图像</li>
+<li>低颜色图像</li>
+<li>图标、简单图表</li>
+</ul>
+<h3>14.3 优点</h3>
+<ul>
+<li>数据量小</li>
+<li>适合颜色种类少的图像</li>
+</ul>
+<h3>14.4 缺点</h3>
+<ul>
+<li>颜色数有限</li>
+<li>复杂照片不适合</li>
+</ul>
+<hr />
+<h2>15. PDF 中的颜色空间</h2>
+<p>PDF 中的颜色模型并不是只有 RGB/CMYK，通常是“文档描述语义”而非只看图像存储。</p>
+<h3>15.1 DeviceRGB</h3>
+<ul>
+<li>依赖输出设备的 RGB</li>
+<li>常见于一般文档显示</li>
+</ul>
+<h3>15.2 DeviceCMYK</h3>
+<ul>
+<li>依赖打印设备的 CMYK</li>
+<li>适合印刷文档</li>
+</ul>
+<h3>15.3 DeviceGray</h3>
+<ul>
+<li>灰度或黑白设备模型</li>
+</ul>
+<h3>15.4 CalRGB / CalCMYK</h3>
+<ul>
+<li>根据白点、gamma 和矩阵定义的校准模型</li>
+<li>比直接 DeviceRGB 更规范</li>
+</ul>
+<h3>15.5 Indexed</h3>
+<ul>
+<li>适合低色数图像</li>
+</ul>
+<h3>15.6 ICCBased</h3>
+<ul>
+<li>使用 ICC profile 定义其颜色行为</li>
+<li>这是颜色管理中最正式的表示之一</li>
+</ul>
+<h3>15.7 Separation / DeviceN</h3>
+<ul>
+<li>专色和多重油墨模型</li>
+<li>常见于高级印刷和品牌专色</li>
+</ul>
+<hr />
+<h2>16. 颜色空间怎么选？</h2>
+<h3>选 RGB 的情况</h3>
+<ul>
+<li>屏幕显示</li>
+<li>图像处理原始数据</li>
+<li>OpenCV、PIL 等通用图像处理场景</li>
+</ul>
+<h3>选 CMYK 的情况</h3>
+<ul>
+<li>印刷输出</li>
+<li>图书、包装、出版</li>
+<li>专业设计稿</li>
+</ul>
+<h3>选 YCbCr 的情况</h3>
+<ul>
+<li>JPEG、视频压缩</li>
+<li>亮度/色度分离</li>
+</ul>
+<h3>选 Lab / XYZ 的情况</h3>
+<ul>
+<li>颜色管理</li>
+<li>色差分析</li>
+<li>跨设备一致性</li>
+</ul>
+<h3>选 HSI / HSV / HSL 的情况</h3>
+<ul>
+<li>人工调色</li>
+<li>图像分割</li>
+<li>颜色筛选</li>
+</ul>
+<h3>选 Munsell 的情况</h3>
+<ul>
+<li>颜色命名</li>
+<li>色板与样本系统</li>
+<li>设计与油墨行业</li>
+</ul>
+<hr />
+<h2>17. 关键结论：颜色空间的统一理解</h2>
+<p>如果把颜色空间放到统一框架中，最简洁的理解是：</p>
+<ol>
+<li>物理层：光谱分布 $S(\lambda)$</li>
+<li>生理层：人眼三刺激响应</li>
+<li>标准层：$X,Y,Z$ 三刺激值</li>
+<li>设备层：RGB、CMYK、Gray</li>
+<li>视觉层：HSI、HSV、HSL、Lab、Munsell</li>
+<li>压缩层：YCbCr、YUV</li>
+<li>工业层：ICCBased、Separation、DeviceN</li>
+</ol>
+<p>也就是说，颜色空间的本质在于：</p>
+<ul>
+<li>选择什么维度表达颜色</li>
+<li>选择什么数学结构和几何模型来组织颜色</li>
+<li>选择什么视角来适应设备、视觉、印刷或压缩的需求</li>
+</ul>
+<hr />
+<h2>18. 一句话总结</h2>
+<p>颜色空间不是“颜色的真实本体”，而是“描述颜色的坐标系”。</p>
+<ul>
+<li>RGB 是发光的设备表达</li>
+<li>CMY/CMYK 是吸收和印刷的表达</li>
+<li>XYZ/Lab 是标准化和感知化的表达</li>
+<li>YCbCr 是压缩友好的表达</li>
+<li>HSI/HSV/HSL 是人类直觉的表达</li>
+<li>Munsell 是经验感知的表达</li>
+</ul>
+<p>它们各有数学基础、物理出发点和适用范围，构成了整个颜色学的核心体系。</p>
+
+<!-- KaTeX -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // KaTeX 渲染
+    if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(document.body, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });
+    }
+    // Mermaid 渲染
+    if (typeof mermaid !== 'undefined') {
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+        mermaid.run();
+    }
+});
+</script>
+</body>
+</html>

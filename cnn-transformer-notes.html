@@ -1,0 +1,4268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>CNN 与 Transformer 原理详解：从卷积到注意力，及其与特征描述子的关系</title>
+    <style>
+@page {
+    margin: 20mm 15mm 20mm 15mm;
+    size: A4;
+}
+* { box-sizing: border-box; }
+body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    font-size: 11pt;
+    line-height: 1.7;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── 标题 ── */
+h1 {
+    font-size: 36pt;
+    color: #1a1a2e;
+    text-align: center;
+    border-bottom: 3px solid #16213e;
+    padding-bottom: 12px;
+    margin: 0 0 20px 0;
+}
+h2 {
+    font-size: 28pt;
+    color: #16213e;
+    border-bottom: 2px solid #0f3460;
+    padding-bottom: 8px;
+    margin: 30px 0 15px 0;
+    page-break-before: always;
+}
+h2:first-of-type { page-break-before: avoid; }
+h3 {
+    font-size: 24pt;
+    color: #0f3460;
+    margin: 25px 0 10px 0;
+    page-break-after: avoid;
+}
+h4 {
+    font-size: 20pt;
+    color: #1a1a2e;
+    margin: 20px 0 8px 0;
+    page-break-after: avoid;
+}
+
+/* ── 段落 ── */
+p { margin: 8px 0; text-align: justify; }
+
+/* 粗体段落标记（核心思想、关键设计等）独占一行时加大加粗。
+   注意：不能用 :only-child —— 它只统计元素兄弟节点、不统计文本节点，
+   会把 <p><strong>标签</strong>：</p> 里的 <strong> 误判为唯一子元素，
+   导致 display:block 生效、结尾的冒号被挤到下一行。
+   因此改由 md_to_html() 给「整段只有粗体标签」的段落打上 class="label"。 */
+p.label > strong {
+    display: block;
+    font-size: 13pt;
+    color: #0f3460;
+    margin-top: 12px;
+    margin-bottom: 4px;
+}
+
+/* ── 列表 ── */
+ul, ol { margin: 8px 0; padding-left: 2em; }
+li { margin: 4px 0; }
+
+/* ── 代码 ── */
+code {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 10pt;
+    background-color: #f0f0f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+pre {
+    background-color: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    page-break-inside: avoid;
+    margin: 12px 0;
+}
+pre code {
+    background-color: transparent;
+    padding: 0;
+    font-size: 9.5pt;
+    line-height: 1.5;
+}
+
+/* ── Mermaid 图 ── */
+pre.mermaid, .mermaid {
+    text-align: center;
+    background-color: white;
+    border: none;
+    padding: 10px 0;
+}
+.mermaid svg { max-width: 100%; height: auto; }
+
+/* ── 表格 ── */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 15px 0;
+    font-size: 10pt;
+    page-break-inside: avoid;
+}
+th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+th { background-color: #e8e8e8; font-weight: bold; }
+tr:nth-child(even) { background-color: #fafafa; }
+
+/* ── 引用 ── */
+blockquote {
+    border-left: 4px solid #0f3460;
+    background-color: #f5f5fa;
+    padding: 10px 15px;
+    margin: 15px 0;
+    color: #555;
+}
+
+/* ── 链接 / 分隔线 ── */
+a { color: #0f3460; text-decoration: none; }
+hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+
+/* ── 打印优化 ── */
+h2, h3, h4 { page-break-after: avoid; }
+table, pre, blockquote { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+<h1>CNN 与 Transformer 原理详解：从卷积到注意力，及其与特征描述子的关系</h1>
+<blockquote>
+<p>本文是一份纯理论整理，不涉及任何代码改动。
+目标是尽可能覆盖 CNN 与 Transformer 的数学原理、架构演进、训练机制、
+应用方向，并专门建立它们与"特征描述子"这一经典概念的对应关系，
+同时补齐常见知识盲区。</p>
+</blockquote>
+<hr />
+<h2>目录</h2>
+<ol>
+<li>总览：从手工特征到表示学习</li>
+<li>CNN 的数学原理</li>
+<li>CNN 的关键组件</li>
+<li>CNN 的反向传播推导</li>
+<li>CNN 架构演进史</li>
+<li>CNN 的现代变体与算子</li>
+<li>Transformer 的数学原理</li>
+<li>Transformer 的关键组件</li>
+<li>Transformer 的复杂度与训练</li>
+<li>Transformer 架构演进史</li>
+<li>高效注意力与长序列</li>
+<li>CNN vs Transformer：本质对比</li>
+<li>混合架构</li>
+<li>与特征描述子的关系（重点）</li>
+<li>应用方向</li>
+<li>知识盲区扩展</li>
+<li>速查表</li>
+<li>结论</li>
+</ol>
+<hr />
+<h2>1. 总览：从手工特征到表示学习</h2>
+<h3>1.1 三代特征表示</h3>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>代表</th>
+<th>特征来源</th>
+<th>人的参与</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>手工设计</td>
+<td>SIFT、HOG、LBP</td>
+<td>人根据先验设计算子</td>
+<td>高</td>
+</tr>
+<tr>
+<td>浅层学习</td>
+<td>PCA、Fisher Vector、BoW</td>
+<td>统计学习 + 手工描述子</td>
+<td>中</td>
+</tr>
+<tr>
+<td>深度表示学习</td>
+<td>CNN、Transformer</td>
+<td>端到端从数据学习</td>
+<td>低</td>
+</tr>
+</tbody>
+</table>
+<h3>1.2 核心思想转变</h3>
+<p><strong>手工特征</strong>的哲学是：</p>
+<p>$$
+\text{特征} = \mathcal{N}\big(\mathcal{Q}(\mathcal{F}(I))\big)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$I$：输入图像（原始像素矩阵）。</li>
+<li>$\mathcal{F}$：<strong>特征提取算子</strong>，由人根据先验设计（如梯度、滤波、比较），把图像变成响应图。</li>
+<li>$\mathcal{Q}$：<strong>量化算子</strong>，把连续响应离散化（如直方图统计、二值化）。</li>
+<li>$\mathcal{N}$：<strong>归一化算子</strong>，把量化结果缩放到统一尺度（如 L2 归一化、亮度归一化）。</li>
+<li>整体含义：手工特征 = 归一化(量化(特征提取(图像)))，三步都由人设计。</li>
+</ul>
+<p><strong>深度网络</strong>的哲学是：把 $\mathcal{F}$、$\mathcal{Q}$、$\mathcal{N}$ 全部参数化，
+用数据学习：</p>
+<p>$$
+\text{特征} = f_\theta(I)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$I$：输入图像。</li>
+<li>$f_\theta$：<strong>参数化网络</strong>（卷积/注意力堆叠），把 $\mathcal{F}$、$\mathcal{Q}$、$\mathcal{N}$ 三步合并成一个可微函数。</li>
+<li>$\theta$：网络的全部可学习参数（卷积核、权重矩阵等），由反向传播优化。</li>
+<li>整体含义：不再手工设计算子，而是让网络直接从数据中学出"图像 → 特征"的映射。</li>
+</ul>
+<p class="label"><strong>两种范式的流程对比：</strong></p>
+<pre class="mermaid">flowchart LR
+    subgraph Hand[&quot;手工特征：人设计算子&quot;]
+        A1[&quot;图像 I&quot;] --&gt; A2[&quot;算子 F&lt;br/&gt;梯度 / 滤波 / 比较&quot;]
+        A2 --&gt; A3[&quot;量化 Q&lt;br/&gt;直方图 / 二值&quot;]
+        A3 --&gt; A4[&quot;归一化 N&quot;]
+        A4 --&gt; A5[&quot;描述子向量&quot;]
+    end
+    subgraph Deep[&quot;深度表示学习：数据学习&quot;]
+        B1[&quot;图像 I&quot;] --&gt; B2[&quot;f_θ&lt;br/&gt;卷积 / 注意力堆叠&quot;]
+        B2 --&gt; B3[&quot;描述子 / 表示&quot;]
+    end
+</pre>
+<h3>1.3 归纳偏置（Inductive Bias）</h3>
+<p>这是理解 CNN 与 Transformer 差异的关键概念。</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>归纳偏置</th>
+<th>后果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CNN</td>
+<td>局部性、平移等变、层次性</td>
+<td>小数据也能学好，参数高效</td>
+</tr>
+<tr>
+<td>Transformer</td>
+<td>弱（几乎无空间先验）</td>
+<td>需要大数据，但上限更高</td>
+</tr>
+<tr>
+<td>MLP</td>
+<td>无</td>
+<td>参数爆炸，泛化差</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>归纳偏置越强，数据需求越小，但表达上限可能受限。</strong></p>
+<p>这是 CNN 与 Transformer 之争的核心。</p>
+<hr />
+<h2>2. CNN 的数学原理</h2>
+<h3>2.1 卷积的定义</h3>
+<p class="label"><strong>连续卷积：</strong></p>
+<p>$$
+(f * g)(t) = \int_{-\infty}^{\infty} f(\tau)\, g(t-\tau)\, d\tau
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$f$：输入信号（被卷积的函数）。</li>
+<li>$g$：卷积核（滤波器/系统冲激响应）。</li>
+<li>$t$：当前输出位置。</li>
+<li>$\tau$：积分变量，遍历输入信号的所有位置。</li>
+<li>$g(t-\tau)$：核被<strong>翻转并平移</strong>后的形式，这是"卷积"区别于"互相关"的关键。</li>
+<li>直观含义：输出是输入与核的加权叠加，权重由核决定。</li>
+</ul>
+<p class="label"><strong>二维连续卷积：</strong></p>
+<p>$$
+(f * g)(x,y) = \iint f(u,v)\, g(x-u, y-v)\, du\, dv
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$(x,y)$：输出图像上的坐标。</li>
+<li>$(u,v)$：积分变量，遍历输入图像的所有位置。</li>
+<li>$f(u,v)$：输入图像在 $(u,v)$ 处的像素值。</li>
+<li>$g(x-u, y-v)$：核在相对位移 $(x-u, y-v)$ 处的权重。</li>
+<li>含义：二维卷积是图像与核的二维加权叠加。</li>
+</ul>
+<p class="label"><strong>离散二维卷积：</strong></p>
+<p>$$
+(f * g)(i,j) = \sum_m \sum_n f(m,n)\, g(i-m, j-n)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$(i,j)$：输出像素的整数坐标。</li>
+<li>$(m,n)$：求和变量，遍历输入像素坐标。</li>
+<li>$f(m,n)$：输入图像在 $(m,n)$ 处的像素值。</li>
+<li>$g(i-m, j-n)$：核在相对位移 $(i-m, j-n)$ 处的权重（已翻转）。</li>
+<li>含义：把连续积分换成离散求和，是数字图像处理的实际计算形式。</li>
+</ul>
+<h3>2.2 深度学习中的"卷积"其实是互相关</h3>
+<p>这是第一个常见知识盲区。</p>
+<p>真正的卷积需要<strong>翻转核</strong>：</p>
+<p>$$
+(f * g)(i,j) = \sum_m \sum_n f(i+m, j+n)\, g(m,n) \quad \text{（互相关）}
+$$</p>
+<p>$$
+(f * g)(i,j) = \sum_m \sum_n f(i-m, j-n)\, g(m,n) \quad \text{（卷积）}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$(i,j)$：输出像素坐标。</li>
+<li>$(m,n)$：核内相对坐标（遍历核的每个元素）。</li>
+<li>$f(\cdot)$：输入像素值。</li>
+<li>$g(m,n)$：核在 $(m,n)$ 处的权重。</li>
+<li><strong>互相关</strong>：输入索引为 $i+m,\ j+n$，核不翻转，直接与输入对齐相乘。</li>
+<li><strong>卷积</strong>：输入索引为 $i-m,\ j-n$，等价于把核先翻转 180° 再对齐相乘。</li>
+<li>两者只差一次核翻转；因为核可学习，翻转与否不影响表达能力，只影响参数索引。</li>
+</ul>
+<p>深度学习框架（PyTorch、TensorFlow）实现的 <code>conv2d</code> 实际上是<strong>互相关</strong>，
+因为核是可学习的，翻转与否不影响表达能力，只影响参数索引。</p>
+<p><strong>结论</strong>：说"CNN 用卷积"是习惯说法，严格说是"互相关"。</p>
+<h3>2.3 单通道卷积的完整形式</h3>
+<p>给定输入 $X \in \mathbb{R}^{H \times W}$，卷积核 $K \in \mathbb{R}^{k \times k}$，
+偏置 $b$，步长 $s$，填充 $p$：</p>
+<p>$$
+Y(i,j) = b + \sum_{m=0}^{k-1}\sum_{n=0}^{k-1} X(i\cdot s + m - p,\ j\cdot s + n - p)\cdot K(m,n)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$Y(i,j)$：输出特征图在 $(i,j)$ 处的值。</li>
+<li>$X$：输入图像（单通道）。</li>
+<li>$K(m,n)$：卷积核在 $(m,n)$ 处的权重，$m,n\in[0,k-1]$。</li>
+<li>$b$：偏置项（每个输出通道一个标量）。</li>
+<li>$s$：步长（stride），核每次滑动的像素数。</li>
+<li>$p$：填充（padding），在输入边缘补零的圈数。</li>
+<li>$i\cdot s + m - p$：把输出坐标映射回输入坐标，$i\cdot s$ 是滑动起点，$+m$ 是核内偏移，$-p$ 抵消填充。</li>
+<li>含义：输出 = 偏置 + 输入邻域与核的逐元素乘加。</li>
+</ul>
+<p>输出尺寸：</p>
+<p>$$
+H_{out} = \left\lfloor \frac{H + 2p - k}{s} \right\rfloor + 1
+$$</p>
+<p>$$
+W_{out} = \left\lfloor \frac{W + 2p - k}{s} \right\rfloor + 1
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$H, W$：输入的高和宽。</li>
+<li>$k$：卷积核尺寸（假设高宽相同）。</li>
+<li>$p$：填充圈数，$2p$ 表示上下（或左右）各补 $p$。</li>
+<li>$s$：步长。</li>
+<li>$\lfloor\cdot\rfloor$：向下取整，保证核完整落在输入内。</li>
+<li>$+1$：计入第一个输出位置。</li>
+<li>含义：可用的有效输入长度为 $H+2p-k$，按步长 $s$ 滑动，能放下的位置数即为输出尺寸。</li>
+</ul>
+<p class="label"><strong>卷积的滑动计算流程：</strong></p>
+<pre class="mermaid">flowchart TD
+    X[&quot;输入 X: C_in × H × W&quot;] --&gt; P[&quot;取 k×k 邻域&lt;br/&gt;位置 (i·s+m-p, j·s+n-p)&quot;]
+    K[&quot;卷积核 K: C_out × C_in × k × k&quot;] --&gt; P
+    P --&gt; M[&quot;逐元素乘加 Σ + 偏置 b&quot;]
+    M --&gt; Y[&quot;输出 Y: C_out × H_out × W_out&quot;]
+    Y --&gt; S[&quot;按步长 s 滑动到下一位置&quot;]
+    S --&gt; P
+</pre>
+<h3>2.4 多通道卷积</h3>
+<p>输入 $X \in \mathbb{R}^{C_{in} \times H \times W}$，核 $K \in \mathbb{R}^{C_{out} \times C_{in} \times k \times k}$：</p>
+<p>$$
+Y(c_{out}, i, j) = b(c_{out}) + \sum_{c_{in}=0}^{C_{in}-1}\sum_{m}\sum_{n}
+X(c_{in}, i s + m - p, j s + n - p)\cdot K(c_{out}, c_{in}, m, n)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$Y(c_{out}, i, j)$：第 $c_{out}$ 个输出通道在 $(i,j)$ 处的值。</li>
+<li>$c_{out}$：输出通道索引，$c_{out}\in[0,C_{out}-1]$。</li>
+<li>$c_{in}$：输入通道索引，$c_{in}\in[0,C_{in}-1]$。</li>
+<li>$X(c_{in},\cdot,\cdot)$：第 $c_{in}$ 个输入通道。</li>
+<li>$K(c_{out}, c_{in}, m, n)$：连接输入通道 $c_{in}$ 与输出通道 $c_{out}$ 的核权重。</li>
+<li>$b(c_{out})$：第 $c_{out}$ 个输出通道的偏置。</li>
+<li>含义：每个输出通道 = 对所有输入通道的卷积结果求和，再叠加偏置（通道间全连接）。</li>
+</ul>
+<p class="label"><strong>参数量：</strong></p>
+<p>$$
+\#\text{params} = C_{out} \times C_{in} \times k \times k + C_{out}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$C_{out} \times C_{in} \times k \times k$：核权重总数（每个输出通道对每个输入通道各有一个 $k\times k$ 核）。</li>
+<li>$+ C_{out}$：每个输出通道一个偏置。</li>
+<li>含义：参数量与输入图像尺寸 $H,W$ 无关，这是权值共享带来的好处。</li>
+</ul>
+<p class="label"><strong>计算量（FLOPs）：</strong></p>
+<p>$$
+\text{FLOPs} \approx 2 \times C_{out} \times C_{in} \times k^2 \times H_{out} \times W_{out}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$C_{out} \times C_{in} \times k^2$：每个输出像素需要的乘加次数。</li>
+<li>$H_{out} \times W_{out}$：输出像素总数。</li>
+<li>$\times 2$：一次乘法和一次加法各算一次浮点运算。</li>
+<li>含义：计算量随通道数、核面积、输出尺寸线性增长。</li>
+</ul>
+<h3>2.5 卷积的三大性质</h3>
+<h4>局部连接（Local Connectivity）</h4>
+<p>每个输出只依赖输入的 $k \times k$ 邻域。参数量从全连接的 $O(H^2W^2)$ 降到 $O(k^2)$。</p>
+<h4>权值共享（Weight Sharing）</h4>
+<p>同一个核在整张图上滑动，参数量与图像尺寸无关。</p>
+<h4>平移等变性（Translation Equivariance）</h4>
+<p>$$
+\text{Conv}(\text{Shift}(X)) = \text{Shift}(\text{Conv}(X))
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$X$：输入图像。</li>
+<li>$\text{Shift}(\cdot)$：平移操作（把图像整体移动若干像素）。</li>
+<li>$\text{Conv}(\cdot)$：卷积操作。</li>
+<li>含义：先平移再卷积 = 先卷积再平移，两者结果一致（只是位置相应移动），这就是<strong>等变</strong>。</li>
+</ul>
+<p>严格地说，卷积对平移是<strong>等变</strong>的，不是<strong>不变</strong>的。
+不变性由后续的池化或全局池化提供。</p>
+<p><strong>等变 vs 不变</strong>（重要区分）：</p>
+<ul>
+<li><strong>等变</strong>：输入平移，输出也相应平移</li>
+<li><strong>不变</strong>：输入平移，输出不变</li>
+</ul>
+<p>$$
+\text{等变}: f(T x) = T' f(x)
+$$</p>
+<p>$$
+\text{不变}: f(T x) = f(x)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$f$：网络/算子。</li>
+<li>$x$：输入。</li>
+<li>$T$：作用在输入上的变换（如平移）。</li>
+<li>$T'$：作用在输出上的对应变换（可能与 $T$ 形式不同）。</li>
+<li>等变式：变换后过网络 = 过网络后再做对应变换（输出跟着动）。</li>
+<li>不变式：变换后过网络 = 直接过网络（输出不动）。</li>
+</ul>
+<p class="label"><strong>等变与不变的区别：</strong></p>
+<pre class="mermaid">flowchart LR
+    subgraph EQ[&quot;等变 Equivariance（卷积）&quot;]
+        E1[&quot;输入平移&quot;] --&gt; E2[&quot;卷积&quot;] --&gt; E3[&quot;输出也相应平移&quot;]
+    end
+    subgraph INV[&quot;不变 Invariance（卷积 + 池化）&quot;]
+        I1[&quot;输入平移&quot;] --&gt; I2[&quot;卷积 + 池化&quot;] --&gt; I3[&quot;输出保持不变&quot;]
+    end
+</pre>
+<h3>2.6 感受野（Receptive Field）</h3>
+<p>感受野是输出上一个像素对应输入上的区域大小。</p>
+<p class="label"><strong>单层：</strong></p>
+<p>$$
+r = k
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$r$：感受野边长。</li>
+<li>$k$：卷积核尺寸。</li>
+<li>含义：单层卷积的感受野就等于核大小。</li>
+</ul>
+<p><strong>多层递推</strong>（第 $l$ 层）：</p>
+<p>$$
+r_l = r_{l-1} + (k_l - 1)\prod_{i=1}^{l-1} s_i
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$r_l$：第 $l$ 层的感受野边长。</li>
+<li>$r_{l-1}$：上一层的感受野。</li>
+<li>$k_l$：第 $l$ 层的核尺寸。</li>
+<li>$s_i$：第 $i$ 层的步长。</li>
+<li>$\prod_{i=1}^{l-1} s_i$：前面所有层步长的累积乘积（即前面层对空间的降采样倍数）。</li>
+<li>含义：每加一层，感受野增加 $(k_l-1)$ 乘以前面所有层的累积步长。</li>
+</ul>
+<p><strong>有效感受野（ERF）</strong>：实际影响输出的区域，通常远小于理论感受野，
+且呈高斯分布（Luo et al. 2016）。</p>
+<p><strong>为什么重要</strong>：感受野决定了网络能"看到"多大范围。
+分类需要大感受野（全局语义），分割需要小感受野（细节定位）。</p>
+<p><strong>感受野逐层扩大</strong>（3×3 卷积堆叠，步长 1）：</p>
+<pre class="mermaid">flowchart LR
+    L0[&quot;输入&lt;br/&gt;RF = 1&quot;] --&gt; C1[&quot;Conv 3×3&lt;br/&gt;RF = 3&quot;] --&gt; C2[&quot;Conv 3×3&lt;br/&gt;RF = 5&quot;] --&gt; C3[&quot;Conv 3×3&lt;br/&gt;RF = 7&quot;]
+</pre>
+<h3>2.7 池化（Pooling）</h3>
+<p class="label"><strong>最大池化：</strong></p>
+<p>$$
+Y(i,j) = \max_{m,n \in \mathcal{R}} X(i s + m, j s + n)
+$$</p>
+<p class="label"><strong>平均池化：</strong></p>
+<p>$$
+Y(i,j) = \frac{1}{|\mathcal{R}|}\sum_{m,n \in \mathcal{R}} X(i s + m, j s + n)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$Y(i,j)$：输出在 $(i,j)$ 处的值。</li>
+<li>$\mathcal{R}$：池化窗口（如 $2\times2$ 或 $3\times3$ 的邻域）。</li>
+<li>$|\mathcal{R}|$：窗口内元素个数。</li>
+<li>$s$：池化步长。</li>
+<li>$X(i s + m, j s + n)$：窗口内对应的输入像素。</li>
+<li>最大池化：取窗口内最大值；平均池化：取窗口内均值。</li>
+</ul>
+<p class="label"><strong>作用：</strong></p>
+<ul>
+<li>降维，减少计算</li>
+<li>提供局部平移不变性</li>
+<li>扩大感受野</li>
+</ul>
+<p><strong>盲区</strong>：池化会丢失空间信息。现代架构（如 ResNet 后期、ViT）倾向
+用<strong>步长卷积</strong>替代池化，或用<strong>全局平均池化（GAP）</strong>替代全连接。</p>
+<p class="label"><strong>GAP：</strong></p>
+<p>$$
+y_c = \frac{1}{H W}\sum_{i,j} X(c, i, j)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$y_c$：第 $c$ 个通道的全局池化输出（一个标量）。</li>
+<li>$X(c,i,j)$：第 $c$ 个通道在 $(i,j)$ 处的值。</li>
+<li>$H, W$：特征图的高和宽。</li>
+<li>含义：把每个通道的整张特征图取平均，压成一个数，用于替代全连接层。</li>
+</ul>
+<h3>2.8 激活函数</h3>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>公式</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sigmoid</td>
+<td>$\sigma(x)=\frac{1}{1+e^{-x}}$</td>
+<td>梯度消失，输出非零中心</td>
+</tr>
+<tr>
+<td>Tanh</td>
+<td>$\tanh(x)$</td>
+<td>零中心，仍梯度消失</td>
+</tr>
+<tr>
+<td>ReLU</td>
+<td>$\max(0,x)$</td>
+<td>简单高效，神经元死亡</td>
+</tr>
+<tr>
+<td>LeakyReLU</td>
+<td>$\max(\alpha x, x)$</td>
+<td>缓解死亡</td>
+</tr>
+<tr>
+<td>PReLU</td>
+<td>$\max(\alpha x, x)$，$\alpha$ 可学</td>
+<td>自适应</td>
+</tr>
+<tr>
+<td>ELU</td>
+<td>$x&gt;0:x;\ x\le0:\alpha(e^x-1)$</td>
+<td>负值饱和</td>
+</tr>
+<tr>
+<td>SELU</td>
+<td>自归一化</td>
+<td>无需 BN 也可稳定</td>
+</tr>
+<tr>
+<td>GELU</td>
+<td>$x\Phi(x)$</td>
+<td>Transformer 常用</td>
+</tr>
+<tr>
+<td>SiLU/Swish</td>
+<td>$x\sigma(x)$</td>
+<td>平滑非单调</td>
+</tr>
+<tr>
+<td>Mish</td>
+<td>$x\tanh(\text{softplus}(x))$</td>
+<td>平滑</td>
+</tr>
+<tr>
+<td>GLU</td>
+<td>$\sigma(W_1x)\odot(W_2x)$</td>
+<td>门控</td>
+</tr>
+<tr>
+<td>SwiGLU</td>
+<td>$\text{Swish}(W_1x)\odot(W_2x)$</td>
+<td>LLM 常用</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>符号说明：</strong></p>
+<ul>
+<li>$x$：输入激活值；$\sigma(\cdot)$：Sigmoid 函数。</li>
+<li>$\alpha$：负半轴斜率（LeakyReLU 固定，PReLU 可学）。</li>
+<li>$\Phi(x)$：标准正态 CDF；$\text{softplus}(x)=\ln(1+e^x)$。</li>
+<li>$W_1, W_2$：门控分支的权重矩阵；$\odot$：逐元素相乘。</li>
+<li>含义：所有激活函数都是对输入做非线性变换，区别在于是否平滑、是否零中心、负半轴如何处理。</li>
+</ul>
+<p class="label"><strong>GELU 的精确形式：</strong></p>
+<p>$$
+\text{GELU}(x) = x \cdot \Phi(x) = x \cdot \frac{1}{2}\left[1 + \text{erf}\left(\frac{x}{\sqrt{2}}\right)\right]
+$$</p>
+<p>近似形式：</p>
+<p>$$
+\text{GELU}(x) \approx 0.5x\left(1 + \tanh\left[\sqrt{\frac{2}{\pi}}(x + 0.044715x^3)\right]\right)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x$：输入激活值。</li>
+<li>$\Phi(x)$：标准正态分布的累积分布函数（CDF）。</li>
+<li>$\text{erf}(\cdot)$：误差函数，$\Phi(x)=\frac{1}{2}[1+\text{erf}(x/\sqrt{2})]$。</li>
+<li>$0.044715$：拟合常数，使 tanh 近似更贴近精确 GELU。</li>
+<li>含义：GELU 用输入自身的概率权重 $\Phi(x)$ 来门控 $x$，比 ReLU 更平滑。</li>
+</ul>
+<p><strong>为什么需要非线性</strong>：没有激活函数，多层线性变换等价于单层线性变换：</p>
+<p>$$
+W_2(W_1 x) = (W_2 W_1)x
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$W_1, W_2$：两层线性变换的权重矩阵。</li>
+<li>$x$：输入向量。</li>
+<li>含义：两个矩阵相乘仍是一个矩阵，堆叠再多线性层也只等价于一层，因此必须引入非线性。</li>
+</ul>
+<h3>2.9 归一化层</h3>
+<h4>Batch Normalization（BN）</h4>
+<p>对每个通道在 batch 维度上归一化：</p>
+<p>$$
+\mu_c = \frac{1}{N H W}\sum_{n,i,j} x_{n,c,i,j}
+$$</p>
+<p>$$
+\sigma_c^2 = \frac{1}{N H W}\sum_{n,i,j}(x_{n,c,i,j}-\mu_c)^2
+$$</p>
+<p>$$
+\hat{x} = \frac{x-\mu_c}{\sqrt{\sigma_c^2+\epsilon}}
+$$</p>
+<p>$$
+y = \gamma \hat{x} + \beta
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x_{n,c,i,j}$：第 $n$ 个样本、第 $c$ 个通道、位置 $(i,j)$ 的激活值。</li>
+<li>$N$：batch 大小；$H,W$：特征图高宽。</li>
+<li>$\mu_c$：第 $c$ 个通道在 batch 上的均值。</li>
+<li>$\sigma_c^2$：第 $c$ 个通道在 batch 上的方差。</li>
+<li>$\hat{x}$：归一化后的值（零均值、单位方差）。</li>
+<li>$\epsilon$：防止除零的小常数。</li>
+<li>$\gamma, \beta$：可学习的缩放和平移参数，让网络恢复表达能力。</li>
+<li>含义：对每个通道，用整个 batch 的统计量做标准化，再仿射变换。</li>
+</ul>
+<p><strong>训练时</strong>用 batch 统计量，<strong>推理时</strong>用滑动平均。</p>
+<p><strong>问题</strong>：batch 小时统计不稳；RNN/序列任务不适用。</p>
+<h4>Layer Normalization（LN）</h4>
+<p>对每个样本在特征维度上归一化：</p>
+<p>$$
+\mu_n = \frac{1}{C H W}\sum_{c,i,j} x_{n,c,i,j}
+$$</p>
+<p>$$
+\hat{x}_{n,c,i,j} = \frac{x_{n,c,i,j}-\mu_n}{\sqrt{\sigma_n^2+\epsilon}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mu_n$：第 $n$ 个样本在<strong>所有通道和空间位置</strong>上的均值。</li>
+<li>$\sigma_n^2$：第 $n$ 个样本的方差。</li>
+<li>$C$：通道数。</li>
+<li>$\hat{x}_{n,c,i,j}$：归一化后的值。</li>
+<li>含义：与 BN 不同，LN 的统计量只依赖单个样本，与 batch 无关，因此适合 Transformer、RNN。</li>
+</ul>
+<p><strong>优点</strong>：与 batch 无关，适合 Transformer、RNN。</p>
+<h4>Instance Normalization（IN）</h4>
+<p>对每个样本每个通道单独归一化，用于风格迁移。</p>
+<h4>Group Normalization（GN）</h4>
+<p>把通道分组，组内归一化，介于 LN 和 IN 之间，小 batch 友好。</p>
+<h4>对比表</h4>
+<table>
+<thead>
+<tr>
+<th>归一化</th>
+<th>统计维度</th>
+<th>适用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BN</td>
+<td>(N, H, W)</td>
+<td>CNN 大 batch</td>
+</tr>
+<tr>
+<td>LN</td>
+<td>(C, H, W)</td>
+<td>Transformer、RNN</td>
+</tr>
+<tr>
+<td>IN</td>
+<td>(H, W)</td>
+<td>风格迁移</td>
+</tr>
+<tr>
+<td>GN</td>
+<td>(C/G, H, W)</td>
+<td>小 batch CNN</td>
+</tr>
+</tbody>
+</table>
+<p><strong>四种归一化的统计维度对比</strong>（张量形状 $N \times C \times H \times W$）：</p>
+<pre class="mermaid">flowchart TD
+    T[&quot;张量 N × C × H × W&quot;] --&gt; BN[&quot;BN：沿 (N, H, W) 统计&lt;br/&gt;每个通道一组统计量&quot;]
+    T --&gt; LN[&quot;LN：沿 (C, H, W) 统计&lt;br/&gt;每个样本一组统计量&quot;]
+    T --&gt; IN[&quot;IN：沿 (H, W) 统计&lt;br/&gt;每个样本每个通道一组&quot;]
+    T --&gt; GN[&quot;GN：沿 (C/G, H, W) 统计&lt;br/&gt;每个样本每组通道一组&quot;]
+</pre>
+<h4>盲区：Pre-Norm vs Post-Norm</h4>
+<p><strong>Post-Norm</strong>（原始 Transformer）：</p>
+<p>$$
+x_{l+1} = \text{LN}(x_l + \text{Sublayer}(x_l))
+$$</p>
+<p><strong>Pre-Norm</strong>（现代主流）：</p>
+<p>$$
+x_{l+1} = x_l + \text{Sublayer}(\text{LN}(x_l))
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x_l$：第 $l$ 层的输入。</li>
+<li>$\text{Sublayer}(\cdot)$：子层（如注意力或 FFN）。</li>
+<li>$\text{LN}(\cdot)$：层归一化。</li>
+<li>Post-Norm：先残差相加再归一化（原始 Transformer）。</li>
+<li>Pre-Norm：先归一化再进子层，最后残差相加（现代主流，训练更稳）。</li>
+</ul>
+<p>Pre-Norm 训练更稳定，无需 warmup，但表达力略弱，常需更多层。</p>
+<h3>2.10 残差连接（Residual Connection）</h3>
+<p>$$
+y = x + \mathcal{F}(x)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x$：残差块的输入（恒等捷径）。</li>
+<li>$\mathcal{F}(x)$：残差函数（如两层卷积 + BN + ReLU）。</li>
+<li>$y$：残差块的输出。</li>
+<li>含义：输出 = 输入 + 残差，网络只需学习"变化量" $\mathcal{F}$。</li>
+</ul>
+<p class="label"><strong>为什么有效：</strong></p>
+<ol>
+<li><strong>梯度直通</strong>：反向传播时</li>
+</ol>
+<p>$$
+\frac{\partial y}{\partial x} = 1 + \frac{\partial \mathcal{F}}{\partial x}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\frac{\partial y}{\partial x}$：输出对输入的梯度。</li>
+<li>$1$：恒等路径贡献的梯度（保证梯度不消失）。</li>
+<li>$\frac{\partial \mathcal{F}}{\partial x}$：残差分支贡献的梯度。</li>
+<li>
+<p>含义：无论残差分支梯度多小，恒等项 $1$ 都保证梯度能回传。</p>
+</li>
+<li>
+<p><strong>恒等映射易学</strong>：网络只需学残差 $\mathcal{F} = y - x$，接近 0 时容易。</p>
+</li>
+<li>
+<p><strong>集成视角</strong>：$2^L$ 条路径的隐式集成。</p>
+</li>
+</ul>
+<p><strong>盲区</strong>：残差不是万能。极深网络仍需归一化配合。</p>
+<p class="label"><strong>残差块的数据流：</strong></p>
+<pre class="mermaid">flowchart LR
+    X[&quot;x&quot;] --&gt; F[&quot;F(x)&lt;br/&gt;卷积 + BN + ReLU&quot;]
+    X --&gt; ADD((&quot;+&quot;))
+    F --&gt; ADD
+    ADD --&gt; Y[&quot;y = x + F(x)&quot;]
+</pre>
+<hr />
+<h2>3. CNN 的关键组件</h2>
+<h3>3.1 卷积层类型</h3>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>公式/说明</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>标准卷积</td>
+<td>见 2.4</td>
+<td>通用</td>
+</tr>
+<tr>
+<td>1×1 卷积</td>
+<td>$k=1$，通道混合</td>
+<td>降维、升维、瓶颈</td>
+</tr>
+<tr>
+<td>深度卷积</td>
+<td>每通道独立卷积</td>
+<td>轻量化</td>
+</tr>
+<tr>
+<td>逐点卷积</td>
+<td>1×1</td>
+<td>配合深度卷积</td>
+</tr>
+<tr>
+<td>深度可分离卷积</td>
+<td>深度 + 逐点</td>
+<td>MobileNet</td>
+</tr>
+<tr>
+<td>空洞卷积</td>
+<td>核元素间插零</td>
+<td>扩大感受野不降分辨率</td>
+</tr>
+<tr>
+<td>转置卷积</td>
+<td>上采样</td>
+<td>分割、生成</td>
+</tr>
+<tr>
+<td>可变形卷积</td>
+<td>采样位置可学</td>
+<td>形变目标</td>
+</tr>
+<tr>
+<td>分组卷积</td>
+<td>通道分组</td>
+<td>ResNeXt、ShuffleNet</td>
+</tr>
+<tr>
+<td>可分离卷积</td>
+<td>空间可分离 $k\times k \to k\times1 + 1\times k$</td>
+<td>加速</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>卷积类型的关系：</strong></p>
+<pre class="mermaid">flowchart TD
+    STD[&quot;标准卷积&lt;br/&gt;C_in → C_out, k×k&quot;] --&gt; DW[&quot;深度卷积&lt;br/&gt;每通道独立卷积&quot;]
+    DW --&gt; PW[&quot;逐点卷积&lt;br/&gt;1×1 混合通道&quot;]
+    PW --&gt; DS[&quot;深度可分离卷积&lt;br/&gt;= 深度 + 逐点&quot;]
+    STD --&gt; DIL[&quot;空洞卷积&lt;br/&gt;膨胀率 d，扩大感受野&quot;]
+    STD --&gt; DEF[&quot;可变形卷积&lt;br/&gt;采样位置可学&quot;]
+    STD --&gt; TR[&quot;转置卷积&lt;br/&gt;上采样&quot;]
+    STD --&gt; GRP[&quot;分组卷积&lt;br/&gt;通道分组&quot;]
+</pre>
+<h4>空洞卷积（Dilated / Atrous Convolution）</h4>
+<p>$$
+Y(i,j) = \sum_m\sum_n X(i + m\cdot d,\ j + n\cdot d)\cdot K(m,n)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$Y(i,j)$：输出在 $(i,j)$ 处的值。</li>
+<li>$X$：输入特征图。</li>
+<li>$K(m,n)$：卷积核权重。</li>
+<li>$d$：膨胀率（dilation rate），核元素之间插入的间隔。</li>
+<li>$m\cdot d,\ n\cdot d$：采样位置按膨胀率跳着取，$d=1$ 退化为标准卷积。</li>
+<li>含义：不增加参数就能扩大感受野。</li>
+</ul>
+<p>感受野：</p>
+<p>$$
+r = k + (k-1)(d-1)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$r$：等效感受野边长。</li>
+<li>$k$：核尺寸。</li>
+<li>$d$：膨胀率。</li>
+<li>含义：$d=1$ 时 $r=k$；$d$ 越大，感受野越大。</li>
+</ul>
+<p><strong>用途</strong>：DeepLab 系列语义分割，不损失分辨率地扩大感受野。</p>
+<h4>深度可分离卷积（Depthwise Separable）</h4>
+<p>标准卷积计算量：</p>
+<p>$$
+C_{out}\cdot C_{in}\cdot k^2\cdot H\cdot W
+$$</p>
+<p>深度可分离：</p>
+<p>$$
+\underbrace{C_{in}\cdot k^2\cdot H\cdot W}_{\text{深度}} + \underbrace{C_{out}\cdot C_{in}\cdot H\cdot W}_{\text{逐点}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$C_{in}, C_{out}$：输入/输出通道数。</li>
+<li>$k$：核尺寸；$H, W$：特征图高宽。</li>
+<li>深度部分：每个输入通道独立做 $k\times k$ 卷积，不混合通道。</li>
+<li>逐点部分：用 $1\times1$ 卷积混合通道，把 $C_{in}$ 映射到 $C_{out}$。</li>
+<li>含义：把标准卷积拆成"空间卷积 + 通道混合"两步，大幅减少计算。</li>
+</ul>
+<p class="label"><strong>压缩比：</strong></p>
+<p>$$
+\frac{1}{C_{out}} + \frac{1}{k^2}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$C_{out}$：输出通道数。</li>
+<li>$k$：核尺寸。</li>
+<li>含义：深度可分离计算量与标准卷积之比，$k=3$ 且 $C_{out}$ 大时约为 $1/8\sim1/9$。</li>
+</ul>
+<h4>可变形卷积（Deformable Conv）</h4>
+<p>$$
+Y(p_0) = \sum_{p_n \in \mathcal{R}} w(p_n)\cdot X(p_0 + p_n + \Delta p_n)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$p_0$：输出位置坐标。</li>
+<li>$\mathcal{R}$：规则采样网格（如 $3\times3$ 的 9 个偏移）。</li>
+<li>$p_n$：网格内第 $n$ 个采样点的固定偏移。</li>
+<li>$\Delta p_n$：<strong>可学习的偏移量</strong>，由额外卷积层预测，使采样点可落在非规则位置。</li>
+<li>$w(p_n)$：采样点权重。</li>
+<li>$X(\cdot)$：在（可能非整数）位置采样，需双线性插值。</li>
+<li>含义：采样位置可自适应形变目标，比固定网格更灵活。</li>
+</ul>
+<h3>3.2 经典模块</h3>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>核心思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inception</td>
+<td>多尺度并行卷积 + 拼接</td>
+</tr>
+<tr>
+<td>Bottleneck</td>
+<td>1×1 降维 → 3×3 → 1×1 升维</td>
+</tr>
+<tr>
+<td>Residual Block</td>
+<td>恒等捷径</td>
+</tr>
+<tr>
+<td>Dense Block</td>
+<td>每层连接前面所有层</td>
+</tr>
+<tr>
+<td>SE Block</td>
+<td>通道注意力（squeeze-excitation）</td>
+</tr>
+<tr>
+<td>CBAM</td>
+<td>通道 + 空间注意力</td>
+</tr>
+<tr>
+<td>FPN</td>
+<td>自顶向下 + 横向连接</td>
+</tr>
+<tr>
+<td>ASPP</td>
+<td>多膨胀率空洞卷积并行</td>
+</tr>
+<tr>
+<td>Ghost</td>
+<td>用廉价操作生成冗余特征图</td>
+</tr>
+</tbody>
+</table>
+<h4>SE Block（Squeeze-and-Excitation）</h4>
+<p><strong>Squeeze</strong>（全局池化）：</p>
+<p>$$
+z_c = \frac{1}{H W}\sum_{i,j} X(c,i,j)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$z_c$：第 $c$ 个通道的全局描述（一个标量）。</li>
+<li>$X(c,i,j)$：第 $c$ 个通道在 $(i,j)$ 处的值。</li>
+<li>$H, W$：特征图高宽。</li>
+<li>含义：把每个通道压缩成一个数，得到通道级全局信息。</li>
+</ul>
+<p><strong>Excitation</strong>（门控）：</p>
+<p>$$
+s = \sigma(W_2\,\delta(W_1 z))
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$z$：Squeeze 得到的通道描述向量。</li>
+<li>$W_1$：降维权重（把通道数压缩，如 $C\to C/r$）。</li>
+<li>$\delta$：ReLU 激活。</li>
+<li>$W_2$：升维权重（恢复回 $C$ 维）。</li>
+<li>$\sigma$：Sigmoid，把输出压到 $(0,1)$ 作为门控系数。</li>
+<li>$s$：每个通道的重要性权重向量。</li>
+<li>含义：用一个小型瓶颈网络学习通道间的依赖关系。</li>
+</ul>
+<p class="label"><strong>Scale：</strong></p>
+<p>$$
+\tilde{X}(c,i,j) = s_c \cdot X(c,i,j)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\tilde{X}(c,i,j)$：重标定后的特征。</li>
+<li>$s_c$：第 $c$ 个通道的注意力权重。</li>
+<li>$X(c,i,j)$：原始特征。</li>
+<li>含义：按通道重要性对特征图逐通道加权。</li>
+</ul>
+<p>这是<strong>通道注意力</strong>的鼻祖，也是 Transformer 注意力思想的近亲。</p>
+<p class="label"><strong>SE Block 的三步流程：</strong></p>
+<pre class="mermaid">flowchart LR
+    X[&quot;特征图 C×H×W&quot;] --&gt; SQ[&quot;Squeeze&lt;br/&gt;全局平均池化&quot;]
+    SQ --&gt; EX[&quot;Excitation&lt;br/&gt;FC → ReLU → FC → Sigmoid&quot;]
+    EX --&gt; SC[&quot;Scale&lt;br/&gt;逐通道相乘&quot;]
+    X --&gt; SC
+    SC --&gt; Y[&quot;重标定特征图&quot;]
+</pre>
+<h3>3.3 输出层与损失</h3>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>输出</th>
+<th>损失</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>分类</td>
+<td>softmax</td>
+<td>交叉熵</td>
+</tr>
+<tr>
+<td>回归</td>
+<td>线性</td>
+<td>MSE / L1 / Huber</td>
+</tr>
+<tr>
+<td>检测</td>
+<td>分类 + 框回归</td>
+<td>CE + Smooth L1 / IoU</td>
+</tr>
+<tr>
+<td>分割</td>
+<td>逐像素 softmax</td>
+<td>CE / Dice</td>
+</tr>
+<tr>
+<td>度量学习</td>
+<td>嵌入向量</td>
+<td>对比 / 三元组</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>交叉熵：</strong></p>
+<p>$$
+\mathcal{L} = -\sum_i y_i \log \hat{y}_i
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathcal{L}$：损失值。</li>
+<li>$i$：类别索引。</li>
+<li>$y_i$：真实标签（one-hot，正确类为 1，其余为 0）。</li>
+<li>$\hat{y}_i$：预测概率（softmax 输出）。</li>
+<li>含义：只惩罚正确类别的预测概率，预测越接近 1 损失越小。</li>
+</ul>
+<p class="label"><strong>Softmax：</strong></p>
+<p>$$
+\hat{y}_i = \frac{e^{z_i}}{\sum_j e^{z_j}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$z_i$：第 $i$ 类的原始得分（logit）。</li>
+<li>$e^{z_i}$：指数化，保证非负。</li>
+<li>$\sum_j e^{z_j}$：所有类别指数得分之和，用于归一化。</li>
+<li>$\hat{y}_i$：第 $i$ 类的概率，所有类之和为 1。</li>
+</ul>
+<p><strong>Focal Loss</strong>（解决类别不平衡）：</p>
+<p>$$
+\mathcal{L} = -\alpha_t (1-p_t)^\gamma \log p_t
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$p_t$：模型对真实类别的预测概率。</li>
+<li>$(1-p_t)^\gamma$：调制因子，易分样本（$p_t$ 大）权重被压低。</li>
+<li>$\gamma$：聚焦参数（常取 2），越大越关注难样本。</li>
+<li>$\alpha_t$：类别平衡权重，缓解正负样本不平衡。</li>
+<li>含义：在交叉熵基础上降低易分样本权重，让模型专注难样本。</li>
+</ul>
+<p><strong>Dice Loss</strong>（分割）：</p>
+<p>$$
+\mathcal{L} = 1 - \frac{2|A\cap B|}{|A|+|B|}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$A$：预测的分割区域。</li>
+<li>$B$：真实的分割区域。</li>
+<li>$|A\cap B|$：两者交集（预测正确的像素数）。</li>
+<li>$|A|, |B|$：各自面积。</li>
+<li>含义：衡量预测与真值的重叠度（Dice 系数），重叠越高损失越小，适合类别极不平衡的分割。</li>
+</ul>
+<hr />
+<h2>4. CNN 的反向传播推导</h2>
+<h3>4.1 卷积层的梯度</h3>
+<p>设 $Y = X * K$，损失 $\mathcal{L}$。</p>
+<p class="label"><strong>对核的梯度：</strong></p>
+<p>$$
+\frac{\partial \mathcal{L}}{\partial K(m,n)} = \sum_{i,j} \frac{\partial \mathcal{L}}{\partial Y(i,j)}\cdot X(i+m, j+n)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathcal{L}$：损失。</li>
+<li>$K(m,n)$：核在 $(m,n)$ 处的权重。</li>
+<li>$\frac{\partial \mathcal{L}}{\partial Y(i,j)}$：损失对输出 $(i,j)$ 的梯度（上游传回）。</li>
+<li>$X(i+m, j+n)$：与输出 $(i,j)$ 对应的输入像素。</li>
+<li>含义：核的梯度 = 输入与输出梯度的互相关（把上游梯度当作核去扫输入）。</li>
+</ul>
+<p>即：<strong>输入与输出梯度的互相关</strong>。</p>
+<p class="label"><strong>对输入的梯度：</strong></p>
+<p>$$
+\frac{\partial \mathcal{L}}{\partial X(i,j)} = \sum_{m,n} \frac{\partial \mathcal{L}}{\partial Y(i-m, j-n)}\cdot K(m,n)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\frac{\partial \mathcal{L}}{\partial X(i,j)}$：损失对输入 $(i,j)$ 的梯度。</li>
+<li>$\frac{\partial \mathcal{L}}{\partial Y(i-m, j-n)}$：上游梯度在相对位置 $(i-m,j-n)$ 处的值。</li>
+<li>$K(m,n)$：核权重。</li>
+<li>含义：输入的梯度 = 输出梯度与翻转核的卷积（全卷积），把梯度"反推"回输入。</li>
+</ul>
+<p>即：<strong>输出梯度与翻转核的卷积</strong>（全卷积）。</p>
+<p><strong>关键洞察</strong>：卷积的前向和反向都是卷积运算，这是 CNN 高效的原因。</p>
+<p class="label"><strong>前向与反向的数据流：</strong></p>
+<pre class="mermaid">flowchart LR
+    X[&quot;输入 X&quot;] --&gt; FWD[&quot;前向：Y = X * K&quot;] --&gt; Y[&quot;输出 Y&quot;] --&gt; L[&quot;损失 L&quot;]
+    L --&gt; GY[&quot;∂L/∂Y&quot;]
+    GY --&gt; GK[&quot;∂L/∂K = X * ∂L/∂Y&lt;br/&gt;互相关&quot;]
+    GY --&gt; GX[&quot;∂L/∂X = ∂L/∂Y * K_flip&lt;br/&gt;全卷积&quot;]
+</pre>
+<h3>4.2 池化层的梯度</h3>
+<p><strong>最大池化</strong>：梯度只回传到最大值位置。</p>
+<p>$$
+\frac{\partial \mathcal{L}}{\partial X(i,j)} =
+\begin{cases}
+\frac{\partial \mathcal{L}}{\partial Y(i',j')}, &amp; (i,j) = \arg\max \\
+0, &amp; \text{否则}
+\end{cases}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\frac{\partial \mathcal{L}}{\partial X(i,j)}$：损失对输入 $(i,j)$ 的梯度。</li>
+<li>$\frac{\partial \mathcal{L}}{\partial Y(i',j')}$：对应池化窗口输出的梯度。</li>
+<li>$\arg\max$：窗口内最大值的位置。</li>
+<li>含义：只有最大值位置接收梯度，其余位置梯度为 0（因为前向只选了最大值）。</li>
+</ul>
+<p><strong>平均池化</strong>：梯度均分。</p>
+<p>$$
+\frac{\partial \mathcal{L}}{\partial X(i,j)} = \frac{1}{|\mathcal{R}|}\frac{\partial \mathcal{L}}{\partial Y(i',j')}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$|\mathcal{R}|$：池化窗口内元素个数。</li>
+<li>$\frac{\partial \mathcal{L}}{\partial Y(i',j')}$：窗口输出的梯度。</li>
+<li>含义：平均池化前向是取均值，所以反向把梯度平均分给窗口内每个位置。</li>
+</ul>
+<h3>4.3 BN 的梯度</h3>
+<p>BN 反向传播涉及 batch 内所有样本，因为 $\mu$ 和 $\sigma$ 依赖整个 batch：</p>
+<p>$$
+\frac{\partial \mathcal{L}}{\partial x_i} = \frac{\gamma}{\sqrt{\sigma^2+\epsilon}}\left(\frac{\partial \mathcal{L}}{\partial \hat{x}_i} - \frac{1}{N}\sum_j \frac{\partial \mathcal{L}}{\partial \hat{x}_j} - \frac{\hat{x}_i}{N}\sum_j \frac{\partial \mathcal{L}}{\partial \hat{x}_j}\hat{x}_j\right)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x_i$：batch 内第 $i$ 个样本的输入激活。</li>
+<li>$\hat{x}_i$：归一化后的值。</li>
+<li>$\gamma$：可学习缩放参数。</li>
+<li>$\sigma^2, \epsilon$：方差与防除零常数。</li>
+<li>$N$：batch 大小。</li>
+<li>$\frac{\partial \mathcal{L}}{\partial \hat{x}_i}$：损失对归一化值的梯度。</li>
+<li>后两项 $\frac{1}{N}\sum_j\cdots$ 与 $\frac{\hat{x}_i}{N}\sum_j\cdots$：来自均值 $\mu$ 和方差 $\sigma^2$ 对 batch 内所有样本的依赖。</li>
+<li>含义：因为 $\mu,\sigma$ 依赖整个 batch，每个样本的梯度都耦合了 batch 内其他样本，这是 BN 不适合小 batch 和序列任务的根本原因。</li>
+</ul>
+<p><strong>盲区</strong>：这是 BN 在推理时不能用 batch 统计的根本原因，也是它不适合
+小 batch 和序列任务的原因。</p>
+<hr />
+<h2>5. CNN 架构演进史</h2>
+<h3>5.1 时间线</h3>
+<table>
+<thead>
+<tr>
+<th>年份</th>
+<th>模型</th>
+<th>关键贡献</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1989</td>
+<td>LeCun CNN</td>
+<td>反向传播训练卷积网络</td>
+</tr>
+<tr>
+<td>1998</td>
+<td>LeNet-5</td>
+<td>首个实用 CNN，手写数字</td>
+</tr>
+<tr>
+<td>2012</td>
+<td>AlexNet</td>
+<td>ReLU + Dropout + GPU，ImageNet 突破</td>
+</tr>
+<tr>
+<td>2014</td>
+<td>VGG</td>
+<td>3×3 堆叠，深度证明</td>
+</tr>
+<tr>
+<td>2014</td>
+<td>GoogLeNet</td>
+<td>Inception，1×1 降维</td>
+</tr>
+<tr>
+<td>2015</td>
+<td>ResNet</td>
+<td>残差连接，152 层</td>
+</tr>
+<tr>
+<td>2016</td>
+<td>DenseNet</td>
+<td>密集连接</td>
+</tr>
+<tr>
+<td>2017</td>
+<td>MobileNet</td>
+<td>深度可分离卷积</td>
+</tr>
+<tr>
+<td>2017</td>
+<td>ShuffleNet</td>
+<td>通道混洗</td>
+</tr>
+<tr>
+<td>2017</td>
+<td>FPN</td>
+<td>特征金字塔</td>
+</tr>
+<tr>
+<td>2018</td>
+<td>SENet</td>
+<td>通道注意力</td>
+</tr>
+<tr>
+<td>2019</td>
+<td>EfficientNet</td>
+<td>复合缩放</td>
+</tr>
+<tr>
+<td>2019</td>
+<td>ResNeSt</td>
+<td>分组注意力</td>
+</tr>
+<tr>
+<td>2020</td>
+<td>RegNet</td>
+<td>设计空间搜索</td>
+</tr>
+<tr>
+<td>2022</td>
+<td>ConvNeXt</td>
+<td>借鉴 Transformer 设计</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>CNN 架构演进时间线：</strong></p>
+<pre class="mermaid">timeline
+    title CNN 架构演进
+    1998 : LeNet-5 首个实用 CNN
+    2012 : AlexNet 深度学习复兴
+    2014 : VGG 3×3 堆叠 / GoogLeNet Inception
+    2015 : ResNet 残差连接
+    2016 : DenseNet 密集连接
+    2017 : MobileNet 深度可分离 / FPN
+    2018 : SENet 通道注意力
+    2019 : EfficientNet 复合缩放
+    2022 : ConvNeXt 借鉴 Transformer
+</pre>
+<h3>5.2 关键模型详解</h3>
+<h4>LeNet-5（1998）</h4>
+<pre><code>输入 32×32
+→ Conv 5×5, 6
+→ AvgPool 2×2
+→ Conv 5×5, 16
+→ AvgPool 2×2
+→ FC 120 → FC 84 → FC 10
+</code></pre>
+<p><strong>意义</strong>：确立了"卷积-池化-全连接"范式。</p>
+<h4>AlexNet（2012）</h4>
+<ul>
+<li>5 卷积 + 3 全连接</li>
+<li>ReLU 替代 Sigmoid</li>
+<li>Dropout 防过拟合</li>
+<li>数据增强</li>
+<li>双 GPU 训练</li>
+<li>局部响应归一化（LRN）</li>
+</ul>
+<p><strong>意义</strong>：深度学习复兴的起点。</p>
+<h4>VGG（2014）</h4>
+<p><strong>核心思想</strong>：用 3×3 卷积堆叠替代大核。</p>
+<p>两个 3×3 卷积的感受野等于一个 5×5：</p>
+<p>$$
+r = 3 + (3-1) = 5
+$$</p>
+<p>其中：</p>
+<ul>
+<li>第一个 $3$：第一层 $3\times3$ 卷积的感受野。</li>
+<li>$(3-1)$：第二层 $3\times3$ 卷积在上一层基础上额外扩展的范围。</li>
+<li>$r=5$：两层 $3\times3$ 堆叠的等效感受野等于一个 $5\times5$。</li>
+<li>含义：小核堆叠可以替代大核，且参数更少、非线性更多。</li>
+</ul>
+<p>三个 3×3 等于 7×7。</p>
+<p class="label"><strong>优势：</strong></p>
+<ul>
+<li>参数更少：$3\times(3^2 C^2) = 27C^2$ vs $5^2C^2 = 25C^2$（近似）</li>
+<li>非线性更多：3 层 ReLU vs 1 层</li>
+</ul>
+<p><strong>盲区</strong>：VGG 参数量巨大（1.38 亿），主要在全连接层。</p>
+<h4>GoogLeNet / Inception（2014）</h4>
+<p><strong>Inception 模块</strong>：并行多尺度卷积 + 1×1 降维。</p>
+<p>$$
+\text{Inception}(X) = [\text{Conv}_{1\times1}(X),\ \text{Conv}_{3\times3}(X),\ \text{Conv}_{5\times5}(X),\ \text{MaxPool}(X)]
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$X$：输入特征图。</li>
+<li>$\text{Conv}_{1\times1}, \text{Conv}_{3\times3}, \text{Conv}_{5\times5}$：不同尺度的并行卷积分支。</li>
+<li>$\text{MaxPool}(X)$：池化分支，提供另一尺度。</li>
+<li>$[\cdot,\cdot,\cdot,\cdot]$：沿通道维拼接（concatenation）。</li>
+<li>含义：同一层内并行提取多尺度特征，再拼接融合。</li>
+</ul>
+<p><strong>1×1 卷积的作用</strong>：通道降维，减少计算。</p>
+<p><strong>辅助分类器</strong>：中间层加分类头，缓解梯度消失。</p>
+<h4>ResNet（2015）</h4>
+<p class="label"><strong>残差块：</strong></p>
+<p>$$
+y = \mathcal{F}(x, \{W_i\}) + x
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x$：残差块输入。</li>
+<li>$\{W_i\}$：残差分支中所有层的权重。</li>
+<li>$\mathcal{F}(x,\{W_i\})$：残差分支（如两层卷积）的输出。</li>
+<li>$y$：残差块输出。</li>
+<li>含义：网络学习残差 $\mathcal{F}$，恒等路径 $x$ 直接相加，保证梯度直通。</li>
+</ul>
+<p><strong>瓶颈结构</strong>（ResNet-50+）：</p>
+<pre><code>1×1 (降维) → 3×3 → 1×1 (升维)
+</code></pre>
+<p><strong>为什么能训 152 层</strong>：残差提供梯度直通路径。</p>
+<p><strong>盲区</strong>：ResNet 的"退化问题"（degradation）不是过拟合，而是
+深层网络训练误差反而更高，残差正是为解决它而生。</p>
+<p><strong>ResNet 瓶颈结构</strong>（以 ResNet-50 为例）：</p>
+<pre class="mermaid">flowchart LR
+    X[&quot;输入 256d&quot;] --&gt; A[&quot;1×1 Conv&lt;br/&gt;降维到 64d&quot;] --&gt; B[&quot;3×3 Conv&lt;br/&gt;64d&quot;] --&gt; C[&quot;1×1 Conv&lt;br/&gt;升维到 256d&quot;] --&gt; ADD((&quot;+&quot;))
+    X --&gt; ADD
+    ADD --&gt; Y[&quot;输出 256d&quot;]
+</pre>
+<h4>DenseNet（2016）</h4>
+<p>$$
+x_l = H_l([x_0, x_1, \ldots, x_{l-1}])
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x_l$：第 $l$ 层的输出。</li>
+<li>$[x_0, x_1, \ldots, x_{l-1}]$：前面所有层输出的拼接。</li>
+<li>$H_l(\cdot)$：第 $l$ 层的复合操作（BN-ReLU-Conv）。</li>
+<li>含义：每层都接收前面所有层的特征，实现特征复用与密集梯度流动。</li>
+</ul>
+<p>每层连接前面所有层。<strong>优势</strong>：特征复用、梯度流动好、参数少。
+<strong>劣势</strong>：显存占用高。</p>
+<h4>MobileNet（2017）</h4>
+<p>深度可分离卷积 + 宽度乘子 + 分辨率乘子。</p>
+<p><strong>宽度乘子</strong> $\alpha$：通道数缩放。
+<strong>分辨率乘子</strong> $\rho$：输入分辨率缩放。</p>
+<p>计算量：</p>
+<p>$$
+\text{FLOPs} \propto \alpha^2 \rho^2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\alpha$：宽度乘子，缩放通道数。</li>
+<li>$\rho$：分辨率乘子，缩放输入分辨率。</li>
+<li>$\propto$：正比于。</li>
+<li>含义：计算量随宽度和分辨率的平方增长，因此轻量化需同时控制两者。</li>
+</ul>
+<h4>EfficientNet（2019）</h4>
+<p><strong>复合缩放</strong>：同时缩放深度 $d$、宽度 $w$、分辨率 $r$：</p>
+<p>$$
+d = \alpha^\phi,\quad w = \beta^\phi,\quad r = \gamma^\phi
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$d, w, r$：深度、宽度、分辨率。</li>
+<li>$\alpha, \beta, \gamma$：三个方向的缩放基数（由网格搜索确定）。</li>
+<li>$\phi$：复合系数，控制整体缩放倍数。</li>
+<li>含义：三个维度按幂律同步放大。</li>
+</ul>
+<p>约束：</p>
+<p>$$
+\alpha \cdot \beta^2 \cdot \gamma^2 \approx 2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\alpha, \beta, \gamma$：同上。</li>
+<li>$\beta^2, \gamma^2$：宽度和分辨率对计算量的贡献是平方关系。</li>
+<li>$\approx 2$：约束每次放大 $\phi$ 时计算量约翻倍。</li>
+<li>含义：保证缩放时计算量可控，三者需平衡。</li>
+</ul>
+<p><strong>核心发现</strong>：三者需平衡缩放，单独缩放收益递减。</p>
+<h4>ConvNeXt（2022）</h4>
+<p class="label"><strong>把 Transformer 的设计搬回 CNN：</strong></p>
+<ul>
+<li>大核深度卷积（7×7）</li>
+<li>倒瓶颈结构</li>
+<li>LayerNorm 替代 BN</li>
+<li>GELU 替代 ReLU</li>
+<li>更少的激活和归一化</li>
+</ul>
+<p><strong>意义</strong>：证明 CNN 在同等训练条件下可与 Swin Transformer 持平。</p>
+<h3>5.3 检测与分割架构</h3>
+<h4>两阶段检测</h4>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>贡献</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R-CNN</td>
+<td>选择性搜索 + CNN 分类</td>
+</tr>
+<tr>
+<td>Fast R-CNN</td>
+<td>RoI Pooling，共享卷积</td>
+</tr>
+<tr>
+<td>Faster R-CNN</td>
+<td>RPN 端到端</td>
+</tr>
+<tr>
+<td>Mask R-CNN</td>
+<td>加分割分支 + RoI Align</td>
+</tr>
+<tr>
+<td>Cascade R-CNN</td>
+<td>级联 IoU 阈值</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>RPN（区域提议网络）：</strong></p>
+<p>$$
+\text{anchor} \to \text{objectness} + \text{box regression}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\text{anchor}$：预设的候选框（不同尺度、长宽比）。</li>
+<li>$\text{objectness}$：该框是否包含目标的置信度（二分类）。</li>
+<li>$\text{box regression}$：框位置的回归修正量（中心偏移、宽高缩放）。</li>
+<li>含义：RPN 对每个锚框同时预测"有没有目标"和"框该怎么调"。</li>
+</ul>
+<p><strong>RoI Align</strong>：双线性插值，解决 RoI Pooling 的量化误差。</p>
+<h4>单阶段检测</h4>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>贡献</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>YOLO</td>
+<td>回归式检测，实时</td>
+</tr>
+<tr>
+<td>SSD</td>
+<td>多尺度特征图</td>
+</tr>
+<tr>
+<td>RetinaNet</td>
+<td>Focal Loss</td>
+</tr>
+<tr>
+<td>FCOS</td>
+<td>无锚框</td>
+</tr>
+<tr>
+<td>CenterNet</td>
+<td>关键点检测</td>
+</tr>
+<tr>
+<td>YOLOv5/v8</td>
+<td>工程优化</td>
+</tr>
+</tbody>
+</table>
+<p><strong>YOLO 的核心</strong>：把检测变成回归问题，一次前向输出所有框。</p>
+<h4>分割</h4>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>贡献</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FCN</td>
+<td>全卷积，端到端分割</td>
+</tr>
+<tr>
+<td>U-Net</td>
+<td>编码-解码 + 跳跃连接</td>
+</tr>
+<tr>
+<td>SegNet</td>
+<td>池化索引上采样</td>
+</tr>
+<tr>
+<td>DeepLab</td>
+<td>空洞卷积 + CRF</td>
+</tr>
+<tr>
+<td>PSPNet</td>
+<td>金字塔池化</td>
+</tr>
+<tr>
+<td>Mask R-CNN</td>
+<td>实例分割</td>
+</tr>
+<tr>
+<td>Panoptic</td>
+<td>全景分割</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>U-Net 的跳跃连接：</strong></p>
+<p>$$
+\text{Decoder}_l = \text{Up}(\text{Decoder}_{l+1}) \oplus \text{Encoder}_l
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\text{Decoder}_l$：第 $l$ 层解码器输出。</li>
+<li>$\text{Up}(\cdot)$：上采样（恢复分辨率）。</li>
+<li>$\text{Decoder}_{l+1}$：下一层（更深）解码器输出。</li>
+<li>$\text{Encoder}_l$：同层编码器特征（跳跃连接）。</li>
+<li>$\oplus$：拼接或相加。</li>
+<li>含义：解码器上采样后与编码器同层特征融合，兼顾语义与定位细节。</li>
+</ul>
+<p><strong>为什么有效</strong>：编码器保留细节，解码器恢复分辨率，跳跃连接传递定位信息。</p>
+<p class="label"><strong>U-Net 的编码-解码与跳跃连接：</strong></p>
+<pre class="mermaid">flowchart LR
+    E1[&quot;Enc1&quot;] --&gt; E2[&quot;Enc2&quot;] --&gt; E3[&quot;Enc3&quot;] --&gt; E4[&quot;Enc4&quot;] --&gt; B[&quot;Bottleneck&quot;]
+    B --&gt; D4[&quot;Dec4&quot;] --&gt; D3[&quot;Dec3&quot;] --&gt; D2[&quot;Dec2&quot;] --&gt; D1[&quot;Dec1&quot;]
+    E4 -.跳跃连接.-&gt; D4
+    E3 -.跳跃连接.-&gt; D3
+    E2 -.跳跃连接.-&gt; D2
+    E1 -.跳跃连接.-&gt; D1
+</pre>
+<hr />
+<h2>6. CNN 的现代变体与算子</h2>
+<h3>6.1 注意力增强的 CNN</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>注意力维度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SE</td>
+<td>通道</td>
+</tr>
+<tr>
+<td>CBAM</td>
+<td>通道 + 空间</td>
+</tr>
+<tr>
+<td>ECA</td>
+<td>高效通道</td>
+</tr>
+<tr>
+<td>Non-Local</td>
+<td>时空自注意力</td>
+</tr>
+<tr>
+<td>GCNet</td>
+<td>全局上下文</td>
+</tr>
+<tr>
+<td>Coordinate Attention</td>
+<td>坐标感知</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Non-Local Block</strong>（把自注意力引入 CNN）：</p>
+<p>$$
+y_i = \frac{1}{\mathcal{C}(x)}\sum_j f(x_i, x_j)\, g(x_j)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$y_i$：位置 $i$ 的输出。</li>
+<li>$x_i, x_j$：位置 $i$ 和 $j$ 的特征。</li>
+<li>$f(x_i,x_j)$：相似度函数（高斯、嵌入高斯、点积等）。</li>
+<li>$g(x_j)$：对 $x_j$ 的变换（如线性投影）。</li>
+<li>$\mathcal{C}(x)$：归一化因子（如 $\sum_j f(x_i,x_j)$）。</li>
+<li>含义：每个位置聚合全局所有位置的信息，权重由相似度决定，是自注意力在 CNN 中的形式。</li>
+</ul>
+<p><strong>这是 CNN 与 Transformer 的桥梁</strong>。</p>
+<h3>6.2 动态与条件计算</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>动态卷积</td>
+<td>核由输入生成</td>
+</tr>
+<tr>
+<td>条件卷积</td>
+<td>多个专家核加权</td>
+</tr>
+<tr>
+<td>可变形卷积</td>
+<td>采样位置可学</td>
+</tr>
+<tr>
+<td>稀疏卷积</td>
+<td>只算非零位置</td>
+</tr>
+<tr>
+<td>早退网络</td>
+<td>简单样本提前输出</td>
+</tr>
+</tbody>
+</table>
+<h3>6.3 3D 与视频 CNN</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C3D</td>
+<td>3D 卷积</td>
+</tr>
+<tr>
+<td>I3D</td>
+<td>膨胀 2D 到 3D</td>
+</tr>
+<tr>
+<td>P3D</td>
+<td>分解 3D 为 2D+1D</td>
+</tr>
+<tr>
+<td>R(2+1)D</td>
+<td>空间 + 时间分离</td>
+</tr>
+<tr>
+<td>SlowFast</td>
+<td>双路径不同帧率</td>
+</tr>
+<tr>
+<td>TSM</td>
+<td>时间移位模块</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>7. Transformer 的数学原理</h2>
+<h3>7.1 从序列建模说起</h3>
+<p class="label"><strong>RNN 的问题：</strong></p>
+<p>$$
+h_t = f(h_{t-1}, x_t)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$h_t$：第 $t$ 步的隐状态（携带历史信息）。</li>
+<li>$h_{t-1}$：上一步的隐状态。</li>
+<li>$x_t$：第 $t$ 步的输入。</li>
+<li>$f$：递推函数（如 LSTM/GRU 单元）。</li>
+<li>含义：隐状态逐步传递，必须串行计算，且信息要经过多步才能传到远处。</li>
+</ul>
+<p>RNN 的三大问题：</p>
+<ul>
+<li>串行计算，无法并行</li>
+<li>长程依赖梯度消失</li>
+<li>信息瓶颈在 $h_t$</li>
+</ul>
+<p><strong>注意力的动机</strong>：让每个位置直接"看"所有位置，无需逐步传递。</p>
+<h3>7.2 缩放点积注意力（Scaled Dot-Product Attention）</h3>
+<p class="label"><strong>核心公式：</strong></p>
+<p>$$
+\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$Q \in \mathbb{R}^{n \times d_k}$：查询（query），"我在找什么"。</li>
+<li>$K \in \mathbb{R}^{m \times d_k}$：键（key），"我有什么标签"。</li>
+<li>$V \in \mathbb{R}^{m \times d_v}$：值（value），"我的实际内容"。</li>
+<li>$n$：查询数量，$m$：键值数量。</li>
+<li>$d_k$：键/查询的维度，用于缩放。</li>
+<li>$QK^T$：查询与键的点积，得到相似度矩阵。</li>
+<li>$\sqrt{d_k}$：缩放因子，防止点积过大导致 softmax 饱和。</li>
+<li>$\text{softmax}(\cdot)$：按行归一化成概率（注意力权重）。</li>
+<li>整体含义：用查询与键的相似度作为权重，对值做加权求和。</li>
+</ul>
+<p class="label"><strong>逐步推导：</strong></p>
+<ol>
+<li><strong>相似度计算</strong>：</li>
+</ol>
+<p>$$
+S = QK^T \in \mathbb{R}^{n \times m}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$S$：相似度矩阵（未归一化）。</li>
+<li>$Q$：查询矩阵；$K^T$：键矩阵的转置。</li>
+<li>$S_{ij}$：第 $i$ 个查询与第 $j$ 个键的点积相似度。</li>
+<li>
+<p>含义：点积越大，说明查询与键越匹配。</p>
+</li>
+<li>
+<p class="label"><strong>缩放：</strong></p>
+</li>
+</ul>
+<p>$$
+S' = \frac{S}{\sqrt{d_k}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$S'$：缩放后的相似度矩阵。</li>
+<li>$S$：原始点积相似度。</li>
+<li>$d_k$：键/查询维度。</li>
+<li>含义：把相似度除以 $\sqrt{d_k}$，使数值回到合理范围，避免 softmax 饱和。</li>
+</ul>
+<p><strong>为什么除以 $\sqrt{d_k}$</strong>（重要盲区）：</p>
+<p>假设 $q, k$ 各分量独立、均值 0、方差 1，则：</p>
+<p>$$
+\text{Var}(q\cdot k) = \sum_{i=1}^{d_k}\text{Var}(q_i k_i) = d_k
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$q, k$：单个查询向量和键向量。</li>
+<li>$q\cdot k$：两者的点积。</li>
+<li>$q_i, k_i$：第 $i$ 个分量。</li>
+<li>$\text{Var}(\cdot)$：方差。</li>
+<li>$d_k$：向量维度。</li>
+<li>含义：在分量独立、均值 0、方差 1 的假设下，点积的方差等于维度 $d_k$，标准差为 $\sqrt{d_k}$，所以除以 $\sqrt{d_k}$ 可把方差拉回 1。
+不缩放时，$d_k$ 大则点积值大，softmax 进入饱和区，梯度趋近 0。</li>
+</ul>
+<p>$$
+\text{softmax}(z)_i = \frac{e^{z_i}}{\sum_j e^{z_j}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$z$：输入得分向量。</li>
+<li>$z_i$：第 $i$ 个得分。</li>
+<li>$e^{z_i}$：指数化，保证非负且放大差异。</li>
+<li>$\sum_j e^{z_j}$：所有得分的指数和，用于归一化。</li>
+<li>
+<p>含义：把任意实数得分变成概率分布；若某个 $z_i$ 远大于其他，输出接近 one-hot，梯度消失。</p>
+</li>
+<li>
+<p class="label"><strong>Softmax 归一化：</strong></p>
+</li>
+</ul>
+<p>$$
+A = \text{softmax}(S') \in \mathbb{R}^{n\times m}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$A$：注意力权重矩阵。</li>
+<li>$S'$：缩放后的相似度矩阵。</li>
+<li>$n, m$：查询数、键值数。</li>
+<li>
+<p>含义：对每一行做 softmax，每行和为 1，$A_{ij}$ 表示第 $i$ 个查询对第 $j$ 个键的关注程度。</p>
+</li>
+<li>
+<p class="label"><strong>加权求和：</strong></p>
+</li>
+</ul>
+<p>$$
+O = AV \in \mathbb{R}^{n \times d_v}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$O$：注意力输出。</li>
+<li>$A$：注意力权重矩阵（$n\times m$）。</li>
+<li>$V$：值矩阵（$m\times d_v$）。</li>
+<li>$d_v$：值的维度。</li>
+<li>含义：用注意力权重对值加权求和，得到每个查询的聚合结果。</li>
+</ul>
+<p><strong>直观理解</strong>：$Q$ 是"我在找什么"，$K$ 是"我有什么标签"，$V$ 是"我的实际内容"。注意力就是按匹配度加权取内容。</p>
+<p class="label"><strong>缩放点积注意力的计算流程：</strong></p>
+<pre class="mermaid">flowchart LR
+    Q[&quot;Q: n × d_k&quot;] --&gt; S[&quot;S = QKᵀ&lt;br/&gt;n × m&quot;]
+    K[&quot;K: m × d_k&quot;] --&gt; S
+    S --&gt; SC[&quot;S / √d_k&lt;br/&gt;缩放&quot;]
+    SC --&gt; SM[&quot;softmax&lt;br/&gt;每行归一化&quot;]
+    SM --&gt; A[&quot;A: n × m&lt;br/&gt;注意力权重&quot;]
+    V[&quot;V: m × d_v&quot;] --&gt; O[&quot;O = AV&lt;br/&gt;n × d_v&quot;]
+    A --&gt; O
+</pre>
+<h3>7.3 自注意力（Self-Attention）</h3>
+<p>当 $Q, K, V$ 都来自同一个输入 $X$ 时：</p>
+<p>$$
+Q = XW_Q,\quad K = XW_K,\quad V = XW_V
+$$</p>
+<p>$$
+\text{SelfAttn}(X) = \text{softmax}\left(\frac{XW_Q W_K^T X^T}{\sqrt{d_k}}\right)XW_V
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$X$：输入序列（$n\times d$）。</li>
+<li>$W_Q, W_K, W_V$：把输入投影成查询/键/值的可学习权重矩阵。</li>
+<li>$Q, K, V$：投影后的查询、键、值，均来自同一个 $X$。</li>
+<li>$d_k$：缩放维度。</li>
+<li>含义：自注意力中 $Q,K,V$ 同源，每个位置根据与其他位置的相关性聚合全局信息。</li>
+</ul>
+<p><strong>自注意力的本质</strong>：每个位置根据与其他位置的相关性，聚合全局信息。</p>
+<p><strong>与卷积的关系</strong>（重要）：</p>
+<ul>
+<li>卷积：固定局部权重，与内容无关</li>
+<li>自注意力：动态权重，由内容决定</li>
+</ul>
+<p>$$
+\text{Conv}: y_i = \sum_{j \in \mathcal{N}(i)} w_{i-j} x_j
+$$</p>
+<p>$$
+\text{SelfAttn}: y_i = \sum_{j} \alpha(x_i, x_j) x_j
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$y_i$：位置 $i$ 的输出。</li>
+<li>$\mathcal{N}(i)$：位置 $i$ 的局部邻域（卷积只看局部）。</li>
+<li>$w_{i-j}$：只依赖相对位置的固定权重（与内容无关）。</li>
+<li>$\alpha(x_i,x_j)$：由内容动态计算的注意力权重。</li>
+<li>$x_j$：位置 $j$ 的输入。</li>
+<li>含义：卷积是静态局部权重，自注意力是动态全局权重。</li>
+</ul>
+<p><strong>自注意力是"内容自适应的动态卷积"</strong>。</p>
+<p class="label"><strong>自注意力的数据流：</strong></p>
+<pre class="mermaid">flowchart TD
+    X[&quot;输入 X: n × d&quot;] --&gt; WQ[&quot;W_Q&quot;] --&gt; Q[&quot;Q&quot;]
+    X --&gt; WK[&quot;W_K&quot;] --&gt; K[&quot;K&quot;]
+    X --&gt; WV[&quot;W_V&quot;] --&gt; V[&quot;V&quot;]
+    Q --&gt; ATT[&quot;softmax(QKᵀ/√d_k) V&quot;]
+    K --&gt; ATT
+    V --&gt; ATT
+    ATT --&gt; Y[&quot;输出: n × d&lt;br/&gt;每个位置聚合全局信息&quot;]
+</pre>
+<h3>7.4 多头注意力（Multi-Head Attention）</h3>
+<p>$$
+\text{MultiHead}(Q,K,V) = \text{Concat}(\text{head}_1, \ldots, \text{head}_h)W_O
+$$</p>
+<p>$$
+\text{head}_i = \text{Attention}(QW_Q^i, KW_K^i, VW_V^i)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$h$：头数。</li>
+<li>$\text{head}_i$：第 $i$ 个注意力头的输出。</li>
+<li>$W_Q^i, W_K^i, W_V^i$：第 $i$ 个头各自的投影矩阵。</li>
+<li>$\text{Concat}(\cdot)$：把所有头沿特征维拼接。</li>
+<li>$W_O$：输出投影矩阵，把拼接结果映射回 $d_{model}$。</li>
+<li>含义：多个头在不同子空间并行做注意力，再融合，增强表达力。</li>
+</ul>
+<p><strong>维度设置</strong>：通常 $d_k = d_v = d_{model}/h$，保证总计算量与单头相当。</p>
+<p class="label"><strong>为什么多头：</strong></p>
+<ul>
+<li>不同头关注不同子空间/不同关系</li>
+<li>类似 CNN 的多通道</li>
+<li>增强表达力</li>
+</ul>
+<p><strong>盲区</strong>：多头不是简单复制，各头学到不同模式（有的关注语法，有的关注位置）。</p>
+<p class="label"><strong>多头注意力的并行结构：</strong></p>
+<pre class="mermaid">flowchart TD
+    X[&quot;输入 X&quot;] --&gt; H1[&quot;头 1: Q₁ K₁ V₁&quot;]
+    X --&gt; H2[&quot;头 2: Q₂ K₂ V₂&quot;]
+    X --&gt; HD[&quot;...&quot;]
+    X --&gt; HH[&quot;头 h: Qₕ Kₕ Vₕ&quot;]
+    H1 --&gt; CAT[&quot;Concat 拼接&quot;]
+    H2 --&gt; CAT
+    HD --&gt; CAT
+    HH --&gt; CAT
+    CAT --&gt; WO[&quot;W_O 线性投影&quot;] --&gt; Y[&quot;输出&quot;]
+</pre>
+<h3>7.5 位置编码（Positional Encoding）</h3>
+<p><strong>问题</strong>：自注意力是<strong>置换等变</strong>的，打乱输入顺序输出也打乱，无法感知位置。</p>
+<p>$$
+\text{SelfAttn}(\text{Permute}(X)) = \text{Permute}(\text{SelfAttn}(X))
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$X$：输入序列。</li>
+<li>$\text{Permute}(\cdot)$：置换（打乱顺序）。</li>
+<li>$\text{SelfAttn}(\cdot)$：自注意力。</li>
+<li>含义：先打乱再自注意力 = 先自注意力再打乱，说明自注意力本身感知不到位置，必须显式注入位置信息。</li>
+</ul>
+<p><strong>正弦位置编码</strong>（原始 Transformer）：</p>
+<p>$$
+PE(pos, 2i) = \sin\left(\frac{pos}{10000^{2i/d}}\right)
+$$</p>
+<p>$$
+PE(pos, 2i+1) = \cos\left(\frac{pos}{10000^{2i/d}}\right)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$PE(pos, \cdot)$：位置 $pos$ 的编码向量。</li>
+<li>$pos$：位置索引（第几个 token）。</li>
+<li>$i$：维度索引，$2i$ 为偶数维，$2i+1$ 为奇数维。</li>
+<li>$d$：编码维度（等于模型维度）。</li>
+<li>$10000^{2i/d}$：不同维度对应不同频率，低维高频、高维低频。</li>
+<li>含义：偶数维用 sin、奇数维用 cos，不同频率组合成唯一的位置指纹。</li>
+</ul>
+<p class="label"><strong>为什么用正弦：</strong></p>
+<ul>
+<li>相对位置可线性表示：</li>
+</ul>
+<p>$$
+PE(pos+k) = f(PE(pos))
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$pos$：位置索引。</li>
+<li>$k$：位置偏移量。</li>
+<li>$f$：一个线性变换（旋转矩阵）。</li>
+<li>含义：位置 $pos+k$ 的编码可由位置 $pos$ 的编码经线性变换得到，因此相对位置可被线性表示。</li>
+</ul>
+<p>正弦编码的其他优点：</p>
+<ul>
+<li>可外推到训练时未见过的长度</li>
+<li>不同频率编码不同尺度</li>
+</ul>
+<p><strong>可学习位置编码</strong>：BERT、ViT 使用，简单但无法外推。</p>
+<p><strong>相对位置编码</strong>：关注相对距离而非绝对位置。</p>
+<p class="label"><strong>RoPE（旋转位置编码）：</strong></p>
+<p>把位置信息编码为旋转矩阵：</p>
+<p>$$
+R_{\Theta, m}^d = \text{diag}\left(R_{\theta_1,m}, \ldots, R_{\theta_{d/2},m}\right)
+$$</p>
+<p>$$
+R_{\theta,m} = \begin{bmatrix}\cos m\theta &amp; -\sin m\theta \\ \sin m\theta &amp; \cos m\theta\end{bmatrix}
+$$</p>
+<p>应用：</p>
+<p>$$
+q_m^T k_n = (R_{\Theta,m}q)^T(R_{\Theta,n}k) = q^T R_{\Theta,n-m} k
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$R_{\Theta,m}^d$：位置 $m$ 对应的 $d\times d$ 旋转矩阵（分块对角）。</li>
+<li>$R_{\theta,m}$：二维旋转矩阵，把向量旋转角度 $m\theta$。</li>
+<li>$\theta_i$：第 $i$ 个分块的旋转基频。</li>
+<li>$q_m, k_n$：位置 $m$ 的查询、位置 $n$ 的键。</li>
+<li>$R_{\Theta,n-m}$：只依赖相对位置 $n-m$ 的旋转矩阵。</li>
+<li>含义：把位置编码成旋转，使点积只依赖相对位置，天然编码相对距离。</li>
+</ul>
+<p><strong>关键性质</strong>：点积只依赖相对位置 $n-m$，天然编码相对位置。
+LLaMA、GPT-NeoX 等使用。</p>
+<p><strong>ALiBi</strong>：不用位置编码，直接在注意力分数上加线性偏置：</p>
+<p>$$
+\text{score}_{ij} = q_i^T k_j - m\cdot|i-j|
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\text{score}_{ij}$：位置 $i$ 对位置 $j$ 的注意力得分。</li>
+<li>$q_i^T k_j$：原始点积相似度。</li>
+<li>$m$：每个头固定的斜率（与头数相关）。</li>
+<li>$|i-j|$：两个位置的相对距离。</li>
+<li>含义：距离越远惩罚越大，无需位置编码即可注入位置信息，外推能力强。</li>
+</ul>
+<p><strong>优势</strong>：外推能力极强。</p>
+<p class="label"><strong>位置编码的主要方案：</strong></p>
+<pre class="mermaid">flowchart TD
+    PE[&quot;位置编码&quot;] --&gt; SIN[&quot;正弦编码&lt;br/&gt;可外推，原始 Transformer&quot;]
+    PE --&gt; LEARN[&quot;可学习编码&lt;br/&gt;BERT / ViT&quot;]
+    PE --&gt; REL[&quot;相对位置编码&lt;br/&gt;关注相对距离&quot;]
+    PE --&gt; ROPE[&quot;RoPE&lt;br/&gt;旋转矩阵，LLaMA&quot;]
+    PE --&gt; ALIBI[&quot;ALiBi&lt;br/&gt;线性偏置，外推强&quot;]
+</pre>
+<h3>7.6 前馈网络（FFN）</h3>
+<p>$$
+\text{FFN}(x) = W_2\,\sigma(W_1 x + b_1) + b_2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x$：单个位置的输入向量。</li>
+<li>$W_1, b_1$：第一层线性变换的权重和偏置（升维到 $d_{ff}$）。</li>
+<li>$\sigma$：非线性激活（如 ReLU/GELU）。</li>
+<li>$W_2, b_2$：第二层线性变换（降回 $d_{model}$）。</li>
+<li>含义：对每个位置独立做"升维-非线性-降维"，提供大部分参数量。</li>
+</ul>
+<p>通常 $d_{ff} = 4 d_{model}$。</p>
+<p class="label"><strong>作用：</strong></p>
+<ul>
+<li>逐位置非线性变换</li>
+<li>提供大部分参数量（约 2/3）</li>
+<li>可视为 key-value 记忆</li>
+</ul>
+<p><strong>盲区</strong>：FFN 常被忽视，但它是 Transformer 表达力的重要来源。
+有研究认为 FFN 存储了事实知识。</p>
+<p><strong>SwiGLU 变体</strong>（LLaMA）：</p>
+<p>$$
+\text{FFN}(x) = (\text{Swish}(W_1 x) \odot W_3 x)W_2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x$：输入向量。</li>
+<li>$W_1, W_3$：两个并行的升维投影。</li>
+<li>$\text{Swish}(\cdot)$：平滑激活函数。</li>
+<li>$\odot$：逐元素相乘（门控）。</li>
+<li>$W_2$：降维投影。</li>
+<li>含义：用一路做门控、一路做内容，相乘后再降维，是 LLaMA 等采用的 FFN 变体。</li>
+</ul>
+<h3>7.7 完整 Transformer 块</h3>
+<p class="label"><strong>编码器块：</strong></p>
+<p>$$
+z = \text{LN}(x + \text{MultiHead}(x, x, x))
+$$</p>
+<p>$$
+y = \text{LN}(z + \text{FFN}(z))
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x$：编码器块输入。</li>
+<li>$\text{MultiHead}(x,x,x)$：自注意力（$Q,K,V$ 均为 $x$）。</li>
+<li>$\text{LN}(\cdot)$：层归一化。</li>
+<li>$z$：自注意力子层输出。</li>
+<li>$\text{FFN}(\cdot)$：前馈网络。</li>
+<li>$y$：编码器块输出。</li>
+<li>含义：每个子层都是"残差 + 归一化"，先自注意力再 FFN。</li>
+</ul>
+<p><strong>编码器块结构</strong>（Pre-Norm 形式）：</p>
+<pre class="mermaid">flowchart TD
+    X[&quot;输入 x&quot;] --&gt; LN1[&quot;LayerNorm&quot;] --&gt; MHA[&quot;多头自注意力&quot;] --&gt; ADD1((&quot;+&quot;))
+    X --&gt; ADD1
+    ADD1 --&gt; LN2[&quot;LayerNorm&quot;] --&gt; FFN[&quot;FFN&quot;] --&gt; ADD2((&quot;+&quot;))
+    ADD1 --&gt; ADD2
+    ADD2 --&gt; Y[&quot;输出&quot;]
+</pre>
+<p><strong>解码器块</strong>（多一个交叉注意力）：</p>
+<p>$$
+z = \text{LN}(x + \text{MaskedMultiHead}(x,x,x))
+$$</p>
+<p>$$
+z' = \text{LN}(z + \text{MultiHead}(z, \text{enc}, \text{enc}))
+$$</p>
+<p>$$
+y = \text{LN}(z' + \text{FFN}(z'))
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x$：解码器块输入。</li>
+<li>$\text{MaskedMultiHead}(x,x,x)$：带因果掩码的自注意力（不能看未来）。</li>
+<li>$\text{enc}$：编码器输出。</li>
+<li>$\text{MultiHead}(z, \text{enc}, \text{enc})$：交叉注意力，$Q$ 来自解码器、$K,V$ 来自编码器。</li>
+<li>$z, z', y$：三个子层的输出。</li>
+<li>含义：解码器比编码器多一个交叉注意力子层，用于对齐源序列。</li>
+</ul>
+<p><strong>掩码注意力</strong>（因果掩码）：</p>
+<p>$$
+\text{Mask}_{ij} = \begin{cases}0, &amp; j \le i \\ -\infty, &amp; j &gt; i\end{cases}
+$$</p>
+<p>$$
+\text{Attention} = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}} + \text{Mask}\right)V
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\text{Mask}_{ij}$：位置 $i$ 对位置 $j$ 的掩码值。</li>
+<li>$j\le i$：允许看到当前及之前的位置，掩码为 0（不影响）。</li>
+<li>$j&gt;i$：未来位置，掩码为 $-\infty$（softmax 后权重为 0）。</li>
+<li>含义：把未来位置的注意力分数压到负无穷，保证自回归生成时看不到未来信息。</li>
+</ul>
+<p><strong>作用</strong>：防止看到未来信息，保证自回归生成。</p>
+<h3>7.8 交叉注意力（Cross-Attention）</h3>
+<p>$$
+Q = \text{Decoder},\quad K = V = \text{Encoder}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$Q$：查询，来自解码器当前状态。</li>
+<li>$K, V$：键和值，来自编码器输出。</li>
+<li>含义：解码器用当前位置去"查询"编码器的全部信息，实现源-目标对齐。</li>
+</ul>
+<p><strong>用途</strong>：机器翻译、多模态、DETR 的 object query。</p>
+<p class="label"><strong>编码器-解码器整体结构：</strong></p>
+<pre class="mermaid">flowchart LR
+    SRC[&quot;源序列&quot;] --&gt; ENC[&quot;编码器 × N&lt;br/&gt;自注意力 + FFN&quot;]
+    ENC --&gt; CTX[&quot;编码表示&quot;]
+    TGT[&quot;目标序列&quot;] --&gt; DEC[&quot;解码器 × N&lt;br/&gt;掩码自注意力 + 交叉注意力 + FFN&quot;]
+    CTX --&gt; DEC
+    DEC --&gt; OUT[&quot;输出序列&quot;]
+</pre>
+<hr />
+<h2>8. Transformer 的关键组件</h2>
+<h3>8.1 组件总表</h3>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>作用</th>
+<th>变体</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>自注意力</td>
+<td>全局依赖建模</td>
+<td>稀疏、线性、局部</td>
+</tr>
+<tr>
+<td>多头</td>
+<td>多子空间</td>
+<td>MQA、GQA</td>
+</tr>
+<tr>
+<td>位置编码</td>
+<td>注入位置</td>
+<td>正弦、可学、RoPE、ALiBi</td>
+</tr>
+<tr>
+<td>FFN</td>
+<td>非线性变换</td>
+<td>MLP、SwiGLU、MoE</td>
+</tr>
+<tr>
+<td>残差</td>
+<td>梯度直通</td>
+<td>Pre/Post-Norm</td>
+</tr>
+<tr>
+<td>归一化</td>
+<td>稳定训练</td>
+<td>LN、RMSNorm</td>
+</tr>
+<tr>
+<td>Dropout</td>
+<td>正则</td>
+<td>注意力 Dropout</td>
+</tr>
+</tbody>
+</table>
+<h3>8.2 RMSNorm</h3>
+<p>$$
+\text{RMSNorm}(x) = \frac{x}{\sqrt{\frac{1}{d}\sum_i x_i^2 + \epsilon}}\cdot \gamma
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x$：输入向量。</li>
+<li>$d$：向量维度。</li>
+<li>$\frac{1}{d}\sum_i x_i^2$：均方值（RMS 的平方）。</li>
+<li>$\epsilon$：防除零常数。</li>
+<li>$\gamma$：可学习的缩放参数。</li>
+<li>含义：只用均方根归一化，不做均值中心化，比 LN 更快。</li>
+</ul>
+<p><strong>相比 LN</strong>：去掉均值中心化，更快，效果相当。LLaMA 使用。</p>
+<h3>8.3 注意力变体</h3>
+<table>
+<thead>
+<tr>
+<th>变体</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MHA</td>
+<td>标准多头</td>
+</tr>
+<tr>
+<td>MQA</td>
+<td>多查询，K/V 共享，省显存</td>
+</tr>
+<tr>
+<td>GQA</td>
+<td>分组查询，折中</td>
+</tr>
+<tr>
+<td>MLA</td>
+<td>低秩压缩 KV（DeepSeek）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>MQA</strong>：所有头共享一组 K/V，推理时 KV Cache 大幅减小。</p>
+<p><strong>GQA</strong>：$h$ 个查询头分成 $g$ 组，每组共享 K/V。</p>
+<h3>8.4 MoE（混合专家）</h3>
+<p>$$
+y = \sum_{i \in \text{TopK}} g_i(x)\cdot E_i(x)
+$$</p>
+<p>$$
+g_i(x) = \text{softmax}(\text{TopK}(W_g x))
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x$：输入 token 表示。</li>
+<li>$E_i(\cdot)$：第 $i$ 个专家网络（通常是一个 FFN）。</li>
+<li>$g_i(x)$：第 $i$ 个专家的门控权重。</li>
+<li>$W_g$：门控网络的权重。</li>
+<li>$\text{TopK}(\cdot)$：只保留得分最高的 $K$ 个专家。</li>
+<li>$\text{softmax}(\cdot)$：把选中专家的得分归一化成权重。</li>
+<li>含义：每个 token 只激活少数专家，参数量大但计算量小（稀疏激活）。</li>
+</ul>
+<p><strong>优势</strong>：参数量大但计算量小（稀疏激活）。
+<strong>挑战</strong>：负载均衡、通信开销。</p>
+<hr />
+<h2>9. Transformer 的复杂度与训练</h2>
+<h3>9.1 复杂度分析</h3>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>时间复杂度</th>
+<th>空间复杂度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>自注意力</td>
+<td>$O(n^2 d)$</td>
+<td>$O(n^2 + nd)$</td>
+</tr>
+<tr>
+<td>FFN</td>
+<td>$O(n d^2)$</td>
+<td>$O(nd)$</td>
+</tr>
+<tr>
+<td>卷积</td>
+<td>$O(n k^2 d^2)$</td>
+<td>$O(nd)$</td>
+</tr>
+</tbody>
+</table>
+<p>其中 $n$ 是序列长度，$d$ 是维度，$k$ 是核大小。</p>
+<p><strong>关键</strong>：自注意力对 $n$ 是<strong>二次</strong>的，这是长序列的瓶颈。</p>
+<p class="label"><strong>对比：</strong></p>
+<ul>
+<li>$n &lt; d$ 时，注意力主导</li>
+<li>$n &gt; d$ 时，FFN 主导</li>
+</ul>
+<h3>9.2 训练技巧</h3>
+<table>
+<thead>
+<tr>
+<th>技巧</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Warmup</td>
+<td>稳定早期训练</td>
+</tr>
+<tr>
+<td>梯度裁剪</td>
+<td>防梯度爆炸</td>
+</tr>
+<tr>
+<td>学习率衰减</td>
+<td>余弦/线性</td>
+</tr>
+<tr>
+<td>Dropout</td>
+<td>正则</td>
+</tr>
+<tr>
+<td>标签平滑</td>
+<td>防过自信</td>
+</tr>
+<tr>
+<td>混合精度</td>
+<td>加速省显存</td>
+</tr>
+<tr>
+<td>梯度累积</td>
+<td>模拟大 batch</td>
+</tr>
+<tr>
+<td>权重衰减</td>
+<td>正则（AdamW）</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>Warmup 公式：</strong></p>
+<p>$$
+lr = d_{model}^{-0.5}\cdot \min(step^{-0.5},\ step\cdot warmup^{-1.5})
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$lr$：当前学习率。</li>
+<li>$d_{model}$：模型维度，用于整体缩放学习率。</li>
+<li>$step$：当前训练步数。</li>
+<li>$warmup$：预热步数。</li>
+<li>$\min(\cdot,\cdot)$：取两者较小值。</li>
+<li>含义：前 $warmup$ 步学习率线性上升（$step\cdot warmup^{-1.5}$），之后按 $step^{-0.5}$ 衰减。</li>
+</ul>
+<p><strong>为什么需要 Warmup</strong>（盲区）：Post-Norm 结构早期梯度不稳定，
+Warmup 让模型先小步走。Pre-Norm 可缓解此需求。</p>
+<h3>9.3 预训练范式</h3>
+<table>
+<thead>
+<tr>
+<th>范式</th>
+<th>代表</th>
+<th>目标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>自回归（AR）</td>
+<td>GPT</td>
+<td>预测下一个 token</td>
+</tr>
+<tr>
+<td>自编码（AE）</td>
+<td>BERT</td>
+<td>掩码语言建模</td>
+</tr>
+<tr>
+<td>前缀（Prefix）</td>
+<td>T5、UniLM</td>
+<td>统一框架</td>
+</tr>
+<tr>
+<td>对比</td>
+<td>CLIP</td>
+<td>图文对齐</td>
+</tr>
+<tr>
+<td>掩码图像</td>
+<td>MAE、BEiT</td>
+<td>重建图像块</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>BERT 的 MLM：</strong></p>
+<p>$$
+\mathcal{L} = -\sum_{i \in \mathcal{M}} \log P(x_i \mid x_{\setminus \mathcal{M}})
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathcal{L}$：损失。</li>
+<li>$\mathcal{M}$：被掩码的位置集合。</li>
+<li>$x_i$：第 $i$ 个被掩码的 token。</li>
+<li>$x_{\setminus \mathcal{M}}$：未被掩码的可见 token。</li>
+<li>$P(x_i \mid x_{\setminus \mathcal{M}})$：根据可见 token 预测被掩码 token 的概率。</li>
+<li>含义：随机遮住部分 token，让模型根据上下文（双向）还原它们。</li>
+</ul>
+<p class="label"><strong>GPT 的 AR：</strong></p>
+<p>$$
+\mathcal{L} = -\sum_{i} \log P(x_i \mid x_{&lt;i})
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathcal{L}$：损失。</li>
+<li>$i$：序列位置。</li>
+<li>$x_i$：第 $i$ 个 token。</li>
+<li>$x_{&lt;i}$：位置 $i$ 之前的所有 token。</li>
+<li>$P(x_i \mid x_{&lt;i})$：根据前文预测下一个 token 的概率。</li>
+<li>含义：从左到右逐词预测，只能看前文（单向），适合生成。</li>
+</ul>
+<p><strong>MAE 的掩码比例</strong>：高达 75%，远高于 BERT 的 15%，
+因为图像冗余度高。</p>
+<hr />
+<h2>10. Transformer 架构演进史</h2>
+<h3>10.1 时间线</h3>
+<table>
+<thead>
+<tr>
+<th>年份</th>
+<th>模型</th>
+<th>关键贡献</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2017</td>
+<td>Transformer</td>
+<td>注意力即全部</td>
+</tr>
+<tr>
+<td>2018</td>
+<td>GPT-1</td>
+<td>生成式预训练</td>
+</tr>
+<tr>
+<td>2018</td>
+<td>BERT</td>
+<td>双向编码器</td>
+</tr>
+<tr>
+<td>2019</td>
+<td>GPT-2</td>
+<td>大规模生成</td>
+</tr>
+<tr>
+<td>2019</td>
+<td>Transformer-XL</td>
+<td>长程依赖</td>
+</tr>
+<tr>
+<td>2020</td>
+<td>T5</td>
+<td>统一文本到文本</td>
+</tr>
+<tr>
+<td>2020</td>
+<td>ViT</td>
+<td>图像分块 + Transformer</td>
+</tr>
+<tr>
+<td>2020</td>
+<td>DeiT</td>
+<td>数据高效训练</td>
+</tr>
+<tr>
+<td>2020</td>
+<td>DETR</td>
+<td>端到端检测</td>
+</tr>
+<tr>
+<td>2020</td>
+<td>GPT-3</td>
+<td>少样本学习</td>
+</tr>
+<tr>
+<td>2021</td>
+<td>Swin</td>
+<td>层次化窗口注意力</td>
+</tr>
+<tr>
+<td>2021</td>
+<td>CLIP</td>
+<td>图文对比学习</td>
+</tr>
+<tr>
+<td>2021</td>
+<td>BEiT</td>
+<td>掩码图像建模</td>
+</tr>
+<tr>
+<td>2022</td>
+<td>MAE</td>
+<td>高效掩码自编码</td>
+</tr>
+<tr>
+<td>2022</td>
+<td>ViT-Adapter</td>
+<td>适配密集任务</td>
+</tr>
+<tr>
+<td>2022</td>
+<td>Flamingo</td>
+<td>多模态少样本</td>
+</tr>
+<tr>
+<td>2023</td>
+<td>LLaMA</td>
+<td>开源高效 LLM</td>
+</tr>
+<tr>
+<td>2023</td>
+<td>SAM</td>
+<td>分割一切</td>
+</tr>
+<tr>
+<td>2023</td>
+<td>GPT-4</td>
+<td>多模态大模型</td>
+</tr>
+<tr>
+<td>2024</td>
+<td>ViT-22B</td>
+<td>超大规模 ViT</td>
+</tr>
+<tr>
+<td>2024</td>
+<td>Mamba</td>
+<td>状态空间替代注意力</td>
+</tr>
+</tbody>
+</table>
+<h3>10.2 ViT（Vision Transformer）</h3>
+<p><strong>核心思想</strong>：把图像切成 patch，当作 token 序列。</p>
+<p class="label"><strong>流程：</strong></p>
+<ol>
+<li>图像 $x \in \mathbb{R}^{H\times W\times C}$</li>
+<li>切成 $N = HW/P^2$ 个 patch，$P$ 是 patch 大小</li>
+<li>每个 patch 展平并线性投影：</li>
+</ol>
+<p>$$
+z_i = \text{Linear}(\text{Flatten}(x_i)) \in \mathbb{R}^d
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x_i$：第 $i$ 个图像 patch。</li>
+<li>$\text{Flatten}(\cdot)$：把 patch 展平成一维向量。</li>
+<li>$\text{Linear}(\cdot)$：线性投影（可学习矩阵）。</li>
+<li>$z_i$：投影后的 token 向量，维度为 $d$。</li>
+<li>
+<p>含义：把每个 patch 变成一个与词向量同维度的 token。</p>
+</li>
+<li>
+<p>加 [CLS] token 和位置编码：</p>
+</li>
+</ul>
+<p>$$
+z_0 = [x_{cls};\ z_1;\ \ldots;\ z_N] + E_{pos}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x_{cls}$：可学习的分类 token（[CLS]）。</li>
+<li>$z_1,\ldots,z_N$：$N$ 个 patch 的 token。</li>
+<li>$[\cdot;\cdot]$：沿序列维拼接。</li>
+<li>$E_{pos}$：位置编码。</li>
+<li>$z_0$：送入编码器的初始序列。</li>
+<li>
+<p>含义：把 [CLS] 与所有 patch token 拼成序列，再加上位置信息。</p>
+</li>
+<li>
+<p>送入 Transformer 编码器</p>
+</li>
+<li>用 [CLS] 输出分类</li>
+</ul>
+<p class="label"><strong>公式：</strong></p>
+<p>$$
+z_0 = [x_{class};\ x_p^1 E;\ \ldots;\ x_p^N E] + E_{pos}
+$$</p>
+<p>$$
+z'_l = \text{MSA}(\text{LN}(z_{l-1})) + z_{l-1}
+$$</p>
+<p>$$
+z_l = \text{MLP}(\text{LN}(z'_l)) + z'_l
+$$</p>
+<p>$$
+y = \text{LN}(z_L^0)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x_{class}$：可学习的分类 token。</li>
+<li>$x_p^i$：第 $i$ 个 patch；$E$：patch 嵌入矩阵。</li>
+<li>$E_{pos}$：位置编码。</li>
+<li>$z_{l-1}$：第 $l$ 层输入；$z'_l$：自注意力子层输出；$z_l$：第 $l$ 层输出。</li>
+<li>$\text{MSA}(\cdot)$：多头自注意力；$\text{MLP}(\cdot)$：前馈网络；$\text{LN}(\cdot)$：层归一化。</li>
+<li>$z_L^0$：最后一层第 0 个位置（[CLS]）的输出。</li>
+<li>$y$：分类头输入。</li>
+<li>含义：标准 Pre-Norm Transformer 编码器，最后取 [CLS] 做分类。</li>
+</ul>
+<p><strong>关键发现</strong>：ViT 在中小数据集上不如 CNN，需要大规模预训练
+（JFT-300M）才能超越。这印证了归纳偏置的权衡。</p>
+<p><strong>盲区</strong>：ViT 的 patch 是固定网格，丢失了 CNN 的局部性和平移等变。
+位置编码是唯一的位置信息来源。</p>
+<p class="label"><strong>ViT 的处理流程：</strong></p>
+<pre class="mermaid">flowchart LR
+    IMG[&quot;图像 H×W×C&quot;] --&gt; PATCH[&quot;切 patch&lt;br/&gt;P×P&quot;] --&gt; FLAT[&quot;展平 + 线性投影&quot;] --&gt; TOK[&quot;token 序列&quot;]
+    CLS[&quot;[CLS] token&quot;] --&gt; CAT[&quot;拼接&quot;]
+    TOK --&gt; CAT
+    POS[&quot;位置编码&quot;] --&gt; CAT
+    CAT --&gt; ENC[&quot;Transformer 编码器 × L&quot;]
+    ENC --&gt; HEAD[&quot;分类头&lt;br/&gt;取 [CLS]&quot;] --&gt; OUT[&quot;类别&quot;]
+</pre>
+<h3>10.3 Swin Transformer</h3>
+<p class="label"><strong>核心创新：</strong></p>
+<ol>
+<li><strong>层次化结构</strong>：像 CNN 一样逐层下采样</li>
+<li><strong>窗口注意力</strong>：只在局部窗口内计算注意力</li>
+<li><strong>移位窗口</strong>：相邻层窗口错位，实现跨窗口信息交换</li>
+</ol>
+<p class="label"><strong>窗口注意力复杂度：</strong></p>
+<p>$$
+O\left(\frac{HW}{M^2}\cdot M^4\right) = O(HW M^2)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$H, W$：特征图高宽。</li>
+<li>$M$：窗口大小。</li>
+<li>$\frac{HW}{M^2}$：窗口个数。</li>
+<li>$M^4$：每个窗口内做注意力的复杂度（$M^2$ 个 token 两两计算）。</li>
+<li>含义：窗口注意力复杂度与图像尺寸线性相关，远低于全局注意力的 $O((HW)^2)$。</li>
+</ul>
+<p class="label"><strong>移位窗口：</strong></p>
+<p>$$
+\text{Shift} = \lfloor M/2 \rfloor
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\text{Shift}$：窗口划分的偏移量。</li>
+<li>$M$：窗口大小。</li>
+<li>$\lfloor\cdot\rfloor$：向下取整。</li>
+<li>含义：下一层窗口整体偏移半个窗口，使相邻层窗口错位，实现跨窗口信息交换。</li>
+</ul>
+<p><strong>意义</strong>：兼顾局部效率和全局建模，成为密集预测任务的骨干。</p>
+<p class="label"><strong>移位窗口机制：</strong></p>
+<pre class="mermaid">flowchart LR
+    L1[&quot;第 l 层&lt;br/&gt;规则窗口划分&quot;] --&gt; A1[&quot;窗口内注意力&quot;]
+    L2[&quot;第 l+1 层&lt;br/&gt;移位窗口划分&quot;] --&gt; A2[&quot;窗口内注意力&quot;]
+    A1 -.跨窗口信息交换.-&gt; A2
+</pre>
+<h3>10.4 DETR</h3>
+<p><strong>核心思想</strong>：把检测变成集合预测。</p>
+<ul>
+<li>用 Transformer 编码器处理图像特征</li>
+<li>用固定数量的 object query 解码</li>
+<li>用匈牙利算法做二分匹配</li>
+</ul>
+<p class="label"><strong>匹配损失：</strong></p>
+<p>$$
+\hat{\sigma} = \arg\min_\sigma \sum_i \mathcal{L}_{match}(y_i, \hat{y}_{\sigma(i)})
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\hat{\sigma}$：最优的预测-真值匹配方案（一个排列）。</li>
+<li>$\sigma$：一种匹配排列。</li>
+<li>$y_i$：第 $i$ 个真实目标。</li>
+<li>$\hat{y}_{\sigma(i)}$：与第 $i$ 个真值匹配的预测。</li>
+<li>$\mathcal{L}_{match}$：匹配代价（分类 + 框回归）。</li>
+<li>含义：用匈牙利算法找使总匹配代价最小的排列，实现集合预测。</li>
+</ul>
+<p><strong>优势</strong>：无需 NMS、无需锚框。
+<strong>劣势</strong>：收敛慢，小目标差（后续 Deformable DETR 改进）。</p>
+<h3>10.5 CLIP</h3>
+<p class="label"><strong>对比学习：</strong></p>
+<p>$$
+\mathcal{L} = -\frac{1}{N}\sum_i \log \frac{\exp(\text{sim}(I_i, T_i)/\tau)}{\sum_j \exp(\text{sim}(I_i, T_j)/\tau)}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathcal{L}$：对比损失。</li>
+<li>$N$：batch 内图文对数量。</li>
+<li>$I_i$：第 $i$ 张图像的特征。</li>
+<li>$T_i$：与 $I_i$ 配对的文本特征；$T_j$：batch 内其他文本特征。</li>
+<li>$\text{sim}(\cdot,\cdot)$：相似度（余弦相似度）。</li>
+<li>$\tau$：温度系数，控制分布尖锐程度。</li>
+<li>含义：让配对的图文相似度高于不配对的，实现图文对齐。</li>
+</ul>
+<p><strong>意义</strong>：图文对齐，零样本分类，多模态基础。</p>
+<h3>10.6 MAE</h3>
+<p class="label"><strong>流程：</strong></p>
+<ol>
+<li>随机掩码 75% 的 patch</li>
+<li>编码器只处理可见 patch</li>
+<li>解码器重建被掩码的 patch</li>
+</ol>
+<p><strong>损失</strong>：只在掩码 patch 上计算 MSE。</p>
+<p><strong>优势</strong>：训练快（编码器只处理 25%），学到强表示。</p>
+<hr />
+<h2>11. 高效注意力与长序列</h2>
+<h3>11.1 稀疏与局部注意力</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>思想</th>
+<th>复杂度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Local Attention</td>
+<td>只看局部窗口</td>
+<td>$O(nw)$</td>
+</tr>
+<tr>
+<td>Strided Attention</td>
+<td>局部 + 跨步</td>
+<td>$O(n\sqrt{n})$</td>
+</tr>
+<tr>
+<td>Longformer</td>
+<td>局部 + 全局 token</td>
+<td>$O(n)$</td>
+</tr>
+<tr>
+<td>BigBird</td>
+<td>局部 + 全局 + 随机</td>
+<td>$O(n)$</td>
+</tr>
+<tr>
+<td>Sparse Transformer</td>
+<td>固定稀疏模式</td>
+<td>$O(n\sqrt{n})$</td>
+</tr>
+</tbody>
+</table>
+<h3>11.2 低秩与核方法</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linformer</td>
+<td>K/V 低秩投影</td>
+</tr>
+<tr>
+<td>Performer</td>
+<td>核函数近似 softmax</td>
+</tr>
+<tr>
+<td>Nyströmformer</td>
+<td>Nyström 近似</td>
+</tr>
+<tr>
+<td>Linear Attention</td>
+<td>去掉 softmax，结合律重排</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>Linear Attention 推导：</strong></p>
+<p>标准：</p>
+<p>$$
+O = \text{softmax}(QK^T)V
+$$</p>
+<p>线性：</p>
+<p>$$
+O = \phi(Q)\big(\phi(K)^T V\big)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$Q, K, V$：查询、键、值矩阵。</li>
+<li>$\phi(\cdot)$：特征映射函数（如 ELU），把向量映射到非负空间。</li>
+<li>标准式：先算 $n\times n$ 的注意力矩阵，复杂度 $O(n^2 d)$。</li>
+<li>线性式：利用结合律先算 $\phi(K)^T V$（$d\times d$），再乘 $\phi(Q)$。</li>
+<li>含义：改变计算顺序，把对序列长度的二次复杂度降为线性。</li>
+</ul>
+<p><strong>关键</strong>：先算 $\phi(K)^T V \in \mathbb{R}^{d\times d}$，复杂度 $O(nd^2)$。</p>
+<h3>11.3 硬件优化</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FlashAttention</td>
+<td>分块 + 重计算，减少 HBM 访问</td>
+</tr>
+<tr>
+<td>PagedAttention</td>
+<td>分页 KV Cache</td>
+</tr>
+<tr>
+<td>量化</td>
+<td>INT8/INT4</td>
+</tr>
+<tr>
+<td>蒸馏</td>
+<td>小模型学大模型</td>
+</tr>
+</tbody>
+</table>
+<p><strong>FlashAttention 的核心</strong>：不显式存储 $n\times n$ 注意力矩阵，
+用 tiling 在 SRAM 中分块计算，IO 复杂度从 $O(n^2)$ 降到 $O(n^2/M)$。</p>
+<h3>11.4 状态空间模型</h3>
+<p class="label"><strong>Mamba / S4：</strong></p>
+<p>$$
+h'(t) = Ah(t) + Bx(t)
+$$</p>
+<p>$$
+y(t) = Ch(t) + Dx(t)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$h(t)$：隐状态；$h'(t)$：隐状态对时间的导数。</li>
+<li>$x(t)$：输入信号；$y(t)$：输出信号。</li>
+<li>$A$：状态转移矩阵（隐状态如何演化）。</li>
+<li>$B$：输入矩阵（输入如何影响隐状态）。</li>
+<li>$C$：输出矩阵（隐状态如何映射到输出）。</li>
+<li>$D$：直通矩阵（输入直接到输出的通路）。</li>
+<li>含义：用线性微分方程描述序列演化，可离散化后线性时间递推，长序列友好。</li>
+</ul>
+<p><strong>优势</strong>：线性复杂度，长序列友好。
+<strong>挑战</strong>：表达力与注意力的对比仍在研究中。</p>
+<p class="label"><strong>高效注意力的五条技术路线：</strong></p>
+<pre class="mermaid">flowchart TD
+    ATTN[&quot;标准注意力 O(n²d)&quot;] --&gt; SPARSE[&quot;稀疏 / 局部&lt;br/&gt;Longformer / BigBird&quot;]
+    ATTN --&gt; LOWRANK[&quot;低秩 / 核方法&lt;br/&gt;Linformer / Performer&quot;]
+    ATTN --&gt; LINEAR[&quot;线性注意力&lt;br/&gt;RetNet / RWKV&quot;]
+    ATTN --&gt; HW[&quot;硬件优化&lt;br/&gt;FlashAttention&quot;]
+    ATTN --&gt; SSM[&quot;状态空间模型&lt;br/&gt;Mamba / S4&quot;]
+</pre>
+<hr />
+<h2>12. CNN vs Transformer：本质对比</h2>
+<h3>12.1 核心差异表</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>CNN</th>
+<th>Transformer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>基本操作</td>
+<td>卷积（局部、固定权重）</td>
+<td>注意力（全局、动态权重）</td>
+</tr>
+<tr>
+<td>感受野</td>
+<td>局部，逐层扩大</td>
+<td>全局，单层即可</td>
+</tr>
+<tr>
+<td>权重</td>
+<td>与位置无关（共享）</td>
+<td>与内容相关（动态）</td>
+</tr>
+<tr>
+<td>归纳偏置</td>
+<td>强（局部性、平移等变）</td>
+<td>弱</td>
+</tr>
+<tr>
+<td>数据需求</td>
+<td>较小</td>
+<td>较大</td>
+</tr>
+<tr>
+<td>参数量</td>
+<td>高效</td>
+<td>较大</td>
+</tr>
+<tr>
+<td>并行性</td>
+<td>高</td>
+<td>高</td>
+</tr>
+<tr>
+<td>长程依赖</td>
+<td>需多层</td>
+<td>单层直接</td>
+</tr>
+<tr>
+<td>位置信息</td>
+<td>隐式（结构自带）</td>
+<td>显式（位置编码）</td>
+</tr>
+<tr>
+<td>计算复杂度</td>
+<td>$O(n k^2 d^2)$</td>
+<td>$O(n^2 d)$</td>
+</tr>
+<tr>
+<td>可解释性</td>
+<td>中等</td>
+<td>注意力可视化</td>
+</tr>
+</tbody>
+</table>
+<h3>12.2 数学视角的统一</h3>
+<p class="label"><strong>两者都是加权求和：</strong></p>
+<p>$$
+y_i = \sum_j w_{ij} x_j
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$y_i$：位置 $i$ 的输出。</li>
+<li>$x_j$：位置 $j$ 的输入。</li>
+<li>$w_{ij}$：位置 $j$ 对位置 $i$ 的权重。</li>
+<li>
+<p>含义：卷积和注意力都是这种加权求和，区别只在权重 $w_{ij}$ 如何得到。</p>
+</li>
+<li>
+<p><strong>卷积</strong>：$w_{ij} = K_{i-j}$，权重由相对位置决定，与内容无关</p>
+</li>
+<li><strong>注意力</strong>：$w_{ij} = \text{softmax}(q_i^T k_j)$，权重由内容决定</li>
+</ul>
+<p><strong>统一视角</strong>：注意力是"动态卷积"，卷积是"静态注意力"。</p>
+<p class="label"><strong>更一般的框架：</strong></p>
+<p>$$
+y_i = \sum_j \frac{\exp(\langle \phi(x_i), \psi(x_j)\rangle)}{\sum_{j'} \exp(\langle \phi(x_i), \psi(x_{j'})\rangle)} \cdot g(x_j)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$y_i$：位置 $i$ 的输出。</li>
+<li>$\phi, \psi$：把输入映射到比较空间的函数。</li>
+<li>$\langle\cdot,\cdot\rangle$：内积（相似度）。</li>
+<li>$g(x_j)$：对 $x_j$ 的变换（对应值 $V$）。</li>
+<li>分母：对所有 $j'$ 归一化（softmax）。</li>
+<li>含义：这是卷积与注意力的统一形式；当 $\phi,\psi$ 退化为位置编码时，就变成卷积。</li>
+</ul>
+<p class="label"><strong>统一视角的图示：</strong></p>
+<pre class="mermaid">flowchart TD
+    U[&quot;统一形式&lt;br/&gt;y_i = Σ_j w_ij x_j&quot;] --&gt; C[&quot;卷积&lt;br/&gt;w_ij = K_(i-j)&lt;br/&gt;静态，由位置决定&quot;]
+    U --&gt; A[&quot;注意力&lt;br/&gt;w_ij = softmax(q_iᵀk_j)&lt;br/&gt;动态，由内容决定&quot;]
+    C -.特例.-&gt; A
+</pre>
+<h3>12.3 表达力对比</h3>
+<p class="label"><strong>理论结果：</strong></p>
+<ul>
+<li>单层注意力可以表示任意稀疏函数（有足够头）</li>
+<li>卷积需要多层才能获得全局感受野</li>
+<li>Transformer 在理论上更通用，但需要更多数据</li>
+</ul>
+<p class="label"><strong>实际结果：</strong></p>
+<ul>
+<li>大数据：Transformer 胜</li>
+<li>小数据：CNN 胜</li>
+<li>同等数据 + 同等训练：差距缩小（ConvNeXt vs Swin）</li>
+</ul>
+<h3>12.4 计算效率对比</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>优势方</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>小分辨率、小数据</td>
+<td>CNN</td>
+</tr>
+<tr>
+<td>大分辨率、密集预测</td>
+<td>混合/Swin</td>
+</tr>
+<tr>
+<td>长序列、大模型</td>
+<td>Transformer</td>
+</tr>
+<tr>
+<td>移动端</td>
+<td>CNN（MobileNet）</td>
+</tr>
+<tr>
+<td>高分辨率图像</td>
+<td>层次化 Transformer</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>13. 混合架构</h2>
+<h3>13.1 设计模式</h3>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>代表</th>
+<th>思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CNN 骨干 + Transformer 头</td>
+<td>DETR</td>
+<td>局部特征 + 全局关系</td>
+</tr>
+<tr>
+<td>Transformer 骨干 + CNN 头</td>
+<td>ViT + FPN</td>
+<td>全局表示 + 密集预测</td>
+</tr>
+<tr>
+<td>交替堆叠</td>
+<td>Conformer、CoAtNet</td>
+<td>两者互补</td>
+</tr>
+<tr>
+<td>并行双分支</td>
+<td>Conformer（语音）</td>
+<td>卷积 + 注意力</td>
+</tr>
+<tr>
+<td>注意力增强 CNN</td>
+<td>BoTNet、CoT</td>
+<td>在 CNN 中插入注意力</td>
+</tr>
+</tbody>
+</table>
+<h3>13.2 代表模型</h3>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>结构</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CoAtNet</td>
+<td>深度卷积 + 注意力交替</td>
+</tr>
+<tr>
+<td>Conformer</td>
+<td>卷积 + 自注意力（语音）</td>
+</tr>
+<tr>
+<td>BoTNet</td>
+<td>ResNet + 自注意力</td>
+</tr>
+<tr>
+<td>CvT</td>
+<td>卷积式 token 嵌入</td>
+</tr>
+<tr>
+<td>LeViT</td>
+<td>卷积 + 注意力混合</td>
+</tr>
+<tr>
+<td>MobileViT</td>
+<td>轻量混合</td>
+</tr>
+<tr>
+<td>Next-ViT</td>
+<td>工业级混合</td>
+</tr>
+</tbody>
+</table>
+<h3>13.3 为什么混合有效</h3>
+<ul>
+<li>CNN 提供局部归纳偏置，减少数据需求</li>
+<li>Transformer 提供全局建模，增强表达</li>
+<li>两者互补，兼顾效率与性能</li>
+</ul>
+<p class="label"><strong>两种典型混合模式：</strong></p>
+<pre class="mermaid">flowchart LR
+    subgraph M1[&quot;CNN 骨干 + Transformer 头&quot;]
+        A1[&quot;CNN 局部特征&quot;] --&gt; A2[&quot;Transformer 全局关系&quot;]
+    end
+    subgraph M2[&quot;交替堆叠&quot;]
+        B1[&quot;卷积&quot;] --&gt; B2[&quot;注意力&quot;] --&gt; B3[&quot;卷积&quot;] --&gt; B4[&quot;注意力&quot;]
+    end
+</pre>
+<hr />
+<h2>14. 与特征描述子的关系（重点）</h2>
+<h3>14.1 概念映射</h3>
+<p><strong>核心洞察</strong>：CNN 和 Transformer 本质上都是<strong>可学习的特征描述子生成器</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>经典描述子概念</th>
+<th>深度网络对应</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>检测子（Harris、FAST）</td>
+<td>关键点检测头（SuperPoint）</td>
+</tr>
+<tr>
+<td>描述子（SIFT、ORB）</td>
+<td>描述子头（L2-Net、HardNet）</td>
+</tr>
+<tr>
+<td>尺度空间</td>
+<td>多尺度特征金字塔（FPN）</td>
+</tr>
+<tr>
+<td>主方向归一化</td>
+<td>可学习的方向估计</td>
+</tr>
+<tr>
+<td>梯度方向直方图</td>
+<td>卷积特征图</td>
+</tr>
+<tr>
+<td>二值描述子</td>
+<td>量化/哈希层</td>
+</tr>
+<tr>
+<td>词袋聚合</td>
+<td>全局池化、VLAD 层</td>
+</tr>
+<tr>
+<td>匹配距离</td>
+<td>度量学习损失</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>经典描述子与深度网络的对应关系：</strong></p>
+<pre class="mermaid">flowchart LR
+    subgraph Classic[&quot;经典描述子&quot;]
+        C1[&quot;检测子&lt;br/&gt;Harris / FAST&quot;]
+        C2[&quot;描述子&lt;br/&gt;SIFT / ORB&quot;]
+        C3[&quot;尺度空间&quot;]
+        C4[&quot;词袋聚合&quot;]
+    end
+    subgraph Deep[&quot;深度网络&quot;]
+        D1[&quot;关键点检测头&lt;br/&gt;SuperPoint&quot;]
+        D2[&quot;描述子头&lt;br/&gt;HardNet&quot;]
+        D3[&quot;特征金字塔&lt;br/&gt;FPN&quot;]
+        D4[&quot;全局池化&lt;br/&gt;VLAD / GeM&quot;]
+    end
+    C1 --&gt; D1
+    C2 --&gt; D2
+    C3 --&gt; D3
+    C4 --&gt; D4
+</pre>
+<h3>14.2 CNN 特征作为描述子</h3>
+<p><strong>早期做法</strong>：把 CNN 中间层特征当描述子。</p>
+<ul>
+<li><strong>全连接层特征</strong>（FC7）：全局描述子，用于检索</li>
+<li><strong>卷积特征图</strong>：局部描述子，用于匹配</li>
+<li><strong>多尺度特征</strong>：类似尺度空间</li>
+</ul>
+<p class="label"><strong>关键发现：</strong></p>
+<ul>
+<li>浅层特征：边缘、纹理，类似 SIFT</li>
+<li>深层特征：语义，类似高层描述子</li>
+<li>中间层：兼顾定位与语义</li>
+</ul>
+<p class="label"><strong>与 SIFT 的对比：</strong></p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>SIFT</th>
+<th>CNN 特征</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>不变性</td>
+<td>显式设计</td>
+<td>隐式学习</td>
+</tr>
+<tr>
+<td>语义</td>
+<td>无</td>
+<td>有</td>
+</tr>
+<tr>
+<td>数据需求</td>
+<td>无</td>
+<td>大</td>
+</tr>
+<tr>
+<td>可解释性</td>
+<td>高</td>
+<td>低</td>
+</tr>
+<tr>
+<td>匹配精度</td>
+<td>中</td>
+<td>高</td>
+</tr>
+</tbody>
+</table>
+<h3>14.3 深度局部描述子</h3>
+<p class="label"><strong>演进脉络：</strong></p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>方法</th>
+<th>关键思想</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>手工</td>
+<td>SIFT、SURF</td>
+<td>梯度直方图</td>
+</tr>
+<tr>
+<td>浅层学习</td>
+<td>PCA-SIFT、LDA</td>
+<td>降维</td>
+</tr>
+<tr>
+<td>深度孪生</td>
+<td>DeepDesc、MatchNet</td>
+<td>相似度学习</td>
+</tr>
+<tr>
+<td>度量学习</td>
+<td>L2-Net、HardNet</td>
+<td>困难负样本</td>
+</tr>
+<tr>
+<td>联合检测</td>
+<td>SuperPoint、D2-Net</td>
+<td>检测+描述</td>
+</tr>
+<tr>
+<td>注意力匹配</td>
+<td>SuperGlue、LoFTR</td>
+<td>全局匹配</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>深度局部描述子的演进脉络：</strong></p>
+<pre class="mermaid">flowchart LR
+    A[&quot;手工&lt;br/&gt;SIFT / SURF&quot;] --&gt; B[&quot;浅层学习&lt;br/&gt;PCA-SIFT&quot;] --&gt; C[&quot;深度孪生&lt;br/&gt;DeepDesc&quot;] --&gt; D[&quot;度量学习&lt;br/&gt;HardNet&quot;] --&gt; E[&quot;联合检测&lt;br/&gt;SuperPoint&quot;] --&gt; F[&quot;注意力匹配&lt;br/&gt;SuperGlue / LoFTR&quot;]
+</pre>
+<p class="label"><strong>L2-Net：</strong></p>
+<ul>
+<li>逐块归一化（block normalization）</li>
+<li>改善描述子分布</li>
+</ul>
+<p class="label"><strong>HardNet：</strong></p>
+<p>$$
+\mathcal{L} = \frac{1}{N}\sum_i \max\left(0,\ 1 + d(a_i, p_i) - d(a_i, n_i^*)\right)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathcal{L}$：三元组损失。</li>
+<li>$N$：batch 内样本数。</li>
+<li>$a_i$：第 $i$ 个锚点描述子。</li>
+<li>$p_i$：与 $a_i$ 匹配的正样本描述子。</li>
+<li>$n_i^*$：batch 内与 $a_i$ 最近的非匹配描述子（困难负样本）。</li>
+<li>$d(\cdot,\cdot)$：描述子距离。</li>
+<li>$1$：间隔（margin）。</li>
+<li>含义：要求正样本距离比困难负样本距离至少小 1，否则产生损失。</li>
+</ul>
+<p class="label"><strong>SuperPoint：</strong></p>
+<ul>
+<li>自监督：MagicPoint + 单应变换</li>
+<li>输出：关键点热力图 + 256 维描述子</li>
+<li>检测与描述共享编码器</li>
+</ul>
+<p class="label"><strong>D2-Net：</strong></p>
+<ul>
+<li>单次前向同时得到检测和描述</li>
+<li>用特征图上的局部极大值作为关键点</li>
+</ul>
+<p class="label"><strong>R2D2：</strong></p>
+<ul>
+<li>联合学习可重复性和可靠性</li>
+<li>输出可靠性图</li>
+</ul>
+<h3>14.4 Transformer 描述子</h3>
+<p class="label"><strong>SuperGlue：</strong></p>
+<ul>
+<li>输入：两组关键点 + 描述子</li>
+<li>用注意力图神经网络建模关键点关系</li>
+<li>用最优传输（Sinkhorn）求解匹配</li>
+</ul>
+<p class="label"><strong>注意力匹配：</strong></p>
+<p>$$
+\text{score}_{ij} = \text{Attn}(q_i, k_j)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\text{score}_{ij}$：关键点 $i$ 与 $j$ 的匹配得分。</li>
+<li>$q_i$：第 $i$ 个关键点的查询表示。</li>
+<li>$k_j$：第 $j$ 个关键点的键表示。</li>
+<li>$\text{Attn}(\cdot,\cdot)$：注意力相似度。</li>
+<li>含义：用注意力计算关键点间的匹配得分，再配合 Sinkhorn 求解最优匹配。</li>
+</ul>
+<p class="label"><strong>LoFTR：</strong></p>
+<ul>
+<li>无需检测子，直接稠密匹配</li>
+<li>用 Transformer 做粗到细匹配</li>
+<li>在低纹理区域表现好</li>
+</ul>
+<p><strong>关键优势</strong>：Transformer 的全局注意力天然适合匹配，
+因为匹配本质是"找全局最优对应"。</p>
+<h3>14.5 注意力与描述子的数学联系</h3>
+<p class="label"><strong>描述子匹配：</strong></p>
+<p>$$
+\text{match}(i,j) = \text{sim}(d_i, d_j)
+$$</p>
+<p class="label"><strong>注意力：</strong></p>
+<p>$$
+\alpha_{ij} = \text{softmax}_j(\text{sim}(q_i, k_j))
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\text{match}(i,j)$：描述子 $i$ 与 $j$ 的匹配度。</li>
+<li>$d_i, d_j$：两个描述子向量。</li>
+<li>$\text{sim}(\cdot,\cdot)$：相似度函数。</li>
+<li>$\alpha_{ij}$：注意力权重。</li>
+<li>$q_i, k_j$：查询与键。</li>
+<li>$\text{softmax}_j$：对 $j$ 归一化。</li>
+<li>含义：描述子匹配与注意力形式一致，区别只在硬匹配（argmax）还是软匹配（softmax）。</li>
+</ul>
+<p><strong>两者形式一致</strong>！注意力就是"软匹配"。</p>
+<p class="label"><strong>结论：</strong></p>
+<ul>
+<li>描述子匹配是硬匹配（argmax）</li>
+<li>注意力是软匹配（softmax）</li>
+<li>注意力可以看作可微的匹配层</li>
+</ul>
+<p><strong>这解释了为什么 Transformer 在匹配任务上表现优异</strong>。</p>
+<p class="label"><strong>硬匹配与软匹配的对比：</strong></p>
+<pre class="mermaid">flowchart LR
+    subgraph Hard[&quot;硬匹配（经典描述子）&quot;]
+        H1[&quot;描述子 d_i, d_j&quot;] --&gt; H2[&quot;sim(d_i, d_j)&quot;] --&gt; H3[&quot;argmax&lt;br/&gt;不可微&quot;]
+    end
+    subgraph Soft[&quot;软匹配（注意力）&quot;]
+        S1[&quot;q_i, k_j&quot;] --&gt; S2[&quot;sim(q_i, k_j)&quot;] --&gt; S3[&quot;softmax&lt;br/&gt;可微&quot;]
+    end
+</pre>
+<h3>14.6 不变性的学习</h3>
+<p><strong>经典描述子</strong>：显式设计不变性（主方向、尺度归一化）。</p>
+<p><strong>深度描述子</strong>：通过数据增强隐式学习。</p>
+<table>
+<thead>
+<tr>
+<th>不变性</th>
+<th>经典方法</th>
+<th>深度方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>旋转</td>
+<td>主方向分配</td>
+<td>旋转增强</td>
+</tr>
+<tr>
+<td>尺度</td>
+<td>尺度空间</td>
+<td>多尺度训练</td>
+</tr>
+<tr>
+<td>光照</td>
+<td>归一化</td>
+<td>亮度/对比度增强</td>
+</tr>
+<tr>
+<td>视角</td>
+<td>仿射归一化</td>
+<td>单应变换增强</td>
+</tr>
+<tr>
+<td>形变</td>
+<td>无</td>
+<td>弹性形变增强</td>
+</tr>
+</tbody>
+</table>
+<p><strong>盲区</strong>：深度描述子的不变性不是"保证"的，而是"统计"的。
+在训练分布外可能失效。</p>
+<h3>14.7 从描述子到表示学习的统一视角</h3>
+<p class="label"><strong>统一框架：</strong></p>
+<p>$$
+\text{特征} = f_\theta(\text{局部区域})
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\text{局部区域}$：输入图像块。</li>
+<li>$f_\theta$：特征提取函数。</li>
+<li>$\theta$：可学习参数（手工方法中无参数）。</li>
+<li>
+<p>含义：无论手工、CNN 还是 Transformer，目标都是把区域编码成可比较的向量。</p>
+</li>
+<li>
+<p>手工：$f$ 由人设计</p>
+</li>
+<li>CNN：$f$ 是卷积堆叠</li>
+<li>Transformer：$f$ 是注意力堆叠</li>
+</ul>
+<p class="label"><strong>三个层次：</strong></p>
+<ol>
+<li><strong>局部描述子</strong>：SIFT → HardNet → SuperPoint</li>
+<li><strong>全局描述子</strong>：颜色直方图 → BoW/VLAD → CNN 全局池化 → CLIP</li>
+<li><strong>匹配</strong>：NNDR → 度量学习 → SuperGlue</li>
+</ol>
+<p><strong>核心不变</strong>：无论手工还是学习，目标都是"把区域编码成可比较的向量"。</p>
+<h3>14.8 对项目实践的启示</h3>
+<p>对于文档/表格/OCR 类任务：</p>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>经典方法</th>
+<th>深度方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>表格线检测</td>
+<td>Hough、形态学</td>
+<td>分割网络</td>
+</tr>
+<tr>
+<td>版面分析</td>
+<td>投影、连通域</td>
+<td>LayoutLM、DETR</td>
+</tr>
+<tr>
+<td>文字检测</td>
+<td>MSER、SWT</td>
+<td>DBNet、CRAFT</td>
+</tr>
+<tr>
+<td>文字识别</td>
+<td>HOG + SVM</td>
+<td>CRNN、TrOCR</td>
+</tr>
+<tr>
+<td>表格结构</td>
+<td>规则</td>
+<td>Table Transformer</td>
+</tr>
+<tr>
+<td>文档理解</td>
+<td>特征工程</td>
+<td>LayoutLMv3、Donut</td>
+</tr>
+</tbody>
+</table>
+<p><strong>趋势</strong>：从手工特征 → CNN → Transformer → 多模态大模型。</p>
+<hr />
+<h2>15. 应用方向</h2>
+<h3>15.1 计算机视觉</h3>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>主流架构</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>图像分类</td>
+<td>ResNet、EfficientNet、ViT、ConvNeXt</td>
+</tr>
+<tr>
+<td>目标检测</td>
+<td>Faster R-CNN、YOLO、DETR、DINO</td>
+</tr>
+<tr>
+<td>语义分割</td>
+<td>U-Net、DeepLab、SegFormer、Mask2Former</td>
+</tr>
+<tr>
+<td>实例分割</td>
+<td>Mask R-CNN、Mask2Former</td>
+</tr>
+<tr>
+<td>全景分割</td>
+<td>Panoptic FPN、Mask2Former</td>
+</tr>
+<tr>
+<td>关键点</td>
+<td>HRNet、ViTPose</td>
+</tr>
+<tr>
+<td>深度估计</td>
+<td>MonoDepth、DPT</td>
+</tr>
+<tr>
+<td>光流</td>
+<td>FlowNet、RAFT、GMFlow</td>
+</tr>
+<tr>
+<td>超分辨率</td>
+<td>SRCNN、ESRGAN、SwinIR</td>
+</tr>
+<tr>
+<td>图像生成</td>
+<td>GAN、Diffusion、DiT</td>
+</tr>
+<tr>
+<td>图像修复</td>
+<td>DeepFill、LaMa</td>
+</tr>
+<tr>
+<td>风格迁移</td>
+<td>AdaIN、StyleGAN</td>
+</tr>
+</tbody>
+</table>
+<h3>15.2 多模态</h3>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>模型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>图文检索</td>
+<td>CLIP、ALIGN</td>
+</tr>
+<tr>
+<td>图像描述</td>
+<td>BLIP、OFA</td>
+</tr>
+<tr>
+<td>视觉问答</td>
+<td>ViLBERT、BLIP-2</td>
+</tr>
+<tr>
+<td>图文生成</td>
+<td>DALL-E、Stable Diffusion</td>
+</tr>
+<tr>
+<td>视频理解</td>
+<td>VideoMAE、TimeSformer</td>
+</tr>
+<tr>
+<td>文档理解</td>
+<td>LayoutLM、Donut、Pix2Struct</td>
+</tr>
+</tbody>
+</table>
+<h3>15.3 自然语言处理</h3>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>模型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>分类</td>
+<td>BERT、RoBERTa</td>
+</tr>
+<tr>
+<td>生成</td>
+<td>GPT、LLaMA</td>
+</tr>
+<tr>
+<td>翻译</td>
+<td>T5、mBART</td>
+</tr>
+<tr>
+<td>问答</td>
+<td>BERT、GPT</td>
+</tr>
+<tr>
+<td>摘要</td>
+<td>BART、Pegasus</td>
+</tr>
+<tr>
+<td>检索</td>
+<td>DPR、ColBERT</td>
+</tr>
+</tbody>
+</table>
+<h3>15.4 语音与音频</h3>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>模型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>语音识别</td>
+<td>Conformer、Whisper</td>
+</tr>
+<tr>
+<td>语音合成</td>
+<td>Tacotron、VITS</td>
+</tr>
+<tr>
+<td>音频分类</td>
+<td>AST、PANNs</td>
+</tr>
+<tr>
+<td>音乐生成</td>
+<td>MusicGen</td>
+</tr>
+</tbody>
+</table>
+<h3>15.5 科学与工业</h3>
+<table>
+<thead>
+<tr>
+<th>领域</th>
+<th>应用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>生物医学</td>
+<td>蛋白质结构（AlphaFold）、医学影像</td>
+</tr>
+<tr>
+<td>遥感</td>
+<td>地物分类、变化检测</td>
+</tr>
+<tr>
+<td>自动驾驶</td>
+<td>感知、预测、规划</td>
+</tr>
+<tr>
+<td>机器人</td>
+<td>抓取、导航、操作</td>
+</tr>
+<tr>
+<td>工业质检</td>
+<td>缺陷检测</td>
+</tr>
+<tr>
+<td>材料科学</td>
+<td>分子性质预测</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>16. 知识盲区扩展</h2>
+<h3>16.1 常见误解澄清</h3>
+<table>
+<thead>
+<tr>
+<th>误解</th>
+<th>真相</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CNN 用卷积</td>
+<td>实际是互相关</td>
+</tr>
+<tr>
+<td>卷积是平移不变</td>
+<td>是平移等变，池化才提供不变</td>
+</tr>
+<tr>
+<td>注意力就是加权平均</td>
+<td>权重由内容动态生成，是软匹配</td>
+</tr>
+<tr>
+<td>多头是简单复制</td>
+<td>各头学不同子空间</td>
+</tr>
+<tr>
+<td>位置编码可有可无</td>
+<td>自注意力置换等变，必须显式注入位置</td>
+</tr>
+<tr>
+<td>缩放因子 $\sqrt{d_k}$ 可省</td>
+<td>不缩放会导致 softmax 饱和、梯度消失</td>
+</tr>
+<tr>
+<td>ViT 一定比 CNN 好</td>
+<td>小数据下 CNN 更好</td>
+</tr>
+<tr>
+<td>残差解决梯度消失</td>
+<td>主要解决退化问题，梯度直通是副产品</td>
+</tr>
+<tr>
+<td>BN 在推理用 batch 统计</td>
+<td>推理用滑动平均</td>
+</tr>
+<tr>
+<td>Transformer 无归纳偏置</td>
+<td>有弱偏置（位置编码、FFN）</td>
+</tr>
+<tr>
+<td>注意力可解释</td>
+<td>注意力权重不等于因果重要性</td>
+</tr>
+<tr>
+<td>深度描述子天然不变</td>
+<td>不变性是统计的，非保证的</td>
+</tr>
+</tbody>
+</table>
+<h3>16.2 理论盲区</h3>
+<p class="label"><strong>1. 为什么深度有效？</strong></p>
+<ul>
+<li>层次化特征复用</li>
+<li>分布式表示</li>
+<li>隐式正则</li>
+<li>损失景观的良性结构</li>
+</ul>
+<p class="label"><strong>2. 为什么注意力有效？</strong></p>
+<ul>
+<li>动态权重适应内容</li>
+<li>全局信息聚合</li>
+<li>可微匹配</li>
+<li>隐式集成</li>
+</ul>
+<p class="label"><strong>3. 泛化理论</strong></p>
+<ul>
+<li>经典 VC 维不适用（参数量 &gt;&gt; 样本数）</li>
+<li>隐式正则、平坦极小值、双下降现象</li>
+</ul>
+<p class="label"><strong>双下降（Double Descent）：</strong></p>
+<p>$$
+\text{test error}: \text{下降} \to \text{上升} \to \text{再下降}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\text{test error}$：测试误差。</li>
+<li>下降：模型容量增大，误差先下降（欠拟合区）。</li>
+<li>上升：接近插值阈值时误差回升（过拟合区）。</li>
+<li>再下降：容量继续增大，误差再次下降（过参数化区）。</li>
+<li>含义：误差随模型容量呈双下降曲线，在插值阈值附近出现峰值，挑战经典偏差-方差权衡。</li>
+</ul>
+<p class="label"><strong>4. 彩票假设（Lottery Ticket）</strong></p>
+<p>稀疏子网络可以达到与原网络相当的性能，暗示训练中存在"中奖彩票"。</p>
+<p class="label"><strong>5. 神经正切核（NTK）</strong></p>
+<p>无限宽网络等价于核方法，但有限宽网络表达力更强。</p>
+<h3>16.3 工程盲区</h3>
+<table>
+<thead>
+<tr>
+<th>盲区</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>感受野计算</td>
+<td>多层递推，非线性层不影响</td>
+</tr>
+<tr>
+<td>有效感受野</td>
+<td>远小于理论感受野</td>
+</tr>
+<tr>
+<td>显存瓶颈</td>
+<td>激活值 &gt; 参数量</td>
+</tr>
+<tr>
+<td>混合精度</td>
+<td>需 loss scaling</td>
+</tr>
+<tr>
+<td>梯度检查点</td>
+<td>用计算换显存</td>
+</tr>
+<tr>
+<td>数据增强</td>
+<td>常比架构更重要</td>
+</tr>
+<tr>
+<td>学习率调度</td>
+<td>影响巨大</td>
+</tr>
+<tr>
+<td>权重初始化</td>
+<td>影响训练稳定性</td>
+</tr>
+<tr>
+<td>批大小</td>
+<td>影响 BN 和泛化</td>
+</tr>
+<tr>
+<td>推理优化</td>
+<td>量化、剪枝、蒸馏、融合</td>
+</tr>
+</tbody>
+</table>
+<h3>16.4 前沿方向</h3>
+<table>
+<thead>
+<tr>
+<th>方向</th>
+<th>代表</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>状态空间模型</td>
+<td>Mamba、S4</td>
+</tr>
+<tr>
+<td>线性注意力</td>
+<td>RetNet、RWKV</td>
+</tr>
+<tr>
+<td>混合专家</td>
+<td>Mixtral、DeepSeek-MoE</td>
+</tr>
+<tr>
+<td>多模态统一</td>
+<td>GPT-4V、Gemini</td>
+</tr>
+<tr>
+<td>扩散模型</td>
+<td>DDPM、DiT</td>
+</tr>
+<tr>
+<td>神经辐射场</td>
+<td>NeRF、3DGS</td>
+</tr>
+<tr>
+<td>世界模型</td>
+<td>JEPA、Dreamer</td>
+</tr>
+<tr>
+<td>具身智能</td>
+<td>RT-2、VLA</td>
+</tr>
+<tr>
+<td>高效推理</td>
+<td>投机解码、量化</td>
+</tr>
+<tr>
+<td>长上下文</td>
+<td>位置插值、RoPE 扩展</td>
+</tr>
+</tbody>
+</table>
+<h3>16.5 数学工具盲区</h3>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>矩阵分解</td>
+<td>低秩近似、压缩</td>
+</tr>
+<tr>
+<td>概率图模型</td>
+<td>结构化预测</td>
+</tr>
+<tr>
+<td>变分推断</td>
+<td>生成模型</td>
+</tr>
+<tr>
+<td>最优传输</td>
+<td>匹配、分布对齐</td>
+</tr>
+<tr>
+<td>谱方法</td>
+<td>图神经网络</td>
+</tr>
+<tr>
+<td>微分几何</td>
+<td>流形学习</td>
+</tr>
+<tr>
+<td>信息论</td>
+<td>表示学习、互信息</td>
+</tr>
+<tr>
+<td>随机矩阵</td>
+<td>初始化、稳定性</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>17. 速查表</h2>
+<h3>17.1 CNN 核心公式</h3>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>公式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>卷积输出尺寸</td>
+<td>$\lfloor (H+2p-k)/s \rfloor + 1$</td>
+</tr>
+<tr>
+<td>感受野</td>
+<td>$r_l = r_{l-1} + (k_l-1)\prod_{i&lt;l}s_i$</td>
+</tr>
+<tr>
+<td>参数量</td>
+<td>$C_{out}C_{in}k^2 + C_{out}$</td>
+</tr>
+<tr>
+<td>空洞卷积感受野</td>
+<td>$k + (k-1)(d-1)$</td>
+</tr>
+<tr>
+<td>深度可分离压缩比</td>
+<td>$1/C_{out} + 1/k^2$</td>
+</tr>
+<tr>
+<td>BN</td>
+<td>$\gamma\frac{x-\mu}{\sqrt{\sigma^2+\epsilon}}+\beta$</td>
+</tr>
+<tr>
+<td>残差</td>
+<td>$y = x + \mathcal{F}(x)$</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>符号说明：</strong></p>
+<ul>
+<li>卷积输出尺寸：$H,W$ 输入高宽，$p$ 填充，$k$ 核尺寸，$s$ 步长。</li>
+<li>感受野：$r_l$ 第 $l$ 层感受野，$k_l$ 第 $l$ 层核尺寸，$s_i$ 第 $i$ 层步长。</li>
+<li>参数量：$C_{out},C_{in}$ 输出/输入通道数，$k$ 核尺寸。</li>
+<li>空洞卷积感受野：$k$ 核尺寸，$d$ 膨胀率。</li>
+<li>深度可分离压缩比：$C_{out}$ 输出通道数，$k$ 核尺寸。</li>
+<li>BN：$\gamma,\beta$ 可学习缩放/平移，$\mu,\sigma^2$ 均值/方差，$\epsilon$ 防除零常数。</li>
+<li>残差：$x$ 输入，$\mathcal{F}(x)$ 残差分支，$y$ 输出。</li>
+</ul>
+<h3>17.2 Transformer 核心公式</h3>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>公式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>注意力</td>
+<td>$\text{softmax}(QK^T/\sqrt{d_k})V$</td>
+</tr>
+<tr>
+<td>多头</td>
+<td>$\text{Concat}(\text{head}_i)W_O$</td>
+</tr>
+<tr>
+<td>正弦位置编码</td>
+<td>$\sin/\cos(pos/10000^{2i/d})$</td>
+</tr>
+<tr>
+<td>FFN</td>
+<td>$W_2\sigma(W_1x+b_1)+b_2$</td>
+</tr>
+<tr>
+<td>Pre-Norm</td>
+<td>$x + \text{Sub}(\text{LN}(x))$</td>
+</tr>
+<tr>
+<td>Post-Norm</td>
+<td>$\text{LN}(x + \text{Sub}(x))$</td>
+</tr>
+<tr>
+<td>RMSNorm</td>
+<td>$x\gamma/\sqrt{\text{mean}(x^2)+\epsilon}$</td>
+</tr>
+<tr>
+<td>注意力复杂度</td>
+<td>$O(n^2 d)$</td>
+</tr>
+</tbody>
+</table>
+<p class="label"><strong>符号说明：</strong></p>
+<ul>
+<li>注意力：$Q,K,V$ 查询/键/值，$d_k$ 键维度。</li>
+<li>多头：$\text{head}_i$ 第 $i$ 个头，$W_O$ 输出投影。</li>
+<li>正弦位置编码：$pos$ 位置，$i$ 维度索引，$d$ 编码维度。</li>
+<li>FFN：$W_1,W_2$ 权重，$b_1,b_2$ 偏置，$\sigma$ 激活函数。</li>
+<li>Pre-Norm：$x$ 输入，$\text{Sub}$ 子层，$\text{LN}$ 层归一化。</li>
+<li>Post-Norm：同上，归一化位置不同。</li>
+<li>RMSNorm：$x$ 输入，$\gamma$ 缩放参数，$\epsilon$ 防除零常数。</li>
+<li>注意力复杂度：$n$ 序列长度，$d$ 维度。</li>
+</ul>
+<h3>17.3 架构选择指南</h3>
+<table>
+<thead>
+<tr>
+<th>需求</th>
+<th>推荐</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>小数据、小算力</td>
+<td>CNN（ResNet、EfficientNet）</td>
+</tr>
+<tr>
+<td>大数据、高上限</td>
+<td>Transformer（ViT、Swin）</td>
+</tr>
+<tr>
+<td>移动端</td>
+<td>MobileNet、MobileViT</td>
+</tr>
+<tr>
+<td>密集预测</td>
+<td>U-Net、SegFormer、Swin</td>
+</tr>
+<tr>
+<td>检测</td>
+<td>YOLO、DETR、DINO</td>
+</tr>
+<tr>
+<td>长序列</td>
+<td>Mamba、Longformer</td>
+</tr>
+<tr>
+<td>多模态</td>
+<td>CLIP、BLIP-2</td>
+</tr>
+<tr>
+<td>匹配</td>
+<td>SuperPoint + SuperGlue、LoFTR</td>
+</tr>
+</tbody>
+</table>
+<h3>17.4 描述子与深度特征对照</h3>
+<table>
+<thead>
+<tr>
+<th>经典</th>
+<th>深度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SIFT</td>
+<td>HardNet、SuperPoint</td>
+</tr>
+<tr>
+<td>ORB</td>
+<td>SuperPoint、R2D2</td>
+</tr>
+<tr>
+<td>HOG</td>
+<td>CNN 卷积特征</td>
+</tr>
+<tr>
+<td>LBP</td>
+<td>浅层纹理特征</td>
+</tr>
+<tr>
+<td>BoW</td>
+<td>NetVLAD、Fisher Vector</td>
+</tr>
+<tr>
+<td>颜色直方图</td>
+<td>CNN 全局池化</td>
+</tr>
+<tr>
+<td>NNDR 匹配</td>
+<td>SuperGlue、LoFTR</td>
+</tr>
+<tr>
+<td>尺度空间</td>
+<td>FPN、多尺度特征</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>18. 结论</h2>
+<h3>18.1 核心脉络</h3>
+<p class="label"><strong>CNN：</strong></p>
+<ul>
+<li>核心是局部连接 + 权值共享 + 层次堆叠</li>
+<li>强归纳偏置，数据高效</li>
+<li>从 LeNet 到 ConvNeXt，不断吸收新思想</li>
+</ul>
+<p class="label"><strong>Transformer：</strong></p>
+<ul>
+<li>核心是自注意力 + 位置编码 + FFN</li>
+<li>弱归纳偏置，数据饥渴但上限高</li>
+<li>从 NLP 到 CV 到多模态，统一架构</li>
+</ul>
+<p class="label"><strong>两者关系：</strong></p>
+<ul>
+<li>数学上统一为"加权求和"</li>
+<li>卷积是静态权重，注意力是动态权重</li>
+<li>注意力是"内容自适应的动态卷积"</li>
+</ul>
+<h3>18.2 与描述子的关系</h3>
+<p class="label"><strong>一句话总结：</strong></p>
+<blockquote>
+<p>CNN 和 Transformer 都是可学习的特征描述子生成器，
+它们把手工描述子的"设计"变成了"学习"。</p>
+</blockquote>
+<p class="label"><strong>三个层次的对应：</strong></p>
+<ol>
+<li><strong>局部</strong>：SIFT → HardNet → SuperPoint</li>
+<li><strong>全局</strong>：颜色直方图 → BoW/VLAD → CLIP</li>
+<li><strong>匹配</strong>：NNDR → 度量学习 → SuperGlue</li>
+</ol>
+<p class="label"><strong>关键洞察：</strong></p>
+<ul>
+<li>注意力 = 软匹配 = 可微描述子匹配</li>
+<li>这解释了 Transformer 在匹配任务上的优势</li>
+<li>经典描述子的设计思想（不变性、归一化、聚合）依然指导深度模型设计</li>
+</ul>
+<h3>18.3 未来趋势</h3>
+<ul>
+<li><strong>架构融合</strong>：CNN 与 Transformer 边界模糊</li>
+<li><strong>效率优先</strong>：线性注意力、状态空间模型</li>
+<li><strong>多模态统一</strong>：单一模型处理所有模态</li>
+<li><strong>规模与数据</strong>：Scaling Law 持续有效</li>
+<li><strong>可解释性</strong>：从黑盒到可理解</li>
+<li><strong>具身智能</strong>：从感知到行动</li>
+</ul>
+<h3>18.4 学习建议</h3>
+<ol>
+<li><strong>先理解数学</strong>：卷积、注意力、反向传播</li>
+<li><strong>再理解设计</strong>：为什么这样设计，解决什么问题</li>
+<li><strong>然后理解演进</strong>：每个模型解决了前人的什么缺陷</li>
+<li><strong>最后理解联系</strong>：CNN、Transformer、描述子的统一视角</li>
+<li><strong>动手验证</strong>：用代码验证感受野、注意力权重、梯度流</li>
+</ol>
+<hr />
+<h2>附录：关键论文索引</h2>
+<table>
+<thead>
+<tr>
+<th>主题</th>
+<th>论文</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CNN 起源</td>
+<td>LeCun et al., Gradient-Based Learning Applied to Document Recognition (1998)</td>
+</tr>
+<tr>
+<td>AlexNet</td>
+<td>Krizhevsky et al. (2012)</td>
+</tr>
+<tr>
+<td>VGG</td>
+<td>Simonyan &amp; Zisserman (2014)</td>
+</tr>
+<tr>
+<td>GoogLeNet</td>
+<td>Szegedy et al. (2014)</td>
+</tr>
+<tr>
+<td>ResNet</td>
+<td>He et al. (2015)</td>
+</tr>
+<tr>
+<td>DenseNet</td>
+<td>Huang et al. (2016)</td>
+</tr>
+<tr>
+<td>MobileNet</td>
+<td>Howard et al. (2017)</td>
+</tr>
+<tr>
+<td>SENet</td>
+<td>Hu et al. (2017)</td>
+</tr>
+<tr>
+<td>EfficientNet</td>
+<td>Tan &amp; Le (2019)</td>
+</tr>
+<tr>
+<td>ConvNeXt</td>
+<td>Liu et al. (2022)</td>
+</tr>
+<tr>
+<td>Transformer</td>
+<td>Vaswani et al. (2017)</td>
+</tr>
+<tr>
+<td>BERT</td>
+<td>Devlin et al. (2018)</td>
+</tr>
+<tr>
+<td>GPT-3</td>
+<td>Brown et al. (2020)</td>
+</tr>
+<tr>
+<td>ViT</td>
+<td>Dosovitskiy et al. (2020)</td>
+</tr>
+<tr>
+<td>Swin</td>
+<td>Liu et al. (2021)</td>
+</tr>
+<tr>
+<td>DETR</td>
+<td>Carion et al. (2020)</td>
+</tr>
+<tr>
+<td>CLIP</td>
+<td>Radford et al. (2021)</td>
+</tr>
+<tr>
+<td>MAE</td>
+<td>He et al. (2021)</td>
+</tr>
+<tr>
+<td>SuperPoint</td>
+<td>DeTone et al. (2018)</td>
+</tr>
+<tr>
+<td>SuperGlue</td>
+<td>Sarlin et al. (2020)</td>
+</tr>
+<tr>
+<td>LoFTR</td>
+<td>Sun et al. (2021)</td>
+</tr>
+<tr>
+<td>HardNet</td>
+<td>Mishchuk et al. (2017)</td>
+</tr>
+<tr>
+<td>L2-Net</td>
+<td>Tian et al. (2017)</td>
+</tr>
+<tr>
+<td>D2-Net</td>
+<td>Dusmanu et al. (2019)</td>
+</tr>
+<tr>
+<td>R2D2</td>
+<td>Revaud et al. (2019)</td>
+</tr>
+<tr>
+<td>FlashAttention</td>
+<td>Dao et al. (2022)</td>
+</tr>
+<tr>
+<td>RoPE</td>
+<td>Su et al. (2021)</td>
+</tr>
+<tr>
+<td>Mamba</td>
+<td>Gu &amp; Dao (2023)</td>
+</tr>
+<tr>
+<td>SIFT</td>
+<td>Lowe (2004)</td>
+</tr>
+<tr>
+<td>SURF</td>
+<td>Bay et al. (2006)</td>
+</tr>
+<tr>
+<td>ORB</td>
+<td>Rublee et al. (2011)</td>
+</tr>
+<tr>
+<td>HOG</td>
+<td>Dalal &amp; Triggs (2005)</td>
+</tr>
+<tr>
+<td>LBP</td>
+<td>Ojala et al. (2002)</td>
+</tr>
+</tbody>
+</table>
+
+<!-- KaTeX -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // KaTeX 渲染
+    if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(document.body, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });
+    }
+    // Mermaid 渲染
+    if (typeof mermaid !== 'undefined') {
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+        mermaid.run();
+    }
+});
+</script>
+</body>
+</html>

@@ -233,8 +233,67 @@ def preprocess_markdown(md_text):
     )
 
 
+# 围栏代码块（``` 或 ~~~），用于把代码块排除在数学保护之外
+_FENCE_RE = re.compile(
+    r'(^[ \t]*(?:```|~~~).*?^[ \t]*(?:```|~~~)[ \t]*$)',
+    re.DOTALL | re.MULTILINE,
+)
+
+
+def protect_math(md_text):
+    r"""把 $$...$$ 与 $...$ 数学环境替换为占位符，返回 (文本, 数学列表)。
+
+    为什么需要：Python-Markdown 不认识 $$ 数学环境，会把公式里的
+    `_` 当成斜体、`*` 当成粗体，导致公式被撕碎（例如
+    `\mathcal{N}_i^{\text{tgt}}` 里的 `_i^..._l` 被配对成 <em>）。
+    因此先把数学环境换成无特殊字符的占位符，转换完再原样还原。
+
+    围栏代码块内的内容不处理，避免代码里的 $ 与正文配对。
+    """
+    store = []
+
+    def repl(m):
+        store.append(m.group(0))
+        return f"@@MATH{len(store) - 1}@@"
+
+    def protect_segment(seg):
+        # 先块级 $$...$$（可跨行），再行内 $...$（不跨行、不跨 $）
+        seg = re.sub(r'\$\$.+?\$\$', repl, seg, flags=re.DOTALL)
+        seg = re.sub(r'(?<![\\$])\$(?!\$)[^\n$]+?\$(?!\$)', repl, seg)
+        return seg
+
+    out = []
+    pos = 0
+    for m in _FENCE_RE.finditer(md_text):
+        out.append(protect_segment(md_text[pos:m.start()]))
+        out.append(m.group(0))  # 代码块原样保留
+        pos = m.end()
+    out.append(protect_segment(md_text[pos:]))
+    return "".join(out), store
+
+
+def _escape_math(s):
+    """对数学文本做 HTML 转义（& < >）。
+
+    为什么需要：数学里的 `<`（如 `0<d\\le 2`）若原样写入 HTML，浏览器会在
+    KaTeX 运行之前把它当成标签起始符解析掉（`<d\\le 2$` 被当作未知标签丢弃），
+    导致 `$...$` 不配对、公式无法渲染，PDF 里残留原始 LaTeX。
+    转义后浏览器渲染出正确的 `<`，KaTeX 读取 textContent 仍得到原始 LaTeX。
+    """
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def restore_math(html, store):
+    """把占位符还原为原始数学环境文本（对 & < > 做 HTML 转义）。"""
+    for i, math_text in enumerate(store):
+        html = html.replace(f"@@MATH{i}@@", _escape_math(math_text))
+    return html
+
+
 def md_to_html(md_text):
     """Markdown → HTML，并将 mermaid 代码块转为 <pre class="mermaid">。"""
+    # 先保护数学环境，避免 _ ^ * 等被 Markdown 当作标记解析
+    md_text, math_store = protect_math(md_text)
     md = markdown.Markdown(extensions=[
         'fenced_code',
         'tables',
@@ -242,6 +301,8 @@ def md_to_html(md_text):
         'def_list',
     ])
     html = md.convert(md_text)
+    # 还原数学环境（必须在 mermaid / label 处理之前，保证后续正则看到真实内容）
+    html = restore_math(html, math_store)
     # <pre><code class="language-mermaid">…</code></pre> → <pre class="mermaid">…</pre>
     html = re.sub(
         r'<pre><code class="language-mermaid">(.*?)</code></pre>',
