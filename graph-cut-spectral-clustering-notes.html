@@ -320,6 +320,96 @@ $$</p>
 </ul>
 <p><strong>含义</strong>：这个恒等式说明「度矩阵乘全 1 向量 = 相似度矩阵乘全 1 向量」，
 它是拉普拉斯矩阵「最小特征值为 0」的根源。</p>
+<h3>2.6 图像尺寸与矩阵尺寸的关系</h3>
+<p>前面一直在说「$n$ 个顶点」，但<strong>图像本身是二维的</strong>，这里必须把两者的对应关系讲清楚，否则很容易被矩阵的规模吓到。</p>
+<p class="label"><strong>第一步：把图像「拉直」成顶点集合。</strong></p>
+<p>设一张图像（或一个待分割区域）的尺寸为：</p>
+<p>$$
+\text{高} = H \text{（行数）}, \qquad \text{宽} = W \text{（列数）}
+$$</p>
+<p>那么像素总数为：</p>
+<p>$$
+n = H \times W
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$H$：图像的高度（有多少行像素）。</li>
+<li>$W$：图像的宽度（有多少列像素）。</li>
+<li>$n$：像素总数，也就是<strong>图的顶点个数</strong> $|V|$。</li>
+</ul>
+<p><strong>关键约定</strong>：<strong>每一个像素 = 一个顶点</strong>。图像是二维网格，但图论只认「编号 $1,2,\dots,n$」，所以我们按<strong>行优先</strong>（从左到右、从上到下）把二维像素拉成一维编号：</p>
+<p>$$
+(i, j) \;\longmapsto\; \text{编号} = (i-1)\cdot W + j
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$(i,j)$：第 $i$ 行、第 $j$ 列的像素（$1 \le i \le H$，$1 \le j \le W$）。</li>
+<li>$(i-1)\cdot W + j$：该像素在顶点列表中的一维编号。</li>
+<li>例如 $H=3, W=4$ 时，像素 $(2,3)$ 的编号是 $(2-1)\times 4 + 3 = 7$。</li>
+</ul>
+<p class="label"><strong>第二步：矩阵尺寸随之确定。</strong></p>
+<p>顶点数一旦是 $n$，第 2.3、2.5 节构造的矩阵尺寸就全部锁定了：</p>
+<table>
+<thead>
+<tr>
+<th>对象</th>
+<th>尺寸</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>顶点集合 $V$</td>
+<td>$n = H \times W$ 个</td>
+<td>每个像素一个顶点</td>
+</tr>
+<tr>
+<td>相似度矩阵 $W$</td>
+<td>$n \times n = (H W) \times (H W)$</td>
+<td>每对像素之间一个权重</td>
+</tr>
+<tr>
+<td>度矩阵 $D$</td>
+<td>$n \times n = (H W) \times (H W)$</td>
+<td>对角矩阵，对角线上 $n$ 个度</td>
+</tr>
+<tr>
+<td>拉普拉斯矩阵 $L = D - W$</td>
+<td>$n \times n = (H W) \times (H W)$</td>
+<td>与 $W$、$D$ 同尺寸</td>
+</tr>
+<tr>
+<td>指示向量 $y$</td>
+<td>$n \times 1$</td>
+<td>每个顶点一个分量</td>
+</tr>
+</tbody>
+</table>
+<p><strong>含义</strong>：图像是 $H \times W$ 的二维网格，但<strong>图割 / 谱聚类看到的永远是 $n \times n$ 的方阵</strong>，其中 $n = H \times W$。矩阵的「边长」等于像素总数，而不是图像的宽或高。</p>
+<p class="label"><strong>第三步：一个具体例子（感受一下规模）。</strong></p>
+<p>假设有一张 $100 \times 100$ 的灰度图：</p>
+<p>$$
+n = 100 \times 100 = 10\,000
+$$</p>
+<p>于是：</p>
+<ul>
+<li>$W$ 是 $10\,000 \times 10\,000$ 的矩阵，共 $10^8$（一亿）个元素。</li>
+<li>$D$ 也是 $10\,000 \times 10\,000$，但只有 $10\,000$ 个非零（对角线）。</li>
+<li>$L = D - W$ 同样是 $10\,000 \times 10\,000$。</li>
+</ul>
+<p><strong>含义</strong>：这就是为什么谱聚类在图像上「贵」——像素数一涨，矩阵规模按<strong>平方</strong>爆炸。$200\times200$ 的图，$n=40\,000$，$W$ 就有 $1.6\times10^9$ 个元素。所以实际工程里常用<strong>稀疏矩阵</strong>（只存非零的边）或<strong>超像素</strong>（先把图像压成几百个区域，再对区域建图）来降规模。</p>
+<p class="label"><strong>第四步：通道数怎么算？</strong></p>
+<p>如果图像是彩色的（$C$ 个通道，如 RGB 的 $C=3$）：</p>
+<ul>
+<li><strong>顶点数不变</strong>，仍然是 $n = H \times W$（一个像素还是一个顶点）。</li>
+<li>变化的是<strong>相似度 $w(i,j)$ 的计算</strong>：此时 $x_i$ 是长度为 $C$ 的特征向量（如 RGB 三值），距离 $\lVert x_i - x_j \rVert^2$ 在 $C$ 维空间里算。</li>
+<li>所以 $W$、$D$、$L$ 的尺寸<strong>依然是 $n \times n$</strong>，与通道数无关。</li>
+</ul>
+<p><strong>含义</strong>：通道数只影响「两个像素像不像」的度量方式，不影响矩阵的尺寸；矩阵尺寸只由<strong>像素总数 $n = H \times W$</strong> 决定。</p>
+<p class="label"><strong>一句话总结：</strong></p>
+<p>$$
+\boxed{\;H \times W \text{ 的图像} \;\Longrightarrow\; n = H W \text{ 个顶点} \;\Longrightarrow\; W, D, L \text{ 都是 } n \times n = (HW)\times(HW) \text{ 的方阵}\; }
+$$</p>
 <hr />
 <h2>3. 图的划分与「割」（Cut）</h2>
 <h3>3.1 把图切成两半</h3>
