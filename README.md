@@ -13,6 +13,7 @@
 | [JPEG 与 JPEG 2000 压缩原理详解](jpeg-jpeg2000-knowledge-reference.md) | 独立知识速查文件：JPEG 的 DCT、量化、ZigZag、霍夫曼/算术编码、文件结构与伪影，以及 JPEG 2000 的小波变换、EBCOT、渐进性与 ROI，并附对比选型。 |
 | [形态学图像处理](morphological-image-processing.md) | 系统梳理二值形态学与灰度形态学的全部运算：腐蚀、膨胀、开闭、击中击不中、边界提取、区域填充、细化、骨架化、形态学重建，以及灰度扩展（顶帽、底帽、梯度、平滑、粒度测定），每个运算附原理推导、用途变化与 OpenCV 关键代码。 |
 | [十大机器学习算法详解](machine-learning-ten-algorithms-notes.md) | 围绕"十大机器学习算法"这一经典提法，逐算法讲解原理并给出**每个公式的逐项符号解释**；厘清 ICDM 2008 版与入门教材版的名单差异并补齐扩展项（C4.5、CART、PageRank、神经网络、AdaBoost、EM、Apriori）；落到图像领域应用并补充非图像用途，建立与后续深度学习的对应关系。 |
+| [图割与谱聚类](graph-cut-spectral-clustering-notes.md) | 从零讲透图割（Graph Cut）与谱聚类（Spectral Clustering）：图建模、割与体积 $vol(A)$、拉普拉斯矩阵 $L=D-W$ 的来源、NCut 的完整推导、广义特征系统 $Ly=\lambda Dy$ 的逐步构造、求解 $y$ 后的分割方法，并**重点辨析两张图里 NCut 公式为何写法不同**（$assoc(A,V)=cut(A,V)=vol(A)$）；每个公式附逐项符号解释，面向零基础读者。 |
 
 > 各文档的 PDF 版本与同名 Markdown 文件位于同一目录，便于离线阅读与打印。
 > 所有 PDF 均已写入**目录书签（outline）**，可在阅读器的书签面板中按层级跳转。

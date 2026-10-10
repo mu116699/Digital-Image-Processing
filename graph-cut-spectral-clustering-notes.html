@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>图割与谱聚类：从 NCut 推导到拉普拉斯矩阵</title>
+    <style>
+@page {
+    margin: 20mm 15mm 20mm 15mm;
+    size: A4;
+}
+* { box-sizing: border-box; }
+body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    font-size: 11pt;
+    line-height: 1.7;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── 标题 ── */
+h1 {
+    font-size: 36pt;
+    color: #1a1a2e;
+    text-align: center;
+    border-bottom: 3px solid #16213e;
+    padding-bottom: 12px;
+    margin: 0 0 20px 0;
+}
+h2 {
+    font-size: 28pt;
+    color: #16213e;
+    border-bottom: 2px solid #0f3460;
+    padding-bottom: 8px;
+    margin: 30px 0 15px 0;
+    page-break-before: always;
+}
+h2:first-of-type { page-break-before: avoid; }
+h3 {
+    font-size: 24pt;
+    color: #0f3460;
+    margin: 25px 0 10px 0;
+    page-break-after: avoid;
+}
+h4 {
+    font-size: 20pt;
+    color: #1a1a2e;
+    margin: 20px 0 8px 0;
+    page-break-after: avoid;
+}
+
+/* ── 段落 ── */
+p { margin: 8px 0; text-align: justify; }
+
+/* 粗体段落标记（核心思想、关键设计等）独占一行时加大加粗。
+   注意：不能用 :only-child —— 它只统计元素兄弟节点、不统计文本节点，
+   会把 <p><strong>标签</strong>：</p> 里的 <strong> 误判为唯一子元素，
+   导致 display:block 生效、结尾的冒号被挤到下一行。
+   因此改由 md_to_html() 给「整段只有粗体标签」的段落打上 class="label"。 */
+p.label > strong {
+    display: block;
+    font-size: 13pt;
+    color: #0f3460;
+    margin-top: 12px;
+    margin-bottom: 4px;
+}
+
+/* ── 列表 ── */
+ul, ol { margin: 8px 0; padding-left: 2em; }
+li { margin: 4px 0; }
+
+/* ── 代码 ── */
+code {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 10pt;
+    background-color: #f0f0f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+pre {
+    background-color: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    page-break-inside: avoid;
+    margin: 12px 0;
+}
+pre code {
+    background-color: transparent;
+    padding: 0;
+    font-size: 9.5pt;
+    line-height: 1.5;
+}
+
+/* ── Mermaid 图 ── */
+pre.mermaid, .mermaid {
+    text-align: center;
+    background-color: white;
+    border: none;
+    padding: 10px 0;
+}
+.mermaid svg { max-width: 100%; height: auto; }
+
+/* ── 表格 ── */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 15px 0;
+    font-size: 10pt;
+    page-break-inside: avoid;
+}
+th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+th { background-color: #e8e8e8; font-weight: bold; }
+tr:nth-child(even) { background-color: #fafafa; }
+
+/* ── 引用 ── */
+blockquote {
+    border-left: 4px solid #0f3460;
+    background-color: #f5f5fa;
+    padding: 10px 15px;
+    margin: 15px 0;
+    color: #555;
+}
+
+/* ── 链接 / 分隔线 ── */
+a { color: #0f3460; text-decoration: none; }
+hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+
+/* ── 打印优化 ── */
+h2, h3, h4 { page-break-after: avoid; }
+table, pre, blockquote { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+<h1>图割与谱聚类：从 NCut 推导到拉普拉斯矩阵</h1>
+<blockquote>
+<p class="label"><strong>写给完全没接触过的人</strong></p>
+<p>本文假设你只学过线性代数（矩阵乘法、特征值）和一点点概率，其余概念全部从零讲起。
+目标是把「图割（Graph Cut）」与「谱聚类（Spectral Clustering）」这两件事，
+从<strong>最朴素的直觉</strong>一路推到<strong>能自己动手推导</strong>的程度。</p>
+<p>全文围绕两张图里的公式展开：</p>
+<p>$$
+&gt; Ncut(A,B) = \frac{cut(A,B)}{assoc(A,V)} + \frac{cut(A,B)}{assoc(B,V)}
+&gt; $$</p>
+<p>$$
+&gt; Ncut(A,B) = \frac{cut(A,B)}{cut(A,V)} + \frac{cut(A,B)}{cut(B,V)}
+&gt; = \frac{\sum_{x_i&gt;0,\,x_j&lt;0} -w(i,j)\,x_i x_j}{\sum_{x_i&gt;0} d_i}
+&gt; + \frac{\sum_{x_i&lt;0,\,x_j&gt;0} -w(i,j)\,x_i x_j}{\sum_{x_i&lt;0} d_i}
+&gt; $$</p>
+<p>我们会用 $vol(A)$ 把每个符号的含义讲透，并<strong>重点解释这两个公式为什么看起来不一样</strong>。</p>
+</blockquote>
+<hr />
+<h2>目录</h2>
+<ol>
+<li>引言：为什么需要图割与谱聚类</li>
+<li>图的基本概念（顶点、边、权重、度）</li>
+<li>图的划分与「割」（Cut）</li>
+<li>从最小割到归一化割：为什么不能直接最小化 cut</li>
+<li>拉普拉斯矩阵的来源</li>
+<li>NCut 的详细推导</li>
+<li>广义特征系统的构造（每一步）</li>
+<li>求解出 $y$ 之后如何分割</li>
+<li>两个 NCut 公式为什么「不一样」</li>
+<li>谱聚类完整算法</li>
+<li>图割算法（Min-Cut / Max-Flow）</li>
+<li>知识点汇总</li>
+<li>速查表</li>
+<li>结论</li>
+</ol>
+<hr />
+<h2>1. 引言：为什么需要图割与谱聚类</h2>
+<h3>1.1 一个最朴素的问题</h3>
+<p>假设你有一张图片，或者一堆数据点，你想把它们<strong>分成两堆</strong>（或者若干堆）。
+比如：</p>
+<ul>
+<li>把一张照片里的「前景」和「背景」分开；</li>
+<li>把一堆用户按兴趣分成几个群体；</li>
+<li>把一堆像素按颜色/位置聚成几块。</li>
+</ul>
+<p>最直接的想法是：<strong>把「相似」的东西分到同一堆，「不相似」的东西分到不同堆</strong>。</p>
+<h3>1.2 把数据变成「图」</h3>
+<p>为了用数学描述「相似」，我们把每个数据点看成一个<strong>顶点（node）</strong>，
+把两个点之间的「相似程度」看成一条<strong>带权重的边（edge）</strong>。
+这样就得到了一个<strong>加权无向图</strong> $G=(V,E)$。</p>
+<p>于是「聚类」就变成了「<strong>把图的顶点切成几块，使得块内连接紧密、块间连接稀疏</strong>」。
+这就是<strong>图割（Graph Cut）</strong> 的思想。</p>
+<h3>1.3 两条技术路线</h3>
+<table>
+<thead>
+<tr>
+<th>路线</th>
+<th>核心思想</th>
+<th>代表方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>图割（组合优化）</strong></td>
+<td>直接在图结构上求「最小割」，用最大流算法精确求解</td>
+<td>Min-Cut / Max-Flow、s-t Cut</td>
+</tr>
+<tr>
+<td><strong>谱聚类（谱图论）</strong></td>
+<td>把「最小割」松弛成特征值问题，用矩阵的特征向量求解</td>
+<td>RatioCut、NCut、Laplacian Eigenmaps</td>
+</tr>
+</tbody>
+</table>
+<p><strong>谱聚类</strong>的妙处在于：它把一个<strong>离散的、NP 难的</strong>组合优化问题，
+<strong>松弛</strong>成一个<strong>连续的、可解的</strong>特征值问题，从而能用线性代数高效求解。</p>
+<p class="label"><strong>整体脉络示意：</strong></p>
+<pre class="mermaid">flowchart TD
+    DATA[&quot;数据点 / 图像像素&quot;] --&gt; GRAPH[&quot;构造加权图 G=(V,E)&lt;br/&gt;相似度 w(i,j)&quot;]
+    GRAPH --&gt; CUT[&quot;定义割 cut(A,B)&quot;]
+    CUT --&gt; MINCUT[&quot;最小割 Min-Cut&lt;br/&gt;（组合优化，NP难）&quot;]
+    CUT --&gt; NCUT[&quot;归一化割 NCut&lt;br/&gt;（除以 vol 归一化）&quot;]
+    MINCUT --&gt; MAXFLOW[&quot;最大流算法&lt;br/&gt;精确求解&quot;]
+    NCUT --&gt; RELAX[&quot;松弛为连续问题&quot;]
+    RELAX --&gt; EIG[&quot;广义特征系统&lt;br/&gt;L y = λ D y&quot;]
+    EIG --&gt; SPECTRAL[&quot;谱聚类&lt;br/&gt;特征向量 + k-means&quot;]
+</pre>
+<hr />
+<h2>2. 图的基本概念（顶点、边、权重、度）</h2>
+<h3>2.1 加权无向图</h3>
+<p>一个<strong>加权无向图</strong>记作：</p>
+<p>$$
+G = (V, E)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$V = \{v_1, v_2, \dots, v_n\}$：<strong>顶点集合</strong>，共 $n = |V|$ 个顶点（每个数据点是一个顶点）。</li>
+<li>$E$：<strong>边集合</strong>，每条边连接两个顶点。</li>
+<li><strong>无向</strong>：边没有方向，$v_i$ 连 $v_j$ 等价于 $v_j$ 连 $v_i$。</li>
+</ul>
+<p><strong>含义</strong>：图就是「一堆点 + 点与点之间的连接关系」。</p>
+<h3>2.2 边权重（相似度）</h3>
+<p>每条边 $(i,j)$ 上有一个<strong>非负权重</strong>：</p>
+<p>$$
+w(i,j) \geq 0
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$w(i,j)$：顶点 $i$ 与顶点 $j$ 之间的<strong>相似度</strong>（也叫亲和度、affinity）。</li>
+<li>权重越大，表示两个点越「像」，越应该分到同一堆。</li>
+<li>无向图要求<strong>对称</strong>：$w(i,j) = w(j,i)$。</li>
+<li>若两点之间没有边，则 $w(i,j) = 0$。</li>
+</ul>
+<p><strong>含义</strong>：权重是「相似度」的数学化。它把「像不像」变成了一个数字。</p>
+<p><strong>常见的相似度构造方式</strong>（后面第 10 节会细讲）：</p>
+<p>$$
+w(i,j) = \exp\!\left(-\frac{\lVert x_i - x_j \rVert^2}{2\sigma^2}\right)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x_i, x_j$：两个数据点的特征向量。</li>
+<li>$\lVert x_i - x_j \rVert^2$：两点欧氏距离的平方。</li>
+<li>$\sigma$：尺度参数，控制「多远算远」。</li>
+<li>距离越近，$w$ 越接近 1；距离越远，$w$ 越接近 0。</li>
+</ul>
+<h3>2.3 相似度矩阵 $W$</h3>
+<p>把所有 $w(i,j)$ 排成一个 $n \times n$ 的矩阵：</p>
+<p>$$
+W = \begin{bmatrix}
+w(1,1) &amp; w(1,2) &amp; \cdots &amp; w(1,n) \\
+w(2,1) &amp; w(2,2) &amp; \cdots &amp; w(2,n) \\
+\vdots &amp; \vdots &amp; \ddots &amp; \vdots \\
+w(n,1) &amp; w(n,2) &amp; \cdots &amp; w(n,n)
+\end{bmatrix}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$W$：<strong>相似度矩阵</strong>（也叫邻接矩阵、权重矩阵）。</li>
+<li>通常取 $w(i,i) = 0$（自己和自己不连边）。</li>
+<li>因为无向，$W$ 是<strong>对称矩阵</strong>：$W = W^{\mathsf{T}}$。</li>
+</ul>
+<p><strong>含义</strong>：$W$ 把整张图的连接关系「打包」成一个矩阵，方便做线性代数运算。</p>
+<h3>2.4 度（Degree）</h3>
+<p>顶点 $i$ 的<strong>度</strong>定义为它所有边权重之和：</p>
+<p>$$
+d_i = \sum_{j=1}^{n} w(i,j)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$d_i$：顶点 $i$ 的<strong>度</strong>（degree）。</li>
+<li>$\sum_{j=1}^{n} w(i,j)$：把第 $i$ 行所有元素加起来。</li>
+<li>直观理解：$d_i$ 越大，说明顶点 $i$ 与周围连接越「紧密」。</li>
+</ul>
+<p><strong>含义</strong>：度衡量一个顶点「有多重要 / 有多中心」。</p>
+<h3>2.5 度矩阵 $D$</h3>
+<p>把所有度放到对角线上，得到<strong>度矩阵</strong>：</p>
+<p>$$
+D = \operatorname{diag}(d_1, d_2, \dots, d_n)
+= \begin{bmatrix}
+d_1 &amp; 0 &amp; \cdots &amp; 0 \\
+0 &amp; d_2 &amp; \cdots &amp; 0 \\
+\vdots &amp; \vdots &amp; \ddots &amp; \vdots \\
+0 &amp; 0 &amp; \cdots &amp; d_n
+\end{bmatrix}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$D$：<strong>度矩阵</strong>，是一个<strong>对角矩阵</strong>。</li>
+<li>对角线元素是各顶点的度 $d_i$，非对角线元素全为 0。</li>
+<li>注意：$D$ 的第 $i$ 行之和 = $d_i$，而 $W$ 的第 $i$ 行之和也 = $d_i$。</li>
+</ul>
+<p><strong>含义</strong>：$D$ 记录了每个顶点的「总连接强度」，是后面拉普拉斯矩阵的关键零件。</p>
+<p><strong>一个关键恒等式</strong>（后面反复用到）：</p>
+<p>$$
+D \mathbf{1} = \begin{bmatrix} d_1 \\ d_2 \\ \vdots \\ d_n \end{bmatrix},
+\qquad
+W \mathbf{1} = \begin{bmatrix} d_1 \\ d_2 \\ \vdots \\ d_n \end{bmatrix}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathbf{1} = (1,1,\dots,1)^{\mathsf{T}}$：全 1 向量。</li>
+<li>$D\mathbf{1}$：把 $D$ 每行求和，得到度向量。</li>
+<li>$W\mathbf{1}$：把 $W$ 每行求和，也得到度向量。</li>
+<li>所以 $D\mathbf{1} = W\mathbf{1}$，即 $(D-W)\mathbf{1} = \mathbf{0}$。</li>
+</ul>
+<p><strong>含义</strong>：这个恒等式说明「度矩阵乘全 1 向量 = 相似度矩阵乘全 1 向量」，
+它是拉普拉斯矩阵「最小特征值为 0」的根源。</p>
+<hr />
+<h2>3. 图的划分与「割」（Cut）</h2>
+<h3>3.1 把图切成两半</h3>
+<p>假设我们要把顶点集合 $V$ 分成<strong>两个互不相交</strong>的子集 $A$ 和 $B$：</p>
+<p>$$
+A \cup B = V, \qquad A \cap B = \varnothing
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$A$：第一堆顶点。</li>
+<li>$B$：第二堆顶点。</li>
+<li>两者合起来是全部顶点，且没有重叠。</li>
+</ul>
+<p><strong>含义</strong>：这就是「二分类 / 二分图」的数学描述。</p>
+<h3>3.2 割（Cut）</h3>
+<p><strong>割</strong>定义为「跨越 $A$ 和 $B$ 的所有边的权重之和」：</p>
+<p>$$
+cut(A,B) = \sum_{i \in A,\; j \in B} w(i,j)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$cut(A,B)$：把 $A$ 和 $B$ 分开的「代价」。</li>
+<li>$\sum_{i \in A,\; j \in B}$：对所有「一个端点在 $A$、另一个端点在 $B$」的边求和。</li>
+<li>因为无向，$cut(A,B) = cut(B,A)$。</li>
+</ul>
+<p><strong>含义</strong>：$cut(A,B)$ 越小，说明 $A$ 和 $B$ 之间连接越少，切得越「干净」。</p>
+<p class="label"><strong>割的示意：</strong></p>
+<pre class="mermaid">flowchart LR
+    subgraph A[&quot;子集 A&quot;]
+        a1((&quot;v1&quot;))
+        a2((&quot;v2&quot;))
+        a3((&quot;v3&quot;))
+    end
+    subgraph B[&quot;子集 B&quot;]
+        b1((&quot;v4&quot;))
+        b2((&quot;v5&quot;))
+    end
+    a1 --- a2
+    a2 --- a3
+    a1 --- a3
+    b1 --- b2
+    a3 -. &quot;cut 边&quot; .- b1
+    a2 -. &quot;cut 边&quot; .- b2
+</pre>
+<p>图中实线是「块内边」，虚线是「跨块边」。$cut(A,B)$ 就是所有虚线权重之和。</p>
+<h3>3.3 体积（Volume）—— 本文的核心符号 $vol(A)$</h3>
+<p><strong>体积</strong>定义为「子集 $A$ 中所有顶点的度之和」：</p>
+<p>$$
+vol(A) = \sum_{i \in A} d_i = \sum_{i \in A} \sum_{j \in V} w(i,j)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$vol(A)$：子集 $A$ 的<strong>体积</strong>（volume）。</li>
+<li>$\sum_{i \in A} d_i$：把 $A$ 中每个顶点的度加起来。</li>
+<li>展开后 $\sum_{i \in A}\sum_{j \in V} w(i,j)$：表示「$A$ 中顶点与<strong>全图所有顶点</strong>（包括 $A$ 内部和 $B$）之间的边权总和」。</li>
+</ul>
+<p><strong>含义（非常重要）</strong>：$vol(A)$ 衡量的是「$A$ 这一堆顶点<strong>整体有多重</strong>」。
+它既包含 $A$ 内部的边，也包含 $A$ 连到 $B$ 的边。</p>
+<p class="label"><strong>$vol(A)$ 与 $cut(A,B)$ 的关系：</strong></p>
+<p>$$
+vol(A) = \underbrace{\sum_{i \in A}\sum_{j \in A} w(i,j)}_{\text{A 内部边（算了两次）}} + \underbrace{\sum_{i \in A}\sum_{j \in B} w(i,j)}_{= cut(A,B)}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>第一项：$A$ 内部的边，因为无向，每条边被算了两次。</li>
+<li>第二项：正好就是 $cut(A,B)$。</li>
+<li>所以 $vol(A) \geq cut(A,B)$，且 $vol(A) = 2\cdot(\text{A 内部边权}) + cut(A,B)$。</li>
+</ul>
+<p><strong>含义</strong>：$vol(A)$ 一定不小于 $cut(A,B)$，因为体积还包含了内部连接。</p>
+<h3>3.4 关联度（Association）—— 就是 $vol(A)$ 的另一个名字</h3>
+<p><strong>关联度</strong>定义为：</p>
+<p>$$
+assoc(A,V) = \sum_{i \in A,\; j \in V} w(i,j)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$assoc(A,V)$：子集 $A$ 与<strong>整个顶点集 $V$</strong> 的关联度。</li>
+<li>$\sum_{i \in A,\; j \in V}$：对「一个端点在 $A$、另一个端点在 $V$（任意顶点）」的边求和。</li>
+</ul>
+<p class="label"><strong>关键恒等式：</strong></p>
+<p>$$
+assoc(A,V) = \sum_{i \in A}\sum_{j \in V} w(i,j) = \sum_{i \in A} d_i = vol(A)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>因为 $\sum_{j \in V} w(i,j) = d_i$，所以 $assoc(A,V)$ 就等于 $A$ 中所有度之和。</li>
+<li>结论：<strong>$assoc(A,V) = vol(A)$</strong>，两者是同一个东西的两个名字。</li>
+</ul>
+<p><strong>含义</strong>：记住这个恒等式，第 9 节解释「两个公式为什么不一样」时全靠它。</p>
+<hr />
+<h2>4. 从最小割到归一化割：为什么不能直接最小化 cut</h2>
+<h3>4.1 最小割（Min-Cut）的陷阱</h3>
+<p>最自然的想法是：<strong>最小化 $cut(A,B)$</strong>。</p>
+<p>$$
+\min_{A,B} \; cut(A,B)
+$$</p>
+<p>但这样做有一个<strong>致命缺陷</strong>：算法会倾向于把<strong>孤立的、很小的点</strong>单独切出来。</p>
+<p><strong>举例</strong>：假设图里有一个顶点 $v$ 只和外界有一条很细的边（权重 0.01），
+其余顶点之间连接都很强。那么最小割会直接把 $v$ 单独切成一块，
+因为 $cut = 0.01$ 非常小——但这显然不是我们想要的「有意义的聚类」。</p>
+<p><strong>含义</strong>：单纯最小化 $cut$ 会导致「<strong>切出孤立小簇</strong>」的退化解。</p>
+<h3>4.2 归一化：让割「相对大小」可比</h3>
+<p>解决办法是：<strong>把割除以每一块的「大小」</strong>，让不同大小的块可以公平比较。
+这就得到两种经典的归一化割：</p>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>公式</th>
+<th>归一化方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>RatioCut</strong></td>
+<td>$\dfrac{cut(A,B)}{|A|} + \dfrac{cut(A,B)}{|B|}$</td>
+<td>除以<strong>顶点个数</strong></td>
+</tr>
+<tr>
+<td><strong>NCut</strong></td>
+<td>$\dfrac{cut(A,B)}{vol(A)} + \dfrac{cut(A,B)}{vol(B)}$</td>
+<td>除以<strong>体积</strong></td>
+</tr>
+</tbody>
+</table>
+<p>其中：</p>
+<ul>
+<li>$|A|$：$A$ 中顶点的<strong>个数</strong>。</li>
+<li>$vol(A)$：$A$ 的<strong>体积</strong>（度之和）。</li>
+<li>RatioCut 用「个数」归一化，NCut 用「体积」归一化。</li>
+</ul>
+<p><strong>含义</strong>：归一化后，即使某块很小，只要它和外界连接也少，就不会被「廉价地」切出来，
+因为分母 $vol(A)$ 或 $|A|$ 也很小，比值不会异常小。</p>
+<h3>4.3 本文的主角：NCut</h3>
+<p><strong>归一化割（Normalized Cut, NCut）</strong> 定义为：</p>
+<p>$$
+Ncut(A,B) = \frac{cut(A,B)}{assoc(A,V)} + \frac{cut(A,B)}{assoc(B,V)}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$Ncut(A,B)$：归一化割，我们要<strong>最小化</strong>的目标。</li>
+<li>$cut(A,B)$：跨块边权之和（分子）。</li>
+<li>$assoc(A,V) = vol(A)$：$A$ 的体积（分母）。</li>
+<li>$assoc(B,V) = vol(B)$：$B$ 的体积（分母）。</li>
+<li>两项分别表示「$A$ 这一侧被切掉的比例」和「$B$ 这一侧被切掉的比例」。</li>
+</ul>
+<p><strong>含义</strong>：$Ncut$ 把「割」表示成「每一侧被切掉的比例之和」。
+比例越小，说明切得越「均衡、越干净」。</p>
+<p class="label"><strong>为什么用 $vol$ 而不是 $|A|$？</strong></p>
+<p>因为 $vol$ 考虑了边的权重，能反映「这一块有多重」；
+而 $|A|$ 只看个数，忽略了连接强度。对图像、点云这类带权数据，$vol$ 更合理。</p>
+<hr />
+<h2>5. 拉普拉斯矩阵的来源</h2>
+<h3>5.1 从「平滑程度」说起</h3>
+<p>我们想找一个向量 $f = (f_1, f_2, \dots, f_n)^{\mathsf{T}}$，
+它给每个顶点赋一个值。如果两个顶点 $i,j$ 相似（$w(i,j)$ 大），
+我们希望它们的值 $f_i, f_j$ 也接近。</p>
+<p>衡量「$f$ 在图上有多不平滑」的自然量是：</p>
+<p>$$
+\frac{1}{2}\sum_{i=1}^{n}\sum_{j=1}^{n} w(i,j)\,\bigl(f_i - f_j\bigr)^2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$w(i,j)$：边权。</li>
+<li>$(f_i - f_j)^2$：两个顶点取值的差异平方。</li>
+<li>$\frac{1}{2}$：因为无向图每条边被 $(i,j)$ 和 $(j,i)$ 算了两次，除以 2 修正。</li>
+<li>整个式子：<strong>加权差异平方和</strong>，越小说明 $f$ 越平滑。</li>
+</ul>
+<p><strong>含义</strong>：这个量是「$f$ 在图上变化有多剧烈」的度量。</p>
+<h3>5.2 把它写成矩阵形式</h3>
+<p>展开 $(f_i - f_j)^2 = f_i^2 - 2 f_i f_j + f_j^2$：</p>
+<p>$$
+\frac{1}{2}\sum_{i,j} w(i,j)(f_i - f_j)^2
+= \frac{1}{2}\left[\sum_{i,j} w(i,j) f_i^2 - 2\sum_{i,j} w(i,j) f_i f_j + \sum_{i,j} w(i,j) f_j^2\right]
+$$</p>
+<p>其中：</p>
+<ul>
+<li>第一项 $\sum_{i,j} w(i,j) f_i^2 = \sum_i f_i^2 \sum_j w(i,j) = \sum_i d_i f_i^2 = f^{\mathsf{T}} D f$。</li>
+<li>第二项 $-2\sum_{i,j} w(i,j) f_i f_j = -2 f^{\mathsf{T}} W f$。</li>
+<li>第三项与第一项对称，也等于 $f^{\mathsf{T}} D f$。</li>
+</ul>
+<p>合并：</p>
+<p>$$
+\frac{1}{2}\sum_{i,j} w(i,j)(f_i - f_j)^2
+= \frac{1}{2}\bigl(2 f^{\mathsf{T}} D f - 2 f^{\mathsf{T}} W f\bigr)
+= f^{\mathsf{T}} (D - W) f
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$D$：度矩阵。</li>
+<li>$W$：相似度矩阵。</li>
+<li>$D - W$：就是<strong>拉普拉斯矩阵</strong>。</li>
+</ul>
+<h3>5.3 拉普拉斯矩阵的定义</h3>
+<p>$$
+L = D - W
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$L$：<strong>（组合）拉普拉斯矩阵</strong>（Combinatorial Laplacian）。</li>
+<li>$D$：度矩阵（对角）。</li>
+<li>$W$：相似度矩阵。</li>
+</ul>
+<p class="label"><strong>逐元素写法：</strong></p>
+<p>$$
+L_{ij} = \begin{cases}
+d_i, &amp; i = j \\[4pt]
+-w(i,j), &amp; i \neq j
+\end{cases}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>对角线元素 $L_{ii} = d_i$（第 $i$ 个顶点的度）。</li>
+<li>非对角线元素 $L_{ij} = -w(i,j)$（负的相似度）。</li>
+</ul>
+<p><strong>含义</strong>：拉普拉斯矩阵把「度」和「相似度」编码进一个矩阵，
+它的二次型 $f^{\mathsf{T}} L f$ 正好等于「$f$ 的平滑程度」。</p>
+<h3>5.4 拉普拉斯矩阵的核心性质</h3>
+<p class="label"><strong>性质 1：对称半正定</strong></p>
+<p>$$
+L = L^{\mathsf{T}}, \qquad f^{\mathsf{T}} L f = \frac{1}{2}\sum_{i,j} w(i,j)(f_i - f_j)^2 \geq 0
+$$</p>
+<p>其中：</p>
+<ul>
+<li>对称：因为 $D$ 和 $W$ 都对称。</li>
+<li>半正定：因为二次型是平方和，恒非负。</li>
+<li>半正定意味着<strong>所有特征值 $\lambda \geq 0$</strong>。</li>
+</ul>
+<p class="label"><strong>性质 2：最小特征值为 0，对应特征向量为全 1 向量</strong></p>
+<p>$$
+L \mathbf{1} = (D - W)\mathbf{1} = D\mathbf{1} - W\mathbf{1} = \mathbf{0} = 0 \cdot \mathbf{1}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>由第 2.5 节的恒等式 $D\mathbf{1} = W\mathbf{1}$，得 $L\mathbf{1} = \mathbf{0}$。</li>
+<li>所以 $\lambda_1 = 0$ 是最小特征值，对应特征向量 $\mathbf{1}$。</li>
+</ul>
+<p><strong>含义</strong>：全 1 向量代表「所有顶点取值相同」，此时 $f_i - f_j \equiv 0$，
+当然最平滑，所以对应最小特征值 0。</p>
+<p class="label"><strong>性质 3：特征值排序</strong></p>
+<p>$$
+0 = \lambda_1 \leq \lambda_2 \leq \cdots \leq \lambda_n
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\lambda_1 = 0$ 恒成立。</li>
+<li>$\lambda_2$：<strong>第二小特征值</strong>，也叫 <strong>Fiedler 值</strong>，是谱聚类的关键。</li>
+<li>$\lambda_2$ 越大，图越「连通」；$\lambda_2$ 越小，图越容易「切成两块」。</li>
+</ul>
+<p><strong>含义</strong>：$\lambda_2$ 的大小反映了图的「可分割性」。</p>
+<p class="label"><strong>性质 4：连通分量个数 = 0 特征值的重数</strong></p>
+<p>如果图恰好分成 $k$ 个互不相连的连通块，那么 $L$ 有 $k$ 个 0 特征值。</p>
+<p><strong>含义</strong>：这是谱聚类能工作的根本原因——<strong>特征值 0 的个数告诉你图能分成几块</strong>。</p>
+<hr />
+<h2>6. NCut 的详细推导</h2>
+<p>这一节是全文的核心。我们分两步走：先推 RatioCut（简单版），再推 NCut（正式版）。</p>
+<h3>6.1 预备：指示向量</h3>
+<p>为了把「$A$ 和 $B$」编码进向量，我们引入<strong>指示向量</strong> $f$：</p>
+<p>$$
+f_i = \begin{cases}
++\alpha, &amp; i \in A \\
+-\beta, &amp; i \in B
+\end{cases}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$f_i$：第 $i$ 个顶点的取值。</li>
+<li>$\alpha &gt; 0$：$A$ 中顶点取的正值。</li>
+<li>$-\beta &lt; 0$：$B$ 中顶点取的负值。</li>
+<li>用「正负号」区分两个集合，用「大小」控制归一化。</li>
+</ul>
+<p><strong>含义</strong>：指示向量把「属于哪一堆」变成一个数值向量，方便用矩阵运算。</p>
+<h3>6.2 第一步：RatioCut 的推导</h3>
+<p class="label"><strong>RatioCut 定义：</strong></p>
+<p>$$
+RatioCut(A,B) = \frac{cut(A,B)}{|A|} + \frac{cut(A,B)}{|B|}
+$$</p>
+<p class="label"><strong>选取指示向量：</strong></p>
+<p>$$
+f_i = \begin{cases}
++\sqrt{\dfrac{|B|}{|A|}}, &amp; i \in A \\[8pt]
+-\sqrt{\dfrac{|A|}{|B|}}, &amp; i \in B
+\end{cases}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$|A|, |B|$：两块的顶点个数。</li>
+<li>取这个特殊值是为了让后面的式子「刚好」等于 RatioCut。</li>
+</ul>
+<p class="label"><strong>计算 $f^{\mathsf{T}} L f$：</strong></p>
+<p>$$
+f^{\mathsf{T}} L f = \frac{1}{2}\sum_{i,j} w(i,j)(f_i - f_j)^2
+$$</p>
+<p>只有<strong>跨块边</strong>（$i \in A, j \in B$ 或反之）才有 $f_i \neq f_j$，块内边贡献为 0。对跨块边：</p>
+<p>$$
+(f_i - f_j)^2 = \left(\sqrt{\frac{|B|}{|A|}} + \sqrt{\frac{|A|}{|B|}}\right)^2
+= \frac{|B|}{|A|} + \frac{|A|}{|B|} + 2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>因为 $i \in A$ 取正、$j \in B$ 取负，相减变成相加。</li>
+<li>展开平方得到三项。</li>
+</ul>
+<p>于是：</p>
+<p>$$
+f^{\mathsf{T}} L f = cut(A,B)\left(\frac{|B|}{|A|} + \frac{|A|}{|B|} + 2\right)
+= cut(A,B)\cdot\frac{(|A|+|B|)^2}{|A|\,|B|}
+= cut(A,B)\cdot\frac{n^2}{|A|\,|B|}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$cut(A,B)$：跨块边权之和。</li>
+<li>$\frac{|B|}{|A|} + \frac{|A|}{|B|} + 2 = \frac{|A|^2 + |B|^2 + 2|A||B|}{|A||B|} = \frac{(|A|+|B|)^2}{|A||B|}$。</li>
+<li>$n = |A| + |B| = |V|$。</li>
+</ul>
+<p class="label"><strong>计算 $f^{\mathsf{T}} f$：</strong></p>
+<p>$$
+f^{\mathsf{T}} f = \sum_i f_i^2 = |A|\cdot\frac{|B|}{|A|} + |B|\cdot\frac{|A|}{|B|} = |B| + |A| = n
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$A$ 中每个顶点贡献 $f_i^2 = |B|/|A|$，共 $|A|$ 个，合计 $|B|$。</li>
+<li>$B$ 中每个顶点贡献 $f_i^2 = |A|/|B|$，共 $|B|$ 个，合计 $|A|$。</li>
+<li>总和 $= n$。</li>
+</ul>
+<p class="label"><strong>得到 RatioCut 的矩阵形式：</strong></p>
+<p>$$
+RatioCut(A,B) = \frac{cut(A,B)}{|A|} + \frac{cut(A,B)}{|B|}
+= cut(A,B)\cdot\frac{n}{|A|\,|B|}
+= \frac{f^{\mathsf{T}} L f}{n}
+= \frac{f^{\mathsf{T}} L f}{f^{\mathsf{T}} f}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>因为 $f^{\mathsf{T}} L f = cut(A,B)\cdot n^2/(|A||B|)$，而 $f^{\mathsf{T}} f = n$。</li>
+<li>所以 $f^{\mathsf{T}} L f / (f^{\mathsf{T}} f) = cut(A,B)\cdot n/(|A||B|) = RatioCut$。</li>
+</ul>
+<p><strong>约束条件</strong>：由 $f$ 的构造，$\sum_i f_i = |A|\sqrt{|B|/|A|} - |B|\sqrt{|A|/|B|} = \sqrt{|A||B|} - \sqrt{|A||B|} = 0$，即：</p>
+<p>$$
+f^{\mathsf{T}} \mathbf{1} = 0
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$f$ 与全 1 向量正交。</li>
+<li>这个约束排除了「所有点在同一块」的平凡解。</li>
+</ul>
+<p class="label"><strong>结论：</strong></p>
+<p>$$
+\min_{A,B} RatioCut(A,B) = \min_{f \perp \mathbf{1}} \frac{f^{\mathsf{T}} L f}{f^{\mathsf{T}} f}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>左边是离散的组合优化（NP 难）。</li>
+<li>右边是连续优化，可以松弛求解。</li>
+</ul>
+<h3>6.3 第二步：NCut 的推导（正式版）</h3>
+<p><strong>NCut 定义</strong>（图 1 的公式）：</p>
+<p>$$
+Ncut(A,B) = \frac{cut(A,B)}{assoc(A,V)} + \frac{cut(A,B)}{assoc(B,V)}
+$$</p>
+<p><strong>选取指示向量</strong>（注意这里用 $vol$ 而不是 $|A|$）：</p>
+<p>$$
+y_i = \begin{cases}
++\sqrt{\dfrac{vol(B)}{vol(A)}}, &amp; i \in A \\[8pt]
+-\sqrt{\dfrac{vol(A)}{vol(B)}}, &amp; i \in B
+\end{cases}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$vol(A) = assoc(A,V)$：$A$ 的体积。</li>
+<li>$vol(B) = assoc(B,V)$：$B$ 的体积。</li>
+<li>与 RatioCut 的唯一区别：把 $|A|, |B|$ 换成了 $vol(A), vol(B)$。</li>
+</ul>
+<p class="label"><strong>计算 $y^{\mathsf{T}} L y$：</strong></p>
+<p>同样只有跨块边有贡献，对跨块边：</p>
+<p>$$
+(y_i - y_j)^2 = \left(\sqrt{\frac{vol(B)}{vol(A)}} + \sqrt{\frac{vol(A)}{vol(B)}}\right)^2
+= \frac{vol(B)}{vol(A)} + \frac{vol(A)}{vol(B)} + 2
+$$</p>
+<p>于是：</p>
+<p>$$
+y^{\mathsf{T}} L y = cut(A,B)\left(\frac{vol(B)}{vol(A)} + \frac{vol(A)}{vol(B)} + 2\right)
+= cut(A,B)\cdot\frac{(vol(A)+vol(B))^2}{vol(A)\,vol(B)}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\frac{vol(B)}{vol(A)} + \frac{vol(A)}{vol(B)} + 2 = \frac{(vol(A)+vol(B))^2}{vol(A)vol(B)}$。</li>
+<li>记 $vol(V) = vol(A) + vol(B) = \sum_i d_i$（全图体积）。</li>
+</ul>
+<p>所以：</p>
+<p>$$
+y^{\mathsf{T}} L y = cut(A,B)\cdot\frac{vol(V)^2}{vol(A)\,vol(B)}
+$$</p>
+<p><strong>计算 $y^{\mathsf{T}} D y$</strong>（注意这里不是 $y^{\mathsf{T}} y$）：</p>
+<p>$$
+y^{\mathsf{T}} D y = \sum_i d_i y_i^2
+= vol(A)\cdot\frac{vol(B)}{vol(A)} + vol(B)\cdot\frac{vol(A)}{vol(B)}
+= vol(B) + vol(A) = vol(V)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$A$ 中每个顶点贡献 $d_i y_i^2$，求和得 $vol(A)\cdot vol(B)/vol(A) = vol(B)$。</li>
+<li>$B$ 中每个顶点贡献 $vol(B)\cdot vol(A)/vol(B) = vol(A)$。</li>
+<li>总和 $= vol(V)$。</li>
+</ul>
+<p class="label"><strong>得到 NCut 的矩阵形式：</strong></p>
+<p>$$
+Ncut(A,B) = \frac{cut(A,B)}{vol(A)} + \frac{cut(A,B)}{vol(B)}
+= cut(A,B)\cdot\frac{vol(V)}{vol(A)\,vol(B)}
+= \frac{y^{\mathsf{T}} L y}{vol(V)}
+= \frac{y^{\mathsf{T}} L y}{y^{\mathsf{T}} D y}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>因为 $y^{\mathsf{T}} L y = cut(A,B)\cdot vol(V)^2/(vol(A)vol(B))$，而 $y^{\mathsf{T}} D y = vol(V)$。</li>
+<li>所以 $y^{\mathsf{T}} L y / (y^{\mathsf{T}} D y) = cut(A,B)\cdot vol(V)/(vol(A)vol(B)) = Ncut$。</li>
+</ul>
+<p class="label"><strong>约束条件：</strong></p>
+<p>$$
+y^{\mathsf{T}} D \mathbf{1} = \sum_i d_i y_i = vol(A)\sqrt{\frac{vol(B)}{vol(A)}} - vol(B)\sqrt{\frac{vol(A)}{vol(B)}} = \sqrt{vol(A)vol(B)} - \sqrt{vol(A)vol(B)} = 0
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$y$ 与全 1 向量在 $D$ 内积下正交。</li>
+<li>这个约束排除了平凡解。</li>
+</ul>
+<p class="label"><strong>结论：</strong></p>
+<p>$$
+\min_{A,B} Ncut(A,B) = \min_{y^{\mathsf{T}} D \mathbf{1} = 0} \frac{y^{\mathsf{T}} L y}{y^{\mathsf{T}} D y}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>左边是离散组合优化（NP 难）。</li>
+<li>右边是<strong>广义 Rayleigh 商</strong>，可以松弛成广义特征值问题。</li>
+</ul>
+<h3>6.4 从 $vol$ 形式到「求和」形式（图 2 的公式）</h3>
+<p>现在我们把 $Ncut$ 写成图 2 里那种「带 $x_i x_j$ 的求和」形式。</p>
+<p><strong>定义符号向量 $x$</strong>（取值 $\pm 1$ 或任意正负）：</p>
+<p>$$
+x_i = \begin{cases}
+&gt; 0, &amp; i \in A \\
+&lt; 0, &amp; i \in B
+\end{cases}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x_i &gt; 0$ 表示顶点 $i$ 属于 $A$。</li>
+<li>$x_i &lt; 0$ 表示顶点 $i$ 属于 $B$。</li>
+<li>用「正负号」编码归属。</li>
+</ul>
+<p class="label"><strong>分子：$cut(A,B)$ 的求和形式</strong></p>
+<p>$$
+cut(A,B) = \sum_{i \in A,\; j \in B} w(i,j)
+$$</p>
+<p>因为 $i \in A \Rightarrow x_i &gt; 0$，$j \in B \Rightarrow x_j &lt; 0$，所以 $x_i x_j &lt; 0$，于是：</p>
+<p>$$
+cut(A,B) = \sum_{x_i &gt; 0,\; x_j &lt; 0} -w(i,j)\,x_i x_j
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$-w(i,j)x_i x_j$：因为 $x_i x_j &lt; 0$，加负号后变成正数，正好等于 $w(i,j)$（在 $x_i = \pm 1$ 时）。</li>
+<li>求和范围 $x_i &gt; 0, x_j &lt; 0$：正好是「从 $A$ 到 $B$」的边。</li>
+</ul>
+<p class="label"><strong>分母：$vol(A)$ 的求和形式</strong></p>
+<p>$$
+vol(A) = assoc(A,V) = \sum_{i \in A} d_i = \sum_{x_i &gt; 0} d_i
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$vol(A)$ 就是「$A$ 中所有顶点的度之和」。</li>
+<li>用指示条件 $x_i &gt; 0$ 筛选出 $A$ 中的顶点。</li>
+</ul>
+<p class="label"><strong>于是图 2 的公式：</strong></p>
+<p>$$
+Ncut(A,B) = \frac{cut(A,B)}{cut(A,V)} + \frac{cut(A,B)}{cut(B,V)}
+= \frac{\sum_{x_i&gt;0,\,x_j&lt;0} -w(i,j)\,x_i x_j}{\sum_{x_i&gt;0} d_i}
++ \frac{\sum_{x_i&lt;0,\,x_j&gt;0} -w(i,j)\,x_i x_j}{\sum_{x_i&lt;0} d_i}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>第一项：$A$ 侧被切掉的比例 $= cut(A,B)/vol(A)$。</li>
+<li>第二项：$B$ 侧被切掉的比例 $= cut(A,B)/vol(B)$。</li>
+<li>分母 $\sum_{x_i&gt;0} d_i = vol(A)$，$\sum_{x_i&lt;0} d_i = vol(B)$。</li>
+<li>分子 $\sum_{x_i&gt;0,x_j&lt;0} -w(i,j)x_i x_j = cut(A,B)$。</li>
+</ul>
+<p><strong>含义</strong>：图 2 的公式就是图 1 的公式，只不过把 $assoc$ 换成了 $cut(\cdot,V)$ 的写法，
+并把每一项都展开成「对顶点求和」的形式，方便代入指示向量做矩阵推导。</p>
+<hr />
+<h2>7. 广义特征系统的构造（每一步）</h2>
+<h3>7.1 松弛：从离散到连续</h3>
+<p>我们要求解：</p>
+<p>$$
+\min_{y} \frac{y^{\mathsf{T}} L y}{y^{\mathsf{T}} D y}
+\quad \text{s.t.} \quad y^{\mathsf{T}} D \mathbf{1} = 0
+$$</p>
+<p>其中：</p>
+<ul>
+<li>目标：最小化广义 Rayleigh 商。</li>
+<li>约束：$y$ 与 $\mathbf{1}$ 在 $D$ 内积下正交。</li>
+<li>但 $y$ 原本只能取两个离散值（$\pm\sqrt{vol(B)/vol(A)}$ 等），这是 NP 难的。</li>
+</ul>
+<p><strong>松弛</strong>：把 $y$ 的取值范围从「两个离散值」放宽到「任意实数向量」。
+这样问题就变成连续的，可以用特征值方法求解。</p>
+<h3>7.2 广义 Rayleigh 商与广义特征值问题</h3>
+<p><strong>定理</strong>：广义 Rayleigh 商</p>
+<p>$$
+R(y) = \frac{y^{\mathsf{T}} L y}{y^{\mathsf{T}} D y}
+$$</p>
+<p>的最小值，等于广义特征值问题</p>
+<p>$$
+L y = \lambda D y
+$$</p>
+<p>的<strong>最小特征值</strong>，且最小值在对应的<strong>特征向量</strong>处取得。</p>
+<p>其中：</p>
+<ul>
+<li>$L y = \lambda D y$：<strong>广义特征值问题</strong>（generalized eigenvalue problem）。</li>
+<li>$\lambda$：广义特征值。</li>
+<li>$y$：广义特征向量。</li>
+<li>之所以叫「广义」，是因为右边不是 $y$ 而是 $D y$。</li>
+</ul>
+<p><strong>含义</strong>：把「最小化比值」的问题，转化成了「求特征值」的问题。</p>
+<h3>7.3 为什么约束是 y 与全 1 向量在 D 内积下正交</h3>
+<p>由第 5.4 节，$L\mathbf{1} = \mathbf{0}$，即：</p>
+<p>$$
+L \mathbf{1} = 0 \cdot D \mathbf{1}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\mathbf{1}$ 是 $L y = \lambda D y$ 对应 $\lambda = 0$ 的特征向量。</li>
+<li>它对应「所有点在同一块」的平凡解，必须排除。</li>
+</ul>
+<p>所以我们要找的是<strong>第二小</strong>的广义特征值 $\lambda_2$ 及其特征向量 $y_2$，
+它自动满足 $y_2^{\mathsf{T}} D \mathbf{1} = 0$（不同特征值的特征向量在 $D$ 内积下正交）。</p>
+<p><strong>含义</strong>：$\lambda_1 = 0$ 对应平凡解 $\mathbf{1}$，$\lambda_2$ 对应真正的分割。</p>
+<h3>7.4 把广义问题化为标准问题（详细步骤）</h3>
+<p>广义特征值问题 $L y = \lambda D y$ 不好直接解，我们把它变成<strong>标准对称特征值问题</strong>。</p>
+<p class="label"><strong>第 1 步：令 $z = D^{1/2} y$</strong></p>
+<p>$$
+y = D^{-1/2} z
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$D^{1/2} = \operatorname{diag}(\sqrt{d_1}, \dots, \sqrt{d_n})$：度矩阵的平方根。</li>
+<li>$D^{-1/2} = \operatorname{diag}(1/\sqrt{d_1}, \dots, 1/\sqrt{d_n})$：度矩阵平方根的逆。</li>
+<li>因为 $D$ 是对角正定矩阵，平方根和逆都好算。</li>
+</ul>
+<p class="label"><strong>第 2 步：代入 $L y = \lambda D y$</strong></p>
+<p>$$
+L D^{-1/2} z = \lambda D D^{-1/2} z = \lambda D^{1/2} z
+$$</p>
+<p>其中：</p>
+<ul>
+<li>左边：$L y = L D^{-1/2} z$。</li>
+<li>右边：$\lambda D y = \lambda D D^{-1/2} z = \lambda D^{1/2} z$。</li>
+</ul>
+<p class="label"><strong>第 3 步：两边左乘 $D^{-1/2}$</strong></p>
+<p>$$
+D^{-1/2} L D^{-1/2} z = \lambda D^{-1/2} D^{1/2} z = \lambda z
+$$</p>
+<p>其中：</p>
+<ul>
+<li>左乘 $D^{-1/2}$ 后，右边 $D^{-1/2} D^{1/2} = I$，只剩 $\lambda z$。</li>
+<li>左边得到 $D^{-1/2} L D^{-1/2} z$。</li>
+</ul>
+<p class="label"><strong>第 4 步：定义归一化拉普拉斯矩阵</strong></p>
+<p>$$
+L_{sym} = D^{-1/2} L D^{-1/2} = I - D^{-1/2} W D^{-1/2}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$L_{sym}$：<strong>对称归一化拉普拉斯矩阵</strong>（symmetric normalized Laplacian）。</li>
+<li>因为 $L = D - W$，所以 $D^{-1/2} L D^{-1/2} = D^{-1/2} D D^{-1/2} - D^{-1/2} W D^{-1/2} = I - D^{-1/2} W D^{-1/2}$。</li>
+<li>$L_{sym}$ 是<strong>对称矩阵</strong>，可以用标准特征值算法求解。</li>
+</ul>
+<p class="label"><strong>第 5 步：得到标准特征值问题</strong></p>
+<p>$$
+L_{sym}\, z = \lambda z
+$$</p>
+<p>其中：</p>
+<ul>
+<li>这就是一个<strong>标准对称特征值问题</strong>。</li>
+<li>解出 $z$ 后，回代 $y = D^{-1/2} z$ 得到原问题的解。</li>
+</ul>
+<p><strong>含义</strong>：通过 $z = D^{1/2} y$ 这个变换，把「广义问题」变成了「标准问题」，
+从而可以用现成的、稳定的对称特征值算法求解。</p>
+<h3>7.5 完整推导链（一图看懂）</h3>
+<pre class="mermaid">flowchart TD
+    A[&quot;Ncut(A,B)&lt;br/&gt;= cut/vol(A) + cut/vol(B)&quot;] --&gt; B[&quot;指示向量 y&lt;br/&gt;y_i = ±sqrt(vol(B)/vol(A))&quot;]
+    B --&gt; C[&quot;y^T L y / y^T D y&lt;br/&gt;广义 Rayleigh 商&quot;]
+    C --&gt; D[&quot;松弛：y 取任意实数&quot;]
+    D --&gt; E[&quot;广义特征值问题&lt;br/&gt;L y = λ D y&quot;]
+    E --&gt; F[&quot;令 z = D^(1/2) y&quot;]
+    F --&gt; G[&quot;标准特征值问题&lt;br/&gt;L_sym z = λ z&quot;]
+    G --&gt; H[&quot;取第二小特征向量 z_2&quot;]
+    H --&gt; I[&quot;回代 y = D^(-1/2) z_2&quot;]
+    I --&gt; J[&quot;按 y 的正负分割&quot;]
+</pre>
+<hr />
+<h2>8. 求解出 $y$ 之后如何分割</h2>
+<h3>8.1 二分割：看符号</h3>
+<p>解出第二小广义特征向量 $y_2$ 后，最简单的分割方法是<strong>看符号</strong>：</p>
+<p>$$
+\begin{cases}
+i \in A, &amp; (y_2)_i \geq 0 \\
+i \in B, &amp; (y_2)_i &lt; 0
+\end{cases}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$(y_2)_i$：$y_2$ 的第 $i$ 个分量。</li>
+<li>分量 $\geq 0$ 归入 $A$，$&lt; 0$ 归入 $B$。</li>
+</ul>
+<p><strong>含义</strong>：特征向量的正负号天然地把顶点分成两堆。</p>
+<h3>8.2 更稳健的分割：取阈值</h3>
+<p>直接看 0 有时不够稳健，常用<strong>中位数</strong>或<strong>均值</strong>作为阈值：</p>
+<p>$$
+\begin{cases}
+i \in A, &amp; (y_2)_i \geq \theta \\
+i \in B, &amp; (y_2)_i &lt; \theta
+\end{cases}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\theta$：阈值，可取 $y_2$ 的中位数、均值，或 0。</li>
+<li>取中位数能保证两块大小相对均衡。</li>
+</ul>
+<p><strong>含义</strong>：阈值法比单纯看符号更抗噪声。</p>
+<h3>8.3 多分割（$k$ 类）：用前 $k$ 个特征向量 + k-means</h3>
+<p>如果要分成 $k$ 类，做法是：</p>
+<p><strong>第 1 步</strong>：取 $L_{sym}$ 的<strong>前 $k$ 个最小特征值</strong>对应的特征向量
+$z_1, z_2, \dots, z_k$（跳过 $z_1$，或包含它，视实现而定）。</p>
+<p><strong>第 2 步</strong>：把每个顶点 $i$ 表示成一个 $k$ 维向量：</p>
+<p>$$
+u_i = \bigl(z_1(i), z_2(i), \dots, z_k(i)\bigr)^{\mathsf{T}} \in \mathbb{R}^k
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$z_j(i)$：第 $j$ 个特征向量的第 $i$ 个分量。</li>
+<li>$u_i$：顶点 $i$ 在「谱空间」中的新坐标。</li>
+</ul>
+<p><strong>第 3 步</strong>：对 $\{u_1, \dots, u_n\}$ 做 <strong>k-means</strong> 聚类，得到 $k$ 个簇。</p>
+<p><strong>第 4 步</strong>：把聚类结果映射回原顶点，完成分割。</p>
+<p><strong>含义</strong>：谱聚类把「在原空间难分的数据」映射到「谱空间」，
+在谱空间里数据变得容易用 k-means 分开。</p>
+<p class="label"><strong>多分割示意：</strong></p>
+<pre class="mermaid">flowchart LR
+    G[&quot;图 G&quot;] --&gt; L[&quot;L_sym = D^(-1/2) L D^(-1/2)&quot;]
+    L --&gt; EIG[&quot;前 k 个特征向量&lt;br/&gt;z_1, ..., z_k&quot;]
+    EIG --&gt; EMB[&quot;嵌入：每个顶点&lt;br/&gt;变成 k 维向量 u_i&quot;]
+    EMB --&gt; KM[&quot;k-means 聚类&quot;]
+    KM --&gt; CL[&quot;k 个簇&quot;]
+</pre>
+<h3>8.4 为什么这样分割是合理的</h3>
+<ul>
+<li>特征向量 $z_2$ 的<strong>符号</strong>天然对应「图的两侧」。</li>
+<li>特征向量在图上「变化平缓」——相似顶点取值接近，所以同一簇的顶点在谱空间里聚在一起。</li>
+<li>前 $k$ 个特征向量张成的子空间，正好捕捉了图的「$k$ 个主要连通结构」。</li>
+</ul>
+<p><strong>含义</strong>：谱聚类不是「猜」分割，而是用图的<strong>全局结构</strong>（特征向量）来指导分割。</p>
+<hr />
+<h2>9. 两个 NCut 公式为什么「不一样」</h2>
+<p>这是本文要<strong>重点强调</strong>的部分。先看两个公式：</p>
+<p class="label"><strong>公式一（图 1）：</strong></p>
+<p>$$
+Ncut(A,B) = \frac{cut(A,B)}{assoc(A,V)} + \frac{cut(A,B)}{assoc(B,V)}
+$$</p>
+<p class="label"><strong>公式二（图 2）：</strong></p>
+<p>$$
+Ncut(A,B) = \frac{cut(A,B)}{cut(A,V)} + \frac{cut(A,B)}{cut(B,V)}
+= \frac{\sum_{x_i&gt;0,\,x_j&lt;0} -w(i,j)\,x_i x_j}{\sum_{x_i&gt;0} d_i}
++ \frac{\sum_{x_i&lt;0,\,x_j&gt;0} -w(i,j)\,x_i x_j}{\sum_{x_i&lt;0} d_i}
+$$</p>
+<h3>9.1 表面差异：分母的写法不同</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>公式一</th>
+<th>公式二</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>分母写法</td>
+<td>$assoc(A,V)$、$assoc(B,V)$</td>
+<td>$cut(A,V)$、$cut(B,V)$</td>
+</tr>
+<tr>
+<td>分子写法</td>
+<td>$cut(A,B)$</td>
+<td>展开成 $\sum -w(i,j)x_i x_j$</td>
+</tr>
+<tr>
+<td>风格</td>
+<td>集合/关联形式</td>
+<td>指示向量/求和形式</td>
+</tr>
+</tbody>
+</table>
+<p><strong>看起来</strong>：一个用 $assoc$，一个用 $cut$，好像分母不一样。</p>
+<h3>9.2 本质：它们完全相等</h3>
+<p>关键在于第 3.4 节证明的恒等式：</p>
+<p>$$
+assoc(A,V) = \sum_{i \in A}\sum_{j \in V} w(i,j) = \sum_{i \in A} d_i = vol(A)
+$$</p>
+<p>而公式二的分母：</p>
+<p>$$
+cut(A,V) = \sum_{x_i &gt; 0} d_i = \sum_{i \in A} d_i = vol(A)
+$$</p>
+<p>所以：</p>
+<p>$$
+\boxed{\;assoc(A,V) = cut(A,V) = vol(A)\;}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$assoc(A,V)$：$A$ 与全图 $V$ 的关联度。</li>
+<li>$cut(A,V)$：这里表示「$A$ 与 $V$ 之间所有边的权重和」，因为 $V$ 包含 $A$ 自己，所以它等于 $A$ 的度之和。</li>
+<li>$vol(A)$：$A$ 的体积。</li>
+<li><strong>三者是同一个数</strong>，只是名字不同。</li>
+</ul>
+<p><strong>结论</strong>：两个公式<strong>在数学上完全等价</strong>，都等于：</p>
+<p>$$
+Ncut(A,B) = \frac{cut(A,B)}{vol(A)} + \frac{cut(A,B)}{vol(B)}
+$$</p>
+<h3>9.3 那为什么作者要写成两种样子？</h3>
+<p>因为两个公式服务于<strong>不同的目的</strong>：</p>
+<p class="label"><strong>公式一（$assoc$ 形式）—— 定义式</strong></p>
+<ul>
+<li>这是 Shi &amp; Malik 原始论文里的<strong>定义</strong>。</li>
+<li>用 $assoc(A,V)$ 强调「$A$ 与整个图的关联」，语义清晰。</li>
+<li>适合<strong>理解</strong>：$Ncut$ = 「$A$ 侧被切掉的比例」+「$B$ 侧被切掉的比例」。</li>
+</ul>
+<p class="label"><strong>公式二（$cut$ + 求和形式）—— 推导式</strong></p>
+<ul>
+<li>这是为了<strong>代入指示向量 $x$ 做矩阵推导</strong>而改写的。</li>
+<li>分母写成 $\sum_{x_i&gt;0} d_i$，是为了和分子 $\sum -w(i,j)x_i x_j$ 形式统一，
+  方便合并成 $y^{\mathsf{T}} L y$ 和 $y^{\mathsf{T}} D y$。</li>
+<li>适合<strong>推导</strong>：直接看出 $Ncut = y^{\mathsf{T}} L y / y^{\mathsf{T}} D y$。</li>
+</ul>
+<p class="label"><strong>一句话总结：</strong></p>
+<blockquote>
+<p>公式一是「<strong>定义</strong>」，公式二是「<strong>为推导而改写的等价形式</strong>」。
+它们的分母 $assoc(A,V)$ 与 $cut(A,V)$ 是<strong>同一个量 $vol(A)$ 的两种叫法</strong>，
+所以两个公式<strong>数值上完全相等</strong>，只是书写风格不同。</p>
+</blockquote>
+<h3>9.4 容易混淆的点：cut(A,V) 不是 cut(A,B)</h3>
+<p>初学者最容易把 $cut(A,V)$ 误读成 $cut(A,B)$。请注意：</p>
+<p>$$
+cut(A,V) = \sum_{i \in A,\; j \in V} w(i,j) = vol(A) \quad (\text{包含 } A \text{ 内部边})
+$$</p>
+<p>$$
+cut(A,B) = \sum_{i \in A,\; j \in B} w(i,j) \quad (\text{只含跨块边})
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$cut(A,V)$：$A$ 与<strong>全部顶点</strong>的边权和，包含 $A$ 内部边，等于 $vol(A)$。</li>
+<li>$cut(A,B)$：$A$ 与 $B$ 的边权和，只含跨块边。</li>
+<li>两者<strong>不相等</strong>：$cut(A,V) = vol(A) \geq cut(A,B)$。</li>
+</ul>
+<p><strong>含义</strong>：公式二分母里的 $cut(A,V)$ 是「$A$ 的体积」，不是「割」。
+这是最容易出错的地方，务必分清。</p>
+<h3>9.5 与 RatioCut 的对比（真正的「不一样」）</h3>
+<p>如果你确实想找「两个归一化割不一样」的例子，那应该是 <strong>RatioCut vs NCut</strong>：</p>
+<p>$$
+RatioCut(A,B) = \frac{cut(A,B)}{|A|} + \frac{cut(A,B)}{|B|}
+\qquad\text{vs}\qquad
+Ncut(A,B) = \frac{cut(A,B)}{vol(A)} + \frac{cut(A,B)}{vol(B)}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>RatioCut 除以<strong>顶点个数</strong> $|A|$。</li>
+<li>NCut 除以<strong>体积</strong> $vol(A)$。</li>
+<li>这是<strong>真正不同</strong>的两种归一化，会导致不同的分割结果。</li>
+</ul>
+<p><strong>含义</strong>：图 1 和图 2 是「同一个 NCut 的两种写法」；
+而 RatioCut 和 NCut 才是「两种不同的归一化割」。</p>
+<hr />
+<h2>10. 谱聚类完整算法</h2>
+<h3>10.1 算法总览</h3>
+<p><strong>输入</strong>：数据点 $\{x_1, \dots, x_n\}$，簇数 $k$。
+<strong>输出</strong>：每个点的簇标签。</p>
+<p class="label"><strong>步骤：</strong></p>
+<ol>
+<li><strong>构造相似度图</strong>：计算 $w(i,j)$，得到 $W$。</li>
+<li><strong>计算度矩阵</strong> $D$。</li>
+<li><strong>计算拉普拉斯矩阵</strong> $L = D - W$（或 $L_{sym}$、$L_{rw}$）。</li>
+<li><strong>求特征向量</strong>：解 $L_{sym} z = \lambda z$，取前 $k$ 个最小特征值对应的特征向量。</li>
+<li><strong>构造嵌入矩阵</strong> $U \in \mathbb{R}^{n \times k}$，第 $i$ 行是 $u_i$。</li>
+<li><strong>归一化</strong>（可选）：把 $U$ 的每一行归一化为单位长度。</li>
+<li><strong>k-means</strong>：对 $U$ 的行做 k-means，得到 $k$ 个簇。</li>
+<li><strong>输出</strong>：把簇标签赋给原顶点。</li>
+</ol>
+<h3>10.2 相似度图的三种构造方式</h3>
+<p class="label"><strong>方式 1：$\varepsilon$-邻域图</strong></p>
+<p>$$
+w(i,j) = \begin{cases}
+1, &amp; \lVert x_i - x_j \rVert \leq \varepsilon \\
+0, &amp; \text{否则}
+\end{cases}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\varepsilon$：距离阈值。</li>
+<li>距离小于阈值的连边，权重为 1。</li>
+<li>缺点：$\varepsilon$ 难选，且可能产生不连通图。</li>
+</ul>
+<p class="label"><strong>方式 2：$k$ 近邻图</strong></p>
+<p>$$
+w(i,j) = \begin{cases}
+1, &amp; x_j \in \text{kNN}(x_i) \text{ 或 } x_i \in \text{kNN}(x_j) \\
+0, &amp; \text{否则}
+\end{cases}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\text{kNN}(x_i)$：$x_i$ 的 $k$ 个最近邻。</li>
+<li>只和最近的 $k$ 个点连边。</li>
+<li>优点：自适应，能保证连通性。</li>
+</ul>
+<p class="label"><strong>方式 3：全连接 + 高斯核（最常用）</strong></p>
+<p>$$
+w(i,j) = \exp\!\left(-\frac{\lVert x_i - x_j \rVert^2}{2\sigma^2}\right)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$\sigma$：尺度参数。</li>
+<li>所有点两两相连，权重随距离指数衰减。</li>
+<li>优点：简单、平滑；缺点：$\sigma$ 需调参。</li>
+</ul>
+<h3>10.3 三种拉普拉斯矩阵</h3>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>定义</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>组合拉普拉斯</td>
+<td>$L = D - W$</td>
+<td>最基础，特征向量不归一化</td>
+</tr>
+<tr>
+<td>对称归一化</td>
+<td>$L_{sym} = D^{-1/2} L D^{-1/2}$</td>
+<td>对称，用标准特征值算法</td>
+</tr>
+<tr>
+<td>随机游走归一化</td>
+<td>$L_{rw} = D^{-1} L = I - D^{-1} W$</td>
+<td>与随机游走相关</td>
+</tr>
+</tbody>
+</table>
+<p>其中：</p>
+<ul>
+<li>$L$：组合拉普拉斯。</li>
+<li>$L_{sym}$：对称归一化拉普拉斯，本文推导用的就是它。</li>
+<li>$L_{rw}$：随机游走归一化拉普拉斯。</li>
+<li>三者特征值相同，特征向量之间差一个 $D$ 变换。</li>
+</ul>
+<h3>10.4 完整算法伪代码</h3>
+<pre><code class="language-text">输入：数据 X = {x_1, ..., x_n}，簇数 k
+输出：簇标签 c_1, ..., c_n
+
+1. 构造相似度矩阵 W：
+     W[i][j] = exp(-||x_i - x_j||^2 / (2σ^2))
+2. 计算度矩阵 D：
+     D[i][i] = sum_j W[i][j]
+3. 计算归一化拉普拉斯：
+     L_sym = I - D^(-1/2) W D^(-1/2)
+4. 求 L_sym 的前 k 个最小特征值对应的特征向量 z_1, ..., z_k
+5. 构造矩阵 U = [z_1, z_2, ..., z_k]  (n × k)
+6. 对 U 的每一行做归一化：u_i = u_i / ||u_i||
+7. 对 U 的行做 k-means，得到簇标签
+8. 返回簇标签
+</code></pre>
+<h3>10.5 谱聚类 vs 传统 k-means</h3>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>k-means</th>
+<th>谱聚类</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数据形状假设</td>
+<td>凸的、球状簇</td>
+<td>任意形状（非凸也行）</td>
+</tr>
+<tr>
+<td>原理</td>
+<td>最小化簇内平方距离</td>
+<td>图割 + 特征分解</td>
+</tr>
+<tr>
+<td>复杂度</td>
+<td>$O(nkd)$</td>
+<td>$O(n^3)$（特征分解）</td>
+</tr>
+<tr>
+<td>对初始化</td>
+<td>敏感</td>
+<td>较稳健</td>
+</tr>
+<tr>
+<td>适用</td>
+<td>简单、大规模</td>
+<td>复杂结构、中小规模</td>
+</tr>
+</tbody>
+</table>
+<p>其中：</p>
+<ul>
+<li>$n$：样本数，$k$：簇数，$d$：维度。</li>
+<li>谱聚类能处理「环形」「月牙形」等非凸簇，k-means 不行。</li>
+<li>代价是特征分解较慢，大规模数据需用近似方法（如 Nyström、Lanczos）。</li>
+</ul>
+<p><strong>含义</strong>：谱聚类用「图的全局结构」换来了「处理任意形状簇」的能力。</p>
+<hr />
+<h2>11. 图割算法（Min-Cut / Max-Flow）</h2>
+<p>谱聚类是「松弛求解」的路线，而<strong>图割算法</strong>是「精确求解」的路线。</p>
+<h3>11.1 s-t 割</h3>
+<p>在图上指定两个特殊顶点：<strong>源点 $s$</strong> 和 <strong>汇点 $t$</strong>。
+<strong>s-t 割</strong>是把图分成「含 $s$ 的一侧」和「含 $t$ 的一侧」的割。</p>
+<p>$$
+\min_{A,B} \; cut(A,B), \quad s \in A,\; t \in B
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$s$：源点（source），代表「前景」。</li>
+<li>$t$：汇点（sink），代表「背景」。</li>
+<li>目标：找到把 $s$ 和 $t$ 分开的最小割。</li>
+</ul>
+<p><strong>含义</strong>：s-t 割是图像分割的经典模型——把像素分成前景/背景。</p>
+<h3>11.2 最大流最小割定理</h3>
+<p class="label"><strong>定理（Max-Flow Min-Cut）：</strong></p>
+<p>$$
+\max_{\text{流}} \; \text{flow} = \min_{\text{割}} \; cut
+$$</p>
+<p>其中：</p>
+<ul>
+<li>网络中的<strong>最大流</strong>等于<strong>最小割</strong>的容量。</li>
+<li>这是图割能「精确求解」的理论基础。</li>
+</ul>
+<p><strong>含义</strong>：求最小割 = 求最大流，而最大流有高效算法。</p>
+<h3>11.3 求解算法</h3>
+<table>
+<thead>
+<tr>
+<th>算法</th>
+<th>复杂度</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ford-Fulkerson</td>
+<td>$O(E \cdot f)$</td>
+<td>经典，依赖流量</td>
+</tr>
+<tr>
+<td>Edmonds-Karp</td>
+<td>$O(VE^2)$</td>
+<td>BFS 找增广路</td>
+</tr>
+<tr>
+<td>Dinic</td>
+<td>$O(V^2 E)$</td>
+<td>分层图，实用</td>
+</tr>
+<tr>
+<td>Boykov-Kolmogorov</td>
+<td>实际很快</td>
+<td>专为视觉问题设计</td>
+</tr>
+</tbody>
+</table>
+<p>其中：</p>
+<ul>
+<li>$V$：顶点数，$E$：边数，$f$：最大流值。</li>
+<li>Boykov-Kolmogorov 是图像分割的常用算法。</li>
+</ul>
+<h3>11.4 图割在图像分割中的应用</h3>
+<p class="label"><strong>Boykov &amp; Jolly 的交互式分割：</strong></p>
+<ol>
+<li>用户用画笔标出「前景」和「背景」种子点。</li>
+<li>构造图：每个像素是顶点，相邻像素连边（权重反映颜色相似度）。</li>
+<li>加 $s$、$t$ 两个特殊点，种子点连到 $s$ 或 $t$。</li>
+<li>求最小割，得到前景/背景分割。</li>
+</ol>
+<p class="label"><strong>能量函数：</strong></p>
+<p>$$
+E(A) = \sum_{i \in A} R_i + \lambda \sum_{(i,j) \in E} B_{i,j}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$R_i$：数据项（像素 $i$ 属于前景/背景的代价）。</li>
+<li>$B_{i,j}$：平滑项（相邻像素标签不同的惩罚）。</li>
+<li>$\lambda$：平衡系数。</li>
+<li>最小化 $E$ 等价于求最小割。</li>
+</ul>
+<p><strong>含义</strong>：图割把「分割」变成「能量最小化」，再用最大流精确求解。</p>
+<h3>11.5 图割 vs 谱聚类</h3>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>图割（Min-Cut）</th>
+<th>谱聚类（NCut）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>求解方式</td>
+<td>精确（最大流）</td>
+<td>松弛（特征分解）</td>
+</tr>
+<tr>
+<td>目标</td>
+<td>最小化 $cut$</td>
+<td>最小化归一化 $cut$</td>
+</tr>
+<tr>
+<td>复杂度</td>
+<td>多项式</td>
+<td>$O(n^3)$</td>
+</tr>
+<tr>
+<td>适用</td>
+<td>二分割、交互式分割</td>
+<td>多分割、任意形状</td>
+</tr>
+<tr>
+<td>缺点</td>
+<td>倾向小簇</td>
+<td>慢、需调参</td>
+</tr>
+</tbody>
+</table>
+<p>其中：</p>
+<ul>
+<li>图割精确但只适合二分割（多分割需扩展）。</li>
+<li>谱聚类能多分割但只是近似解。</li>
+</ul>
+<p><strong>含义</strong>：两者互补，实际中常结合使用。</p>
+<hr />
+<h2>12. 知识点汇总</h2>
+<h3>12.1 核心概念一览</h3>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>符号</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>图</td>
+<td>$G=(V,E)$</td>
+<td>顶点 + 边</td>
+</tr>
+<tr>
+<td>相似度</td>
+<td>$w(i,j)$</td>
+<td>两点有多像</td>
+</tr>
+<tr>
+<td>相似度矩阵</td>
+<td>$W$</td>
+<td>所有相似度排成矩阵</td>
+</tr>
+<tr>
+<td>度</td>
+<td>$d_i$</td>
+<td>顶点 $i$ 的边权和</td>
+</tr>
+<tr>
+<td>度矩阵</td>
+<td>$D$</td>
+<td>度排成对角矩阵</td>
+</tr>
+<tr>
+<td>割</td>
+<td>$cut(A,B)$</td>
+<td>跨块边权和</td>
+</tr>
+<tr>
+<td>体积</td>
+<td>$vol(A)$</td>
+<td>$A$ 中顶点度之和</td>
+</tr>
+<tr>
+<td>关联度</td>
+<td>$assoc(A,V)$</td>
+<td>$= vol(A)$</td>
+</tr>
+<tr>
+<td>拉普拉斯矩阵</td>
+<td>$L = D - W$</td>
+<td>编码图结构</td>
+</tr>
+<tr>
+<td>归一化拉普拉斯</td>
+<td>$L_{sym}$</td>
+<td>对称、可解特征值</td>
+</tr>
+<tr>
+<td>NCut</td>
+<td>$Ncut(A,B)$</td>
+<td>归一化割目标</td>
+</tr>
+<tr>
+<td>指示向量</td>
+<td>$y$ 或 $x$</td>
+<td>编码归属</td>
+</tr>
+<tr>
+<td>广义特征系统</td>
+<td>$Ly = \lambda Dy$</td>
+<td>求解核心</td>
+</tr>
+</tbody>
+</table>
+<h3>12.2 关键恒等式</h3>
+<p>$$
+assoc(A,V) = cut(A,V) = vol(A) = \sum_{i \in A} d_i
+$$</p>
+<p>$$
+L \mathbf{1} = \mathbf{0}, \qquad D\mathbf{1} = W\mathbf{1}
+$$</p>
+<p>$$
+f^{\mathsf{T}} L f = \frac{1}{2}\sum_{i,j} w(i,j)(f_i - f_j)^2
+$$</p>
+<p>$$
+Ncut(A,B) = \frac{y^{\mathsf{T}} L y}{y^{\mathsf{T}} D y}
+$$</p>
+<p>其中：</p>
+<ul>
+<li>第一式：三个名字同一个量。</li>
+<li>第二式：拉普拉斯矩阵最小特征值为 0 的根源。</li>
+<li>第三式：拉普拉斯二次型的含义。</li>
+<li>第四式：NCut 的矩阵形式。</li>
+</ul>
+<h3>12.3 推导主线</h3>
+<pre class="mermaid">flowchart TD
+    S1[&quot;1. 数据 → 图 G=(V,E)&quot;] --&gt; S2[&quot;2. 定义 cut(A,B)&quot;]
+    S2 --&gt; S3[&quot;3. 归一化 → NCut&quot;]
+    S3 --&gt; S4[&quot;4. 指示向量 y&quot;]
+    S4 --&gt; S5[&quot;5. y^T L y / y^T D y&quot;]
+    S5 --&gt; S6[&quot;6. 松弛 → L y = λ D y&quot;]
+    S6 --&gt; S7[&quot;7. z = D^(1/2) y → L_sym z = λ z&quot;]
+    S7 --&gt; S8[&quot;8. 取第二小特征向量&quot;]
+    S8 --&gt; S9[&quot;9. 按符号/阈值分割&quot;]
+</pre>
+<hr />
+<h2>13. 速查表</h2>
+<h3>13.1 公式速查</h3>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>公式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>度</td>
+<td>$d_i = \sum_j w(i,j)$</td>
+</tr>
+<tr>
+<td>割</td>
+<td>$cut(A,B) = \sum_{i \in A, j \in B} w(i,j)$</td>
+</tr>
+<tr>
+<td>体积</td>
+<td>$vol(A) = \sum_{i \in A} d_i$</td>
+</tr>
+<tr>
+<td>关联度</td>
+<td>$assoc(A,V) = vol(A)$</td>
+</tr>
+<tr>
+<td>拉普拉斯</td>
+<td>$L = D - W$</td>
+</tr>
+<tr>
+<td>归一化拉普拉斯</td>
+<td>$L_{sym} = D^{-1/2} L D^{-1/2}$</td>
+</tr>
+<tr>
+<td>RatioCut</td>
+<td>$\frac{cut(A,B)}{|A|} + \frac{cut(A,B)}{|B|}$</td>
+</tr>
+<tr>
+<td>NCut</td>
+<td>$\frac{cut(A,B)}{vol(A)} + \frac{cut(A,B)}{vol(B)}$</td>
+</tr>
+<tr>
+<td>NCut 矩阵形式</td>
+<td>$\frac{y^{\mathsf{T}} L y}{y^{\mathsf{T}} D y}$</td>
+</tr>
+<tr>
+<td>广义特征系统</td>
+<td>$L y = \lambda D y$</td>
+</tr>
+<tr>
+<td>标准特征系统</td>
+<td>$L_{sym} z = \lambda z$</td>
+</tr>
+</tbody>
+</table>
+<h3>13.2 两个 NCut 公式对照</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>公式一</th>
+<th>公式二</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>分母</td>
+<td>$assoc(A,V)$</td>
+<td>$cut(A,V)$</td>
+</tr>
+<tr>
+<td>等价于</td>
+<td>$vol(A)$</td>
+<td>$vol(A)$</td>
+</tr>
+<tr>
+<td>用途</td>
+<td>定义、理解</td>
+<td>推导、矩阵化</td>
+</tr>
+<tr>
+<td>是否相等</td>
+<td><strong>相等</strong></td>
+<td><strong>相等</strong></td>
+</tr>
+</tbody>
+</table>
+<h3>13.3 谱聚类步骤速查</h3>
+<pre><code class="language-text">1. 构造 W（高斯核 / kNN / ε-邻域）
+2. 算 D
+3. 算 L_sym = I - D^(-1/2) W D^(-1/2)
+4. 求前 k 个最小特征向量
+5. 拼成矩阵 U (n×k)
+6. 行归一化
+7. k-means
+8. 输出标签
+</code></pre>
+<hr />
+<h2>14. 结论</h2>
+<h3>14.1 一句话总结</h3>
+<p><strong>图割</strong>把聚类变成「切图」问题，<strong>谱聚类</strong>把「切图」松弛成「特征值」问题，
+而<strong>拉普拉斯矩阵</strong> $L = D - W$ 是连接两者的桥梁。</p>
+<h3>14.2 核心要点回顾</h3>
+<ol>
+<li><strong>图建模</strong>：数据 → 顶点，相似度 → 边权。</li>
+<li><strong>割</strong>：$cut(A,B)$ 衡量切开的代价。</li>
+<li><strong>归一化</strong>：除以 $vol(A)$ 避免切出孤立小簇。</li>
+<li><strong>拉普拉斯</strong>：$L = D - W$，其二次型度量平滑度。</li>
+<li><strong>NCut 推导</strong>：$Ncut = y^{\mathsf{T}} L y / y^{\mathsf{T}} D y$。</li>
+<li><strong>广义特征系统</strong>：$Ly = \lambda Dy$，经 $z = D^{1/2}y$ 化为 $L_{sym}z = \lambda z$。</li>
+<li><strong>分割</strong>：取第二小特征向量，按符号/阈值分割；多类用前 $k$ 个 + k-means。</li>
+<li><strong>两个公式</strong>：$assoc(A,V) = cut(A,V) = vol(A)$，<strong>完全等价</strong>，只是写法不同。</li>
+</ol>
+<h3>14.3 学习路径建议</h3>
+<pre class="mermaid">flowchart LR
+    P1[&quot;线性代数&lt;br/&gt;特征值/特征向量&quot;] --&gt; P2[&quot;图论基础&lt;br/&gt;顶点/边/度&quot;]
+    P2 --&gt; P3[&quot;拉普拉斯矩阵&lt;br/&gt;L = D - W&quot;]
+    P3 --&gt; P4[&quot;NCut 推导&lt;br/&gt;指示向量&quot;]
+    P4 --&gt; P5[&quot;广义特征系统&lt;br/&gt;L y = λ D y&quot;]
+    P5 --&gt; P6[&quot;谱聚类算法&lt;br/&gt;+ k-means&quot;]
+    P6 --&gt; P7[&quot;图割算法&lt;br/&gt;Max-Flow&quot;]
+</pre>
+<h3>14.4 延伸阅读</h3>
+<ul>
+<li><strong>Shi &amp; Malik (2000)</strong>：Normalized Cuts and Image Segmentation（NCut 原始论文）。</li>
+<li><strong>von Luxburg (2007)</strong>：A Tutorial on Spectral Clustering（谱聚类经典教程）。</li>
+<li><strong>Fiedler (1973)</strong>：图的代数连通度（$\lambda_2$ 的由来）。</li>
+<li><strong>Boykov &amp; Kolmogorov (2004)</strong>：Graph Cuts 在视觉中的应用。</li>
+<li><strong>Ng, Jordan &amp; Weiss (2002)</strong>：On Spectral Clustering（多类谱聚类）。</li>
+</ul>
+<hr />
+<blockquote>
+<p><strong>最后提醒</strong>：本文所有公式均对应开头两张图。
+图 1 是 NCut 的<strong>定义式</strong>（用 $assoc$），
+图 2 是 NCut 的<strong>推导式</strong>（用 $cut$ 并展开为求和）。
+二者分母 $assoc(A,V)$ 与 $cut(A,V)$ <strong>都等于 $vol(A)$</strong>，因此<strong>完全等价</strong>。
+记住这一点，就不会被两种写法迷惑。</p>
+</blockquote>
+
+<!-- KaTeX -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // KaTeX 渲染
+    if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(document.body, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });
+    }
+    // Mermaid 渲染
+    if (typeof mermaid !== 'undefined') {
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+        mermaid.run();
+    }
+});
+</script>
+</body>
+</html>
